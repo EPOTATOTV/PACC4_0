@@ -1,9 +1,13 @@
 package com.potatotv.pacc.service;
 
 import com.potatotv.pacc.domain.Account;
+import com.potatotv.pacc.domain.DeviceRecord;
 import com.potatotv.pacc.domain.DetectionEvent;
+import com.potatotv.pacc.domain.Peripheral;
 import com.potatotv.pacc.repository.AccountRepository;
+import com.potatotv.pacc.repository.DeviceRecordRepository;
 import com.potatotv.pacc.repository.DetectionEventRepository;
+import com.potatotv.pacc.repository.PeripheralRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
@@ -26,12 +30,21 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final DetectionEventRepository detectionEventRepository;
+    private final DeviceRecordRepository deviceRepository;
+    private final PeripheralRepository peripheralRepository;
     private final PteidGenerator pteidGenerator;
     private final TokenService tokenService;
 
     /** 按 PTEID 查询账号，不存在返回 null（用于评分组件容错）。 */
     public Account findByPteidOrNull(String pteid) {
         return accountRepository.findById(pteid).orElse(null);
+    }
+
+    /** 按邮箱查询账号，不存在返回 null。 */
+    public Account findByEmailOrNull(String email) {
+        return email != null && email.contains("@")
+                ? accountRepository.findByEmail(email).orElse(null)
+                : null;
     }
 
     /** 持久化一条玩家端上报的检测事件。 */
@@ -95,8 +108,10 @@ public class AccountService {
         account.setLockedUntil(null);
         accountRepository.save(account);
         if (deviceFingerprint != null && !deviceFingerprint.isEmpty()) {
-            account.setDeviceFingerprint(hashDevice(deviceFingerprint));
+            String hashed = hashDevice(deviceFingerprint);
+            account.setDeviceFingerprint(hashed);
             accountRepository.save(account);
+            touchDevice(account.getPteid(), hashed);
         }
         return tokenService.createToken(account.getPteid(), remember);
     }
@@ -108,6 +123,96 @@ public class AccountService {
         } catch (java.security.NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    // ---------------- 登录设备 / 外设 ----------------
+
+    /** 记录本次登录设备并标记为当前使用；同账号其余设备置为非当前。 */
+    @Transactional
+    public void touchDevice(String pteid, String hashedFp) {
+        Instant now = Instant.now();
+        String deviceId = hex(sha256(pteid + "|" + hashedFp));
+        // 其余设备置为非当前
+        deviceRepository.findByPteidOrderByLastLoginAtDesc(pteid).forEach(d -> {
+            if (!deviceId.equals(d.getDeviceId())) {
+                d.setActive(false);
+                deviceRepository.save(d);
+            }
+        });
+        DeviceRecord rec = deviceRepository.findById(deviceId).orElseGet(() ->
+                DeviceRecord.builder()
+                        .deviceId(deviceId)
+                        .pteid(pteid)
+                        .deviceFingerprint(hashedFp)
+                        .deviceName("绑定设备 · " + shortId(hashedFp))
+                        .firstLoginAt(now)
+                        .build());
+        rec.setLastLoginAt(now);
+        rec.setActive(true);
+        deviceRepository.save(rec);
+    }
+
+    /** 当前账号的全部登录设备（当前使用优先）。 */
+    public java.util.List<DeviceRecord> listDevices(String pteid) {
+        return deviceRepository.findByPteidOrderByLastLoginAtDesc(pteid);
+    }
+
+    /** 上报当前设备使用中的外设；该设备上次上报但本次未上报的外设标记为未使用。 */
+    @Transactional
+    public void reportPeripherals(String pteid, String hashedFp,
+                                  java.util.List<java.util.Map<String, String>> inputs) {
+        if (hashedFp == null || hashedFp.isEmpty()) return;
+        Instant now = Instant.now();
+        // 该设备旧外设全部置为非当前
+        peripheralRepository.findByPteidAndDeviceFingerprint(pteid, hashedFp).forEach(p -> {
+            p.setConnected(false);
+            p.setLastSeenAt(now);
+            peripheralRepository.save(p);
+        });
+        if (inputs == null) return;
+        for (java.util.Map<String, String> in : inputs) {
+            String kind = in.getOrDefault("kind", "usb");
+            String vendor = in.getOrDefault("vendor", "");
+            String model = in.getOrDefault("model", "unknown");
+            String id = hex(sha256(pteid + "|" + hashedFp + "|" + kind + "|" + vendor + "|" + model));
+            Peripheral p = peripheralRepository.findById(id).orElseGet(() ->
+                    Peripheral.builder()
+                            .peripheralId(id)
+                            .pteid(pteid)
+                            .deviceFingerprint(hashedFp)
+                            .kind(kind)
+                            .vendor(vendor)
+                            .model(model)
+                            .firstSeenAt(now)
+                            .build());
+            p.setConnected(true);
+            p.setLastSeenAt(now);
+            peripheralRepository.save(p);
+        }
+    }
+
+    /** 当前账号的全部外设（使用中优先）。 */
+    public java.util.List<Peripheral> listPeripherals(String pteid) {
+        return peripheralRepository.findByPteidOrderByConnectedDescLastSeenAtDesc(pteid);
+    }
+
+    private static byte[] sha256(String s) {
+        try {
+            return java.security.MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static String hex(byte[] b) {
+        StringBuilder sb = new StringBuilder(b.length * 2);
+        for (byte x : b) sb.append(String.format("%02x", x));
+        return sb.toString();
+    }
+
+    private static String shortId(String hashedFp) {
+        if (hashedFp == null || hashedFp.length() < 8) return "";
+        return hashedFp.substring(0, 8).toUpperCase();
     }
 
     // ---------------- Argon2id ----------------

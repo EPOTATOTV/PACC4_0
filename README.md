@@ -203,10 +203,16 @@ protoc --python_out=ptv-client/.. proto/pacc.proto
 ### 安全
 - **安全响应头**：全部 API 响应附加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、`Strict-Transport-Security`、`Cache-Control: no-store`（见 `config/SecurityHeadersFilter`）。
 - **JWT 校验加固**：令牌签发与校验均约束 `iss`（`pacc-ptv`）与 `aud`（`pacc-client`），拒绝来路不明的伪造令牌（见 `service/TokenService`、`config/JwtAuthFilter`）。
-- **登录爆破缓解**：管理后台（按来源 IP）与玩家登录（按账号）固定窗口限流，超阈值返回 `429`（见 `service/LoginThrottle`）。
+- **登录爆破缓解**：管理后台（按来源 IP）与玩家登录（按账号 **+ 客户端 IP** 双维度）固定窗口限流，超阈值返回 `429`（见 `service/LoginThrottle`）；玩家登录失败统一返回 `401`（账号与密码错误一致），锁定/枚举信息不再下发给客户端。
+- **玩家门户强制鉴权**：`/api/player/**` 必须携带有效玩家 JWT，匿名或令牌失效一律 `401` 拒绝（见 `config/JwtAuthFilter`）。
 - **登录审计日志**：登录成功/失败/锁定/限流均有审计日志，**不落明文密码或令牌**。
 - **H2 控制台默认关闭**：仅在 `dev` 环境变量/profile 开启，生产不暴露。
 - **密钥注入**：`pacc.security.jwt-secret`、`pacc.security.admin-api-key` 等一律通过环境变量/`.env` 注入，请勿写入源码与提交记录。
+
+> **生产部署注意（务必照做）**
+> - 必须用随机强密钥覆盖默认的 `pacc.security.jwt-secret`（固定默认值仅用于本地演示；否则持有该默认值者可伪造任意玩家 JWT，冒充任意账号）。
+> - 同步覆盖 `pacc.security.admin-api-key`，禁用默认管理密钥。
+> - 玩家门户 token 目前存于前端 `localStorage`（存在 XSS 盗窃风险），`remember=true` 时有效期 7 天；生产若涉高价值账号，建议缩短 token 有效期并接入可吊销/刷新机制，同时为前端开启 CSP 与严格 `HttpOnly` Cookie 方案。
 
 ### 日志
 - **统一访问日志**：记录 `method / path / status / duration / client`，不记录查询串与请求头/体（避免泄露 WS 令牌），含控制字符清洗防日志注入，≥400 按 `WARN`、≥500 按 `ERROR`（见 `config/AccessLogFilter`）。
@@ -240,6 +246,20 @@ protoc --python_out=ptv-client/.. proto/pacc.proto
 2. 在 Settings → Secrets 配置：`KUBE_CONFIG`、`ADMIN_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD`（CD `image-scan` 前两项需 `CRITICAL/HIGH` 清零或显式豁免）；
 3. 在 Settings → Environments → `production` 开启"要求审批"即可守护生产发布；
 4. 原生平台（Android NDK / iOS Xcode / HarmonyOS DevEco）需各自工具链专用 runner，非本机可编译路径。
+
+## 赛事反作弊（面向比赛级落地）
+
+不依赖游戏服务器，全部跑在**己方网关 + 设备表 + 对局令牌**之上，通过参赛规则（强制装客户端 + 绑定设备）保证覆盖面。后端落在 `controller/CompetitionController`、`service/CompetitionService`，新增实体 `LoginEvent / SuspicionFlag / Enrollment / MatchSession`；前端落在「赛事风控」页与玩家门户概览。
+
+- **网关聚合检测**：每次登录落库 `pteid + 设备指纹 + IP`；24h 窗口内同一账号 ≥2 设备且 ≥2 IP → 多设备交替嫌疑；仅多 IP → 网络代练/共享嫌疑（含权重）。
+- **证据哈希链**：每条嫌疑 `chainHash = SHA-256(prevChainHash + 证据摘要)`，证据不可静默删改、可复核。
+- **裁判复核**：管理端对 OPEN 嫌疑一键「无异常 / 禁赛(ESB)」，记录复核人/备注（`POST /api/admin/competition/flags/{id}/review`）。
+- **参赛门禁（Enrollment)**：管理员报名时绑定 `PTEID + 许可设备指纹` → 待审批/通过/拒绝；玩家可自查报名状态与当前设备是否许可。
+- **对局 session token 隔离（MatchSession）**：仅对已审批且绑定许可设备的选手发起对局并生成强随机入场 token；入场校验五重——token 归属一致、会话有效、未过期、**当前活动设备 == 场次许可设备**、刷新活跃；主办方可随时强制结束（`POST /api/admin/competition/matches`、`POST .../matches/{id}/end`）。
+- **宏观风控按 IP 聚类**：聚合登录事件找出同 IP 背后的多账号（疑似枪手/代练网络），按账号数分级提示（`GET /api/admin/competition/ip-clusters`）。
+- **玩家侧**：门户概览展示报名状态、当前设备是否许可、能否入场，并提供「入场验证（当前设备）」实时校验。
+
+> 说明：多账号共用 IP 也可能为网吧/局域网合法场景，聚类仅按数量分级提示，最终由裁判结合证据哈希链人工研判，不直接判定作弊。
 
 ## 许可证
 

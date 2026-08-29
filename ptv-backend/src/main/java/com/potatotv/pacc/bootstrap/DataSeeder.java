@@ -2,11 +2,15 @@ package com.potatotv.pacc.bootstrap;
 
 import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.SignatureLibraryService;
+import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.Signature;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 开发环境演示数据：预置若干反作弊账号与特征库样本。
@@ -28,10 +32,41 @@ public class DataSeeder implements CommandLineRunner {
         }
         try {
             seedAccounts();
+            seedDevices();
             seedSignatures();
         } catch (Exception e) {
             log.warn("演示数据初始化出现异常（可忽略）: {}", e.getMessage());
         }
+    }
+
+    private void seedDevices() {
+        // 为第一个演示账号预置登录设备（一台当前使用 + 历史未使用设备）+ 若干外设
+        Account acc = accountService.findByEmailOrNull("player@ptv.dev");
+        if (acc == null) return;
+        String pteid = acc.getPteid();
+        // 历史设备先上报（保持非当前），最后上报当前设备（最后上报者标记为当前使用）
+        accountService.touchDevice(pteid, "old-device-fp-a-" + pteid);
+        accountService.touchDevice(pteid, "old-device-fp-b-" + pteid);
+        accountService.touchDevice(pteid, "main-device-fp-" + pteid);
+
+        // 当前设备接入的外设（使用中）
+        accountService.reportPeripherals(pteid, "main-device-fp-" + pteid, List.of(
+                Map.of("kind", "mouse", "vendor", "Razer", "model", "DeathAdder V2"),
+                Map.of("kind", "keyboard", "vendor", "Logitech", "model", "G Pro X"),
+                Map.of("kind", "headset", "vendor", "HyperX", "model", "Cloud II"),
+                Map.of("kind", "gamepad", "vendor", "5B", "model", "Elite Series 2")
+        ));
+        // 该设备上次使用但现已拔出的外设（未使用）
+        accountService.reportPeripherals(pteid, "main-device-fp-" + pteid, List.of(
+                Map.of("kind", "mouse", "vendor", "Razer", "model", "DeathAdder V2"),
+                Map.of("kind", "keyboard", "vendor", "Logitech", "model", "G Pro X")
+        ));
+
+        // 历史设备上的外设（未使用）
+        accountService.reportPeripherals(pteid, "old-device-fp-a-" + pteid, List.of(
+                Map.of("kind", "usb_storage", "vendor", "Kingston", "model", "DT 100 G3")
+        ));
+        log.info("演示设备与外设初始化完成");
     }
 
     private void seedAccounts() {

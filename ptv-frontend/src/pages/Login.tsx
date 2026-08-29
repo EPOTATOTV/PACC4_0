@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, setAdminKey } from '../api/client'
 
 export default function Login() {
@@ -71,6 +72,9 @@ export default function Login() {
         </button>
         <div style={{ marginTop: 14, fontSize: 12, color: '#8b949e' }}>
           默认密钥：<code>pacc-admin-secret-key</code>（见 application.yml）
+        </div>
+        <div style={{ marginTop: 12, fontSize: 12, textAlign: 'center' }}>
+          <Link to="/portal" style={{ color: '#58a6ff', textDecoration: 'none' }}>前往玩家自助门户 ›</Link>
         </div>
       </div>
     </div>

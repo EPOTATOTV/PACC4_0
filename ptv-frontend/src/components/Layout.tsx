@@ -9,6 +9,9 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/redscreen', label: '红屏管理' },
     { to: '/inspect', label: '查端控制台' },
     { to: '/signatures', label: '特征库' },
+    { to: '/records', label: '作弊记录' },
+    { to: '/competition', label: '赛事风控' },
+    { to: '/tournament', label: '赛事进程' },
     { to: '/accounts', label: '账号' },
   ]
   return (
