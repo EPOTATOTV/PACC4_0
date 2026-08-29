@@ -8,9 +8,14 @@ const kindNames: Record<string, string> = {
 }
 const statusNames: Record<string, string> = { PENDING: '待开始', ACTIVE: '进行中', DONE: '已结束' }
 
+const kindColors: Record<string, string> = {
+  QUALIFIER: '#58a6ff', GROUP: '#3fb950', KNOCKOUT: '#d29922', FINAL: '#ff3b30', CUSTOM: '#8e44ad',
+}
+const statusColor: Record<string, string> = { PENDING: '#768390', ACTIVE: '#d29922', DONE: '#3fb950' }
+
 export default function Tournament() {
   const [tournamentId, setTournamentId] = useState('demo-tournament')
-  const [tab, setTab] = useState<'stages' | 'notices' | 'register'>('stages')
+  const [tab, setTab] = useState<'stages' | 'notices' | 'register' | 'overview'>('stages')
   const [stages, setStages] = useState<TournamentStage[]>([])
   const [notices, setNotices] = useState<TournamentNotice[]>([])
   const [err, setErr] = useState('')
@@ -145,6 +150,7 @@ export default function Tournament() {
         <button style={{ ...btn, border: tab === 'stages' ? '1px solid #58a6ff' : undefined }} onClick={() => setTab('stages')}>赛程编排</button>
         <button style={{ ...btn, border: tab === 'notices' ? '1px solid #58a6ff' : undefined }} onClick={() => setTab('notices')}>公告</button>
         <button style={{ ...btn, border: tab === 'register' ? '1px solid #58a6ff' : undefined }} onClick={() => setTab('register')}>报名设置</button>
+        <button style={{ ...btn, border: tab === 'overview' ? '1px solid #58a6ff' : undefined }} onClick={() => setTab('overview')}>可视化</button>
       </div>
 
       {tab === 'stages' && (
