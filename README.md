@@ -199,5 +199,3 @@ protoc --python_out=ptv-client/.. proto/pacc.proto
 ## 许可证
 
 GNU Affero General Public License v3.0（AGPLv3）
-
-> 注：部分内容可能由 AI 生成。
