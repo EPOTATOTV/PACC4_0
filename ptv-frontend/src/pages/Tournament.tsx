@@ -195,6 +195,59 @@ export default function Tournament() {
         </>
       )}
 
+      {tab === 'overview' && (
+        <>
+          {stages.length === 0 ? (
+            <div className="card" style={{ color: '#8b949e' }}>加载该届赛程后即可查看可视化。</div>
+          ) : (
+            <>
+              <div className="card" style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 700, marginBottom: 12 }}>赛程总览（甘特时间轴）</div>
+                {renderGantt(stages)}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flexWrap: 'wrap' }} className="grid">
+                <div className="card">
+                  <div style={{ fontWeight: 700, marginBottom: 12 }}>阶段状态</div>
+                  {['ACTIVE', 'PENDING', 'DONE'].map((s) => {
+                    const n = stages.filter((x) => x.status === s).length
+                    const total = stages.length || 1
+                    return (
+                      <div key={s} style={{ marginBottom: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                          <span>{statusNames[s]}</span><b>{n}</b>
+                        </div>
+                        <div style={{ height: 8, borderRadius: 4, background: '#161b22' }}>
+                          <div style={{ height: 8, borderRadius: 4, width: `${(n / total) * 100}%`, background: statusColor[s] }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="card">
+                  <div style={{ fontWeight: 700, marginBottom: 12 }}>阶段类别分布</div>
+                  {Object.entries(kindNames).map(([k, label]) => {
+                    const n = stages.filter((x) => x.kind === k).length
+                    const total = stages.length || 1
+                    return (
+                      <div key={k} style={{ marginBottom: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                          <span>{label}</span><b>{n}</b>
+                        </div>
+                        <div style={{ height: 8, borderRadius: 4, background: '#161b22' }}>
+                          <div style={{ height: 8, borderRadius: 4, width: `${(n / total) * 100}%`, background: kindColors[k] }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+          {err && <div style={{ color: '#ff3b30', marginTop: 10 }}>{err}</div>}
+        </>
+      )}
+
       {tab === 'notices' && (
         <>
           <div className="card" style={{ marginBottom: 16 }}>
@@ -291,6 +344,67 @@ const pill = (s: string): CSSProperties => ({
 })
 const moveBtns: CSSProperties = { display: 'flex', flexDirection: 'column' }
 const mini: CSSProperties = { fontSize: 10, padding: '0 4px', background: 'none', border: '1px solid #30363d', color: '#8b949e', cursor: 'pointer' }
+
+/** 计算甘特条：有起始时间的走真实时间轴，否则按顺序均分。 */
+type GanttBar = { s: TournamentStage; leftPct: number; widthPct: number }
+function buildGantt(stages: TournamentStage[]): GanttBar[] {
+  const n = stages.length
+  if (n === 0) return []
+  const hasTime = stages.some((s) => !!s.startTime)
+  if (!hasTime) {
+    const w = 100 / n
+    return stages.map((s, i) => ({ s, leftPct: i * w, widthPct: w }))
+  }
+  const starts = stages.map((s) => (s.startTime ? new Date(s.startTime).getTime() : NaN)).filter((x) => !isNaN(x))
+  const ends = stages.map((s) => (s.endTime ? new Date(s.endTime).getTime() : NaN)).filter((x) => !isNaN(x))
+  const min = Math.min(...starts)
+  const max = ends.length ? Math.max(...ends) : Math.max(...starts)
+  const range = max - min || 1
+  const step = range / n
+  return stages.map((s, i) => {
+    const st = s.startTime ? new Date(s.startTime).getTime() : min + i * step
+    const en = s.endTime ? new Date(s.endTime).getTime() : Math.min(st + step, max)
+    const leftPct = Math.max(0, ((st - min) / range) * 100)
+    const right = Math.min(100, ((en - min) / range) * 100)
+    return { s, leftPct, widthPct: Math.max(1.5, right - leftPct) }
+  })
+}
+
+function renderGantt(stages: TournamentStage[]) {
+  const bars = buildGantt(stages)
+  const W = 860
+  const rowH = 40
+  const H = Math.max(120, bars.length * rowH + 24)
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 640 }} role="img" aria-label="赛程甘特时间轴">
+        {bars.map((b, i) => {
+          const c = kindColors[b.s.kind] ?? '#58a6ff'
+          const y = i * rowH
+          return (
+            <g key={b.s.stageId}>
+              <text x={6} y={y + 16} fontSize={12} fill="#8b949e">{b.s.title}</text>
+              <rect x={W * 0.28} y={y + 4} width={W * 0.68} height={18} rx={4} fill="#0d1117" opacity={0.35} />
+              <rect x={W * (0.28 + (b.leftPct / 100) * 0.68)} y={y + 4} width={W * 0.68 * (b.widthPct / 100)} height={18} rx={4}
+                fill={c} opacity={b.s.status === 'ACTIVE' ? 0.95 : b.s.status === 'DONE' ? 0.55 : 0.8}
+                stroke={b.s.status === 'ACTIVE' ? '#ffffff' : 'none'} strokeWidth={1} />
+              <text x={W * (0.28 + (b.leftPct / 100) * 0.68) + 6} y={y + 17} fontSize={11} fill="#0d1117" fontWeight={700}>
+                {statusNames[b.s.status] ?? b.s.status}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10 }}>
+        {Object.entries(kindNames).map(([k, label]) => (
+          <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8b949e' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: kindColors[k] }} />{label}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
 const input: CSSProperties = { padding: '8px 12px', borderRadius: 6, border: '1px solid #30363d', background: '#0d1117', color: '#e6edf3' }
 const btn: CSSProperties = { padding: '7px 16px', fontSize: 12, borderRadius: 5, border: '1px solid #30363d', background: '#161b22', color: '#e6edf3', cursor: 'pointer' }
 const btnGreen: CSSProperties = { ...btn, border: 'none', background: '#3fb950', color: '#0d1117' }
