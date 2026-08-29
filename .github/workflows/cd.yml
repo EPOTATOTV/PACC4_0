@@ -72,7 +72,7 @@ jobs:
         image: [ ptv-backend, ptv-frontend, gateway-go, gateway, pipe-rust, ai ]
     steps:
       - name: Trivy 镜像扫描（gating，未修复高危即失败）
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
