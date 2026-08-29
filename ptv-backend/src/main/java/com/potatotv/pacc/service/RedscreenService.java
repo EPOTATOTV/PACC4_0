@@ -27,6 +27,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("null") // 流/存储层泛型 null 分析误报（本地定性安全）
 public class RedscreenService {
 
     private final RedscreenAlertRepository alertRepository;

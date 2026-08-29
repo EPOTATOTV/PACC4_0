@@ -17,7 +17,8 @@ spring:
     open-in-view: false
   h2:
     console:
-      enabled: true
+      # 生产/默认禁用 H2 控制台（仅 dev profile 开启），减少攻击面
+      enabled: false
       path: /h2-console
 
 pacc:
@@ -48,7 +49,10 @@ pacc:
 
 logging:
   level:
-    com.potatotv.pacc: DEBUG
+    # 默认 INFO（安全：不输出调试性敏感日志）
+    com.potatotv.pacc: INFO
+    # 统一访问日志（方法 / 路径 / 状态 / 耗时 / 来源 IP，已脱敏）
+    ACCESS: INFO
 
 management:
   endpoints:
@@ -60,3 +64,16 @@ management:
       probes:
         enabled: true
       show-details: never
+
+---
+# 开发 profile：开启调试日志与 H2 控制台，方便本地排障
+spring:
+  config:
+    activate:
+      on-profile: dev
+  h2:
+    console:
+      enabled: true
+logging:
+  level:
+    com.potatotv.pacc: DEBUG

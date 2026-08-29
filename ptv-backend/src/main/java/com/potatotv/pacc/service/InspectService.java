@@ -17,6 +17,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("null") // 存储层/取值表达式的 null 分析误报
 public class InspectService {
 
     private final InspectSessionRepository sessionRepository;

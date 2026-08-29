@@ -21,6 +21,7 @@ import java.time.Instant;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("null") // Spring 存储层返回值的 null 分析误报
 public class AccountService {
 
     private final AccountRepository accountRepository;

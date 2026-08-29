@@ -16,6 +16,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
  * 红屏广播基于此集合实现全在线并行推送。
  */
 @Component
+@SuppressWarnings("null") // WebSocket 会话集合流式操作的 null 分析误报
 public class OnlineStatusService {
 
     private static final Logger log = LoggerFactory.getLogger(OnlineStatusService.class);

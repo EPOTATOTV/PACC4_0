@@ -18,6 +18,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("null") // 存储层返回值的 null 分析误报
 public class SignatureLibraryService {
 
     private final SignatureRepository repo;

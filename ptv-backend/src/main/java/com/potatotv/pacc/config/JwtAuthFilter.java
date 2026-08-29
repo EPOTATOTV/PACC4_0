@@ -1,5 +1,7 @@
 package com.potatotv.pacc.config;
 
+import com.potatotv.pacc.service.TokenService;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -33,7 +35,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             try {
-                Claims claims = Jwts.parser().verifyWith(key).build()
+                Claims claims = Jwts.parser().requireIssuer(TokenService.ISSUER).verifyWith(key).build()
                         .parseSignedClaims(header.substring(7)).getPayload();
                 request.setAttribute("pteid", claims.getSubject());
             } catch (Exception ignored) {

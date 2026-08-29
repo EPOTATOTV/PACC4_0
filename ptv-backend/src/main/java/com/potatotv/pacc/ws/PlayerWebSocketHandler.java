@@ -131,8 +131,10 @@ public class PlayerWebSocketHandler extends TextWebSocketHandler {
     private void send(WebSocketSession session, Map<String, Object> payload) {
         if (session == null || !session.isOpen()) return;
         try {
+            String json = mapper.writeValueAsString(payload);
+            if (json == null) return; // 序列化异常兜底
             synchronized (session) {
-                session.sendMessage(new TextMessage(mapper.writeValueAsString(payload)));
+                session.sendMessage(new TextMessage(json));
             }
         } catch (Exception e) {
             log.warn("发送失败 session={} err={}", session.getId(), e.getMessage());
@@ -151,6 +153,13 @@ public class PlayerWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) {
         log.warn("PTV 传输异常 session={} err={}", session.getId(), exception.getMessage());
-        try { session.close(CloseStatus.SERVER_ERROR); } catch (Exception ignored) { }
+        try {
+            CloseStatus closeStatus = CloseStatus.SERVER_ERROR;
+            if (closeStatus != null) {
+                session.close(closeStatus);
+            }
+        } catch (Exception ignored) {
+            // 关闭失败忽略
+        }
     }
 }

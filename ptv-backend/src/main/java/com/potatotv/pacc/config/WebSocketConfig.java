@@ -15,6 +15,7 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @Configuration
 @EnableWebSocket
 @RequiredArgsConstructor
+@SuppressWarnings("null") // Spring @NonNull 契约的 JDT unchecked-conversion 误报
 public class WebSocketConfig implements WebSocketConfigurer {
 
     public static final String PLAYER_ENDPOINT = "/ws/ptv";

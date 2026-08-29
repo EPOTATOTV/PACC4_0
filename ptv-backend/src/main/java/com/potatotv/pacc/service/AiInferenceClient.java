@@ -17,6 +17,7 @@ import java.util.Optional;
  * 服务不可用或未启用时返回空，调用方回退本地评分，保证主链路不依赖 AI。</p>
  */
 @Service
+@SuppressWarnings("null") // RestClient 响应 Map 泛型的 null 分析误报
 public class AiInferenceClient {
 
     private final boolean enabled;

@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.channel.ChannelProcessingFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
@@ -37,6 +38,9 @@ public class SecurityConfig {
                         .anyRequest().permitAll())
                 // 放行 H2 控制台 frame
                 .headers(h -> h.frameOptions(f -> f.sameOrigin()));
+        // 安全响应头 + 统一访问日志：置于过滤器链最前，覆盖所有请求
+        http.addFilterBefore(new SecurityHeadersFilter(), ChannelProcessingFilter.class);
+        http.addFilterBefore(new AccessLogFilter(), ChannelProcessingFilter.class);
         http.addFilterBefore(new AdminKeyFilter(adminApiKey), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(new JwtAuthFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class);
         return http.build();

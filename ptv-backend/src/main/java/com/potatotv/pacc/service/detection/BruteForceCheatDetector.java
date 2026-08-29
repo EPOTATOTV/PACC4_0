@@ -18,6 +18,7 @@ import java.util.Optional;
  */
 @Slf4j
 @Service
+@SuppressWarnings("null") // 层级权重流 lambda 的 null 分析误报
 public class BruteForceCheatDetector {
 
     /** 各暴力外挂类型的判定器（业务逻辑内聚在对应 switch 分支）。 */

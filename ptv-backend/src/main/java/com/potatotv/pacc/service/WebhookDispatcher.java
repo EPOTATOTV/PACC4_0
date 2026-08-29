@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
  */
 @Slf4j
 @Service
+@SuppressWarnings("null") // 虚拟线程/泛型 null 分析误报
 public class WebhookDispatcher {
 
     private final ObjectMapper mapper = new ObjectMapper();

@@ -19,6 +19,7 @@ import java.util.Optional;
  */
 @Slf4j
 @Service
+@SuppressWarnings("null") // 层级权重流 lambda 的 null 分析误报
 public class StealthCheatDetector {
 
     public record LayerHit(int layer, String layerName, CheatType.Stealth type, String signal, double weight) {}

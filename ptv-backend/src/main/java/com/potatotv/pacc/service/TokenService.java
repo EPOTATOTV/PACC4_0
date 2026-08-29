@@ -17,6 +17,9 @@ import java.util.Date;
 @Service
 public class TokenService {
 
+    public static final String ISSUER = "pacc-ptv";
+    public static final String AUDIENCE = "pacc-client";
+
     public record Token(String pteid, String accessToken, long expiresAt) {}
 
     private final SecretKey key;
@@ -30,6 +33,8 @@ public class TokenService {
         long ttl = remember ? defaultTtlSeconds : 24 * 3600;
         Instant exp = Instant.now().plusSeconds(ttl);
         String jwt = Jwts.builder()
+                .issuer(ISSUER)
+                .audience().add(AUDIENCE).and()
                 .subject(pteid)
                 .expiration(Date.from(exp))
                 .signWith(key)
@@ -40,13 +45,13 @@ public class TokenService {
     /** 校验并返回 pteid；非法抛出异常。 */
     public String parseAndGetPteid(String bearer) {
         String token = bearer.replace("Bearer ", "");
-        return Jwts.parser().verifyWith(key).build()
+        return Jwts.parser().requireIssuer(ISSUER).verifyWith(key).build()
                 .parseSignedClaims(token).getPayload().getSubject();
     }
 
     /** 校验并返回 pteid（供握手拦截器调用）；非法抛出异常。 */
     public String verify(String token) {
-        return Jwts.parser().verifyWith(key).build()
+        return Jwts.parser().requireIssuer(ISSUER).verifyWith(key).build()
                 .parseSignedClaims(token).getPayload().getSubject();
     }
 }

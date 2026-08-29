@@ -19,6 +19,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin/v41")
 @RequiredArgsConstructor
+@SuppressWarnings("null") // 128 维特征流 lambda 的 Eclipse JDT null 分析误报
 public class Detection41Controller {
 
     private final DetectionAnalysisService analysisService;

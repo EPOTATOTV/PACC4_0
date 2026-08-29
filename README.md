@@ -194,7 +194,52 @@ protoc --python_out=ptv-client/.. proto/pacc.proto
 | 消息 / 缓存 / 时序 | 以可替换接口预留（REST/WSS + 事件流，生产可接入 Redis/Kafka/ClickHouse） |
 | 容器编排 | Docker Compose（默认）、Kubernetes（`deploy/k8s`）、Helm（`deploy/helm`） |
 | 可观测性 | Prometheus + Grafana（`deploy/monitoring`，`--profile monitoring` 启用） |
-| 安全 | bcrypt 密码哈希、HMAC-SHA256 上报签名、AES-256 本地加密、JWT、TLS 1.3/WSS |
+| 安全 | bcrypt 密码哈希、HMAC-SHA256 上报签名、AES-256 本地加密、JWT（iss/aud 校验）、TLS 1.3/WSS、登录限流、安全响应头、鉴权审计日志 |
+
+## 安全与日志加固
+
+后端 `ptv-backend` 内置以下安全与日志加固策略（详见各配置与过滤器实现）：
+
+### 安全
+- **安全响应头**：全部 API 响应附加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、`Strict-Transport-Security`、`Cache-Control: no-store`（见 `config/SecurityHeadersFilter`）。
+- **JWT 校验加固**：令牌签发与校验均约束 `iss`（`pacc-ptv`）与 `aud`（`pacc-client`），拒绝来路不明的伪造令牌（见 `service/TokenService`、`config/JwtAuthFilter`）。
+- **登录爆破缓解**：管理后台（按来源 IP）与玩家登录（按账号）固定窗口限流，超阈值返回 `429`（见 `service/LoginThrottle`）。
+- **登录审计日志**：登录成功/失败/锁定/限流均有审计日志，**不落明文密码或令牌**。
+- **H2 控制台默认关闭**：仅在 `dev` 环境变量/profile 开启，生产不暴露。
+- **密钥注入**：`pacc.security.jwt-secret`、`pacc.security.admin-api-key` 等一律通过环境变量/`.env` 注入，请勿写入源码与提交记录。
+
+### 日志
+- **统一访问日志**：记录 `method / path / status / duration / client`，不记录查询串与请求头/体（避免泄露 WS 令牌），含控制字符清洗防日志注入，≥400 按 `WARN`、≥500 按 `ERROR`（见 `config/AccessLogFilter`）。
+- **全局异常脱敏**：客户端只返回通用错误信息，不回显堆栈/SQL；完整堆栈仅写入服务端日志（见 `config/GlobalExceptionHandler`）。
+- **日志级别**：默认 `INFO`（生产安全），调试期在 `dev` profile 下切换 `DEBUG`；统一访问日志 `ACCESS` 独立 logger 便于采集。
+
+## CI/CD 流水线
+
+仓库内置 GitHub Actions 交付流水线（`.github/workflows/`），供应链与安全加固内置：
+
+| 文件 | 触发 | 内容 |
+|---|---|---|
+| [ci.yml](file:///d:/pacc/.github/workflows/ci.yml) | push / PR（main）、tag | 全模块构建测试 + 安全扫描 |
+| [cd.yml](file:///d:/pacc/.github/workflows/cd.yml) | tag `v*` | 镜像构建/推送 + 扫描 + Helm 部署 |
+| [dependabot.yml](file:///d:/pacc/.github/dependabot.yml) | 定时 | 各生态依赖自动安全更新 |
+
+### CI（持续集成）
+- **构建**：后端/玩家端（JDK 21 + Maven）、前端（Node 20 + Vite）、Go 网关、Rust 管道、AI 服务全部编译/测试。
+- **制品**：上传 jar / dist / 二进制；后端生成 CycloneDX SBOM。
+- **安全扫描**：最前置的 **gitleaks 密钥泄露扫描** + **Trivy 依赖/文件漏洞扫描**（结果回传 CodeQL）。
+- **加固**：最小权限（`contents: read`）、构建缓存、`concurrency` 取消陈旧任务、job 超时。
+
+### CD（持续部署，仅 tag `v*`）
+- **镜像**：构建并推送至 `ghcr.io`，打 `sha` + `semver` 双标签，`gha` 层缓存加速。
+- **镜像门禁**：Trivy 镜像扫描，`CRITICAL/HIGH` 未修复即拦截发布。
+- **部署**：helm-github-action 替换为 **官方 Helm 二进制 + SHA 校验**（供应链加固）；`environment: production` 环境级审批保护。
+- **密钥**：`ADMIN_API_KEY` / `JWT_SECRET` / `MYSQL_ROOT_PASSWORD` / `KUBE_CONFIG` 全部从 GitHub Secrets 注入，临时值文件用后即删。
+
+### 接入前置条件
+1. `git init` 并通过 git 远程把仓库推到 GitHub；
+2. 在 Settings → Secrets 配置：`KUBE_CONFIG`、`ADMIN_API_KEY`、`JWT_SECRET`、`MYSQL_ROOT_PASSWORD`（CD `image-scan` 前两项需 `CRITICAL/HIGH` 清零或显式豁免）；
+3. 在 Settings → Environments → `production` 开启"要求审批"即可守护生产发布；
+4. 原生平台（Android NDK / iOS Xcode / HarmonyOS DevEco）需各自工具链专用 runner，非本机可编译路径。
 
 ## 许可证
 

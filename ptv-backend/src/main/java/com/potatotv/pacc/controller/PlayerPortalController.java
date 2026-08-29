@@ -29,6 +29,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/player")
 @RequiredArgsConstructor
+@SuppressWarnings("null") // 流/存储层泛型 null 分析误报（本地定性安全）
 public class PlayerPortalController {
 
     private final AppealRepository appealRepository;

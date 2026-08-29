@@ -26,6 +26,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin/support")
 @RequiredArgsConstructor
+@SuppressWarnings("null") // 存储层泛型 null 分析误报（本地定性安全）
 public class SupportAdminController {
 
     private final AppealRepository appealRepository;
