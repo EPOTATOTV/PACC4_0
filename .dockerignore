@@ -1,0 +1,25 @@
+# 构建上下文排除：减小镜像构建上下文体积，避免把本地工具链/构建产物打入镜像
+.git
+.gitignore
+.vscode
+.tools
+tools-local
+**/target
+**/node_modules
+**/dist
+**/build
+**/.vite
+*.log
+logs
+evidence
+data
+.env
+.env.local
+application-local.yml
+*.sqlite
+*.db
+deploy/k8s
+# 证书仅通过卷挂载，不进构建上下文
+deploy/gateway/certs/*.crt
+deploy/gateway/certs/*.key
+deploy/gateway/certs/*.pem

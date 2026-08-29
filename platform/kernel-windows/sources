@@ -1,0 +1,29 @@
+# PACC 底层检测驱动（Windows CDP）WDK 构建清单
+# 使用 msbuild + WDK 10 编译：msbuild /t:build /p:Configuration=Release /p:TargetVersion=Win10...
+
+TARGETNAME=PaccPtv
+TARGETTYPE=DRIVER
+TARGETPATH=$(OBJ_PATH)\$(O)
+
+DRIVERTYPE=WDM
+KMDF_VERSION=1
+MSC_WARNING_LEVEL=/W4
+C_DEFINES=-DPOOL_TAG='ccap' -DPOOL_NX_OPTIN=1
+BUFFERED_IO=1
+
+# 源码文件
+SOURCES= \
+    pacc_driver.c \
+    pacc_obhook.c \
+    pacc_scanner.c \
+    pacc_device.c
+
+# 用户态控制台工具（optional, 需显式开启）
+# SOURCES_ALT=ptvctl
+
+KERNEL_MODE=1
+
+# EV 签名后发布（可选，真机驱动需 WHQL）
+#INF_FILES= pacc.inf
+
+STUB_START=1

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- ============ 品牌占位 ============
+         Logo 本版本不替换。正式品牌需替换：<link rel="icon" href="/favicon.ico" />
+         并将 /public/favicon.ico / logo 资产放入 public/。当前沿用文字标题。 -->
+    <title>PACC PTV 管控后台</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --panel: #161b22;
+        --panel-2: #1c2128;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --red: #ff3b30;
+        --red-2: #ff6b5e;
+        --green: #3fb950;
+        --amber: #d29922;
+        --blue: #58a6ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      a { color: var(--blue); text-decoration: none; }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

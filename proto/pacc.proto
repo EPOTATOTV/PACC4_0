@@ -1,0 +1,172 @@
+syntax = "proto3";
+
+package pacc.protocol.v1;
+
+option java_package = "com.potatotv.pacc.protocol.v1";
+option java_outer_classname = "PaccProto";
+
+// =========================================================================
+// PACC v4.0 统一通信协议（玩家端 <-> PTV 管控服务器）
+// 协议基于 Protocol Buffers + TLS 1.3 / WSS。系统与游戏服务器无任何通信。
+// =========================================================================
+
+// 对端枚举（仅用于日志与统计，不涉及游戏服务器数据）
+enum Peer {
+  PEER_UNSPECIFIED = 0;
+  PEER_PLAYER_CLIENT = 1;  // 玩家端
+  PEER_PTV = 2;            // PTV 管控
+}
+
+enum Edition {
+  EDITION_UNSPECIFIED = 0;
+  EDITION_BEDROCK = 1;     // 基岩版
+  EDITION_JAVA = 2;        // Java 版
+}
+
+enum MessageType {
+  MT_UNKNOWN = 0;
+  ACCOUNT_REGISTER = 1;      // 账号注册
+  ACCOUNT_LOGIN = 2;         // 账号登录
+  ACCOUNT_LOGOUT = 3;        // 主动登出
+  HEARTBEAT = 4;             // 心跳
+  DETECTION_REPORT = 5;      // 检测数据上报
+  EVIDENCE_UPLOAD = 6;       // 证据/证据包上传
+  REDSCREEN_BROADCAST = 7;   // 红屏警告广播（PTV -> 玩家端）
+  REDSCREEN_ACK = 8;         // 红屏广播回执
+  INSPECT_COMMAND = 9;       // 远程查端指令（PTV -> 被锁玩家端）
+  INSPECT_DATA = 10;         // 查端取证数据回传
+  INSPECT_UNLOCK = 11;       // 查端完成解除限制
+  SIGLIB_SYNC = 12;          // 特征库下发
+  CONFIG_SYNC = 13;          // 配置同步
+  EVIDENCE_OFFLINE_RESCUE = 14; // 离线补偿证据补传
+}
+
+message Envelope {
+  MessageType type = 1;
+  string message_id = 2;          // 全局唯一消息 ID（防重放）
+  int64 timestamp = 3;            // Unix 毫秒时间戳
+  string pteid = 4;               // 反作弊账号（脱敏由上层处理）
+  bytes signature = 5;            // HMAC-SHA256 签名（防篡改）
+  bytes payload_json = 6;         // 具体消息体（JSON 序列化）
+}
+
+// ---- 账号 ----
+message AccountRegister {
+  string email = 1;
+  string phone = 2;
+  string password = 3;            // 明文传输阶段仅测试用；生产走 TLS + 拍盐
+  string device_fingerprint = 4;
+}
+
+message AccountLogin {
+  string pteid = 1;
+  string password = 2;
+  string device_fingerprint = 3;
+  bool remember = 4;
+}
+
+message AccountToken {
+  string pteid = 1;
+  string access_token = 2;        // JWT（RS256）
+  int64 expires_at = 3;
+  int32 reputation_score = 4;
+}
+
+// ---- 检测上报 ----
+message DetectionReport {
+  string event_type = 1;          // memory_tamper / process_injection / auto_clicker ...
+  string severity = 2;            // low / medium / high / critical
+  Edition edition = 3;
+  int32 risk_score = 4;           // 端侧预评分（0-100）
+  string evidence_json = 5;       // 证据 JSON（进程名/内存区域/特征码命中等）
+  string client_version = 6;
+  string os_info = 7;
+}
+
+// ---- 证据上传 ----
+message EvidenceUpload {
+  string alert_id = 1;            // 关联红屏事件
+  int32 chunk_index = 2;
+  int32 chunk_total = 3;
+  bytes chunk = 4;
+  string content_sha256 = 5;      // 整包哈希
+}
+
+// ---- 红屏广播 ----
+message RedscreenBroadcast {
+  string alert_id = 1;
+  int32 level = 2;                // 2=二级(确认作弊) 3=三级(严重作弊)
+  string cheat_type = 3;          // 脱敏描述
+  string cheat_pteid_masked = 4;  // 作弊者脱敏账号
+  int64 timestamp = 5;
+  bool is_cheater = 6;            // 一条广播该玩家是否即被检测者
+  int32 queue_position = 7;       // 被检测者查端队列位置
+  bool keyboard_locked = 8;       // 是否锁定键盘
+}
+
+message RedscreenAck {
+  string alert_id = 1;
+  bool displayed = 2;
+  int64 display_ms = 3;
+}
+
+// ---- 远程查端 ----
+enum InspectCommandType {
+  IC_UNKNOWN = 0;
+  IC_MEMORY_DUMP = 1;
+  IC_PROCESS_LIST = 2;
+  IC_FILE_SCAN = 3;
+  IC_REGISTRY_QUERY = 4;
+  IC_NETWORK_CONNECTIONS = 5;
+  IC_SCREENSHOT = 6;
+}
+
+message InspectCommand {
+  string session_id = 1;
+  InspectCommandType type = 2;
+  string params_json = 3;
+}
+
+message InspectData {
+  string session_id = 1;
+  InspectCommandType type = 2;
+  string result_json = 3;
+  int32 chunk_index = 4;
+  int32 chunk_total = 5;
+}
+
+message InspectUnlock {
+  string session_id = 1;
+  string conclusion = 2;          // confirmed / false_positive / pending
+  bool unlock_keyboard = 3;
+  string note = 4;
+}
+
+// ---- 状态/配置 ----
+message Heartbeat {
+  double cpu_usage = 1;
+  double memory_usage_mb = 2;
+  string client_version = 3;
+  Edition edition = 4;
+}
+
+message SignatureEntry {
+  string id = 1;
+  string name = 2;
+  string pattern = 3;            // 含通配符 ??
+  int32 risk_level = 4;
+  Edition edition = 5;
+  string version = 6;
+}
+
+message SignatureSync {
+  string library_version = 1;
+  repeated SignatureEntry entries = 2;
+  int64 issued_at = 3;
+}
+
+message ConfigSync {
+  string sensitivity = 1;        // low / normal / high
+  map<string, string> flags = 2;
+  int64 issued_at = 3;
+}

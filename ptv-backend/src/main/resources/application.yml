@@ -1,0 +1,62 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: pacc-ptv-backend
+  datasource:
+    # 演示默认使用 H2；生产 / Docker 通过 SPRING_DATASOURCE_URL 切换 MySQL，
+    # 驱动由 Spring Boot 依据 URL 自动探测（无需显式指定 driver-class-name）。
+    url: jdbc:h2:mem:pacc;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+pacc:
+  security:
+    # 管理后台 API Key（生产应通过密钥托管注入）
+    admin-api-key: pacc-admin-secret-key
+    jwt-secret: "PACC-v4-runtime-secret-key-change-me-in-production-0123456789"
+    # JWT：RS256 需配置公私钥；此处 JWT 演示使用 HMAC
+  pteid:
+    prefix: "PT"
+  detection:
+    redscreen-threshold: 85        # 综合风险评分触发红屏阈值
+    severe-threshold: 95           # 三级红屏阈值
+    suspicious-low: 70             # 一级（可疑）下限
+    cooldown-minutes: 10           # 同账号同类型红屏冷却
+  websocket:
+    endpoint: /ws                # 玩家端 WebSocket 长连接端点
+  webhook:
+    retry: 3
+  ai:
+    # AI 推理服务（Python / FastAPI，deploy/ai）。启用后风险评分按 15% 权重融合 AI 分
+    enabled: false
+    inference-url: http://ai:8000
+  rules:
+    # Lua 动态规则引擎（classpath:rules/*.lua，可热更新）
+    enabled: true
+    max-bonus: 15          # 规则命中加分上限
+
+logging:
+  level:
+    com.potatotv.pacc: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never

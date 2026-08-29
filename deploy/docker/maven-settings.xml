@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PACC 容器构建专用 Maven 设置：
+     使用华为云镜像加速国内依赖下载（与工程约定一致）。
+     构建时通过 `mvn -s /m2/settings.xml` 引用。 -->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <mirrors>
+    <mirror>
+      <id>huaweicloud-central</id>
+      <mirrorOf>*</mirrorOf>
+      <name>Huawei Cloud Central Mirror</name>
+      <url>https://repo.huaweicloud.com/repository/maven/</url>
+    </mirror>
+  </mirrors>
+</settings>

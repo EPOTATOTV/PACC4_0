@@ -1,0 +1,54 @@
+# PACC v4.0 Helm values
+#   helm install pacc ./deploy/helm -f my-values.yaml
+
+global:
+  imageRegistry: ""
+  imageTag: "4.0.0"
+
+secrets:
+  # 生产环境请使用自有密钥或引用外部 Secret
+  adminApiKey: "pacc-admin-secret-key"
+  jwtSecret: "PACC-v4-runtime-secret-key-change-me-in-production-0123456789"
+  mysqlPassword: "pacc-secret"
+  mysqlRootPassword: "pacc-root"
+
+images:
+  backend: "pacc/ptv-backend"
+  frontend: "pacc/ptv-frontend"
+  mysql: "mysql:8.0"
+
+replicaCount:
+  backend: 2
+  frontend: 2
+  gateway: 2
+
+resources:
+  backend:
+    requests: { cpu: "500m", memory: "512Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }
+  frontend:
+    requests: { cpu: "50m",  memory: "64Mi" }
+    limits:   { cpu: "200m", memory: "256Mi" }
+  mysql:
+    requests: { cpu: "500m", memory: "1Gi" }
+    limits:   { cpu: "2",    memory: "2Gi" }
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    # 统一入口：TLS 由 Cert-Manager / 外部负载均衡终结
+    admin: "admin.potatotv.asia"
+    api: "api.potatotv.asia"
+    pacc: "pacc.potatotv.asia"
+    dl: "dl.potatotv.asia"
+  tlsSecret: "potatotv-tls"
+
+mysql:
+  # 使用独立 MySQL（生产建议托管版）。内置 StatefulSet 持久化至 PVC。
+  enabled: true
+  storageClass: ""
+  size: 10Gi
+
+storage:
+  mysql: 10Gi

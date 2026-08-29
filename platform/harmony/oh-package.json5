@@ -1,0 +1,10 @@
+{
+  "name": "pacc-harmony-probe",
+  "version": "4.0.0",
+  "description": "PACC HarmonyOS anti-cheat probe (ArkTS)",
+  "main": "probe.hvigor/probe.ts",
+  "author": "Potatotv PACC",
+  "license": "AGPL-3.0",
+  "dependencies": {},
+  "devDependencies": {}
+}

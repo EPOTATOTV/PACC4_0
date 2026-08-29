@@ -1,0 +1,208 @@
+# ============================================================
+# PACC v4.0 PTV 系统编排（Docker Compose）
+#
+# 快速开始：
+#   copy .env.example .env        # 按需修改密钥
+#   docker compose up -d --build
+#
+# 访问：
+#   管理后台前端 -> http://localhost:8081
+#   后端 REST    -> http://localhost:8080
+#   H2 控制台（仅内置 H2 模式）-> http://localhost:8080/h2-console
+#
+# 说明：
+#   - MySQL 数据持久化于 volume pacc-mysql-data
+#   - 后端/前端带健康检查与自动重启
+#   - 生产环境请更换 .env 中所有密钥
+# ============================================================
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: pacc-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-pacc-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-pacc}
+      MYSQL_USER: ${MYSQL_USER:-pacc}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-pacc-secret}
+    ports:
+      - "${PACC_MYSQL_PORT:-3306}:3306"
+    volumes:
+      - pacc-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  ptv-backend:
+    build:
+      context: .
+      dockerfile: ptv-backend/Dockerfile
+    image: pacc/ptv-backend:4.0.0
+    container_name: pacc-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-pacc}?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-pacc}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-pacc-secret}
+      PACC_SECURITY_ADMIN_API_KEY: ${PACC_ADMIN_API_KEY:-pacc-admin-secret-key}
+      PACC_SECURITY_JWT_SECRET: ${PACC_JWT_SECRET:-PACC-v4-runtime-secret-key-change-me-in-production-0123456789}
+      PACC_DETECTION_REDSCREEN_THRESHOLD: ${PACC_REDSCREEN_THRESHOLD:-85}
+      PACC_SEED: ${PACC_SEED:-true}
+      TZ: Asia/Shanghai
+    ports:
+      - "${PACC_BACKEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  ptv-frontend:
+    build:
+      context: .
+      dockerfile: ptv-frontend/Dockerfile
+    image: pacc/ptv-frontend:4.0.0
+    container_name: pacc-frontend
+    restart: unless-stopped
+    depends_on:
+      ptv-backend:
+        condition: service_healthy
+    ports:
+      - "${PACC_FRONTEND_PORT:-8081}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ---------- 域名网关（统一入口，推荐生产入口） ----------
+  # admin.potatotv.asia -> 管理后台前端
+  # api.potatotv.asia    -> 后端 REST / WSS
+  # pacc.potatotv.asia   -> 玩家端长连接 + 玩家登录/注册
+  # dl.potatotv.asia     -> PACC 客户端下载站
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/gateway/Dockerfile
+    image: pacc/gateway:4.0.0
+    container_name: pacc-gateway
+    restart: unless-stopped
+    depends_on:
+      ptv-frontend:
+        condition: service_healthy
+    ports:
+      - "${PACC_GATEWAY_HTTP_PORT:-80}:80"
+      - "${PACC_GATEWAY_HTTPS_PORT:-443}:443"
+    volumes:
+      # 放入 potatotv.asia.crt / potatotv.asia.key 后自动启用 HTTPS（见 deploy/gateway/certs/README.md）
+      - ./deploy/gateway/certs:/etc/nginx/certs:ro
+
+  # ---------- Go 边缘网关（API 网关 / WSS 入口，独立可替换 nginx /api 路由） ----------
+  # 提供限流 + 管理鉴权 + Prometheus 指标；默认独立端口 8090，可与 nginx 并存或替换。
+  gateway-go:
+    build:
+      context: deploy/gateway-go
+      dockerfile: Dockerfile
+    image: pacc/gateway-go:4.0.0
+    container_name: pacc-gateway-go
+    restart: unless-stopped
+    depends_on:
+      ptv-backend:
+        condition: service_healthy
+    environment:
+      BACKEND_URL: http://ptv-backend:8080
+      ADMIN_KEY: ${PACC_ADMIN_API_KEY:-pacc-admin-secret-key}
+      RATE_RPS: "20"
+      RATE_BURST: "50"
+    ports:
+      - "${PACC_GO_GATEWAY_PORT:-8090}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  # ---------- AI 推理服务（FastAPI + NumPy；后端 PACC_AI_ENABLED=true 时按 15% 权重融合评分） ----------
+  ai:
+    build:
+      context: deploy/ai
+      dockerfile: Dockerfile
+    image: pacc/ai:4.0.0
+    container_name: pacc-ai
+    restart: unless-stopped
+    environment:
+      PACC_AI_MODEL_PATH: /data/model.json
+      TZ: Asia/Shanghai
+    ports:
+      - "${PACC_AI_PORT:-8000}:8000"
+    volumes:
+      - pacc-ai-model:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ---------- 监控栈（可选，--profile monitoring 启用） ----------
+  #   docker compose --profile monitoring up -d
+  #   Grafana: http://localhost:3000  (admin / ${GRAFANA_ADMIN_PASSWORD:-admin})
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: pacc-prometheus
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    volumes:
+      - ./deploy/monitoring/prometheus:/etc/prometheus:ro
+      - pacc-prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "${PACC_PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: pacc-grafana
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - pacc-grafana-data:/var/lib/grafana
+    ports:
+      - "${PACC_GRAFANA_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pacc-mysql-data:
+  pacc-ai-model:
+  pacc-prometheus-data:
+  pacc-grafana-data:

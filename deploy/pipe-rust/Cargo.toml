@@ -1,0 +1,19 @@
+[package]
+name = "pacc-pipe"
+version = "4.0.0"
+edition = "2021"
+description = "PACC v4.0 高性能检测数据管道：事件摄入 / SHA-256 指纹 / HMAC-SHA256 签名 / 滑动窗口聚合 / 本地加密持久化"
+license = "Apache-2.0"
+
+# 零第三方依赖：SHA-256 / HMAC-SHA256 为纯标准库实现，
+# 便于离线构建与交叉编译，满足安全敏感模块的可信供应链要求。
+
+[[bin]]
+name = "pacc-pipe"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

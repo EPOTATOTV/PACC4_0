@@ -1,0 +1,52 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "pacc.fullname" . }}-ingress
+  labels:
+    {{- include "pacc.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/websocket-services: {{ include "pacc.fullname" . }}-backend
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- end }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.hosts.admin }}
+        - {{ .Values.ingress.hosts.api }}
+        - {{ .Values.ingress.hosts.pacc }}
+        - {{ .Values.ingress.hosts.dl }}
+      secretName: {{ .Values.ingress.tlsSecret }}
+  rules:
+    - host: {{ .Values.ingress.hosts.admin }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "pacc.fullname" . }}-frontend, port: { number: 80 } }
+    - host: {{ .Values.ingress.hosts.api }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "pacc.fullname" . }}-backend, port: { number: 8080 } }
+    - host: {{ .Values.ingress.hosts.pacc }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "pacc.fullname" . }}-backend, port: { number: 8080 } }
+    - host: {{ .Values.ingress.hosts.dl }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "pacc.fullname" . }}-frontend, port: { number: 80 } }
+{{- end }}

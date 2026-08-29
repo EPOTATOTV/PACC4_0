@@ -1,0 +1,27 @@
+# PACC v4.0 告警规则
+groups:
+  - name: pacc-services
+    rules:
+      - alert: BackendDown
+        expr: up{job="ptv-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PTV 后端不可达"
+
+      - alert: GatewayDown
+        expr: up{job="gateway-go"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Go 边缘网关不可达"
+
+      - alert: HighRateLimit
+        expr: rate(pacc_gateway_rate_limited_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "网关限流频繁，可能存在滥用/攻击流量"

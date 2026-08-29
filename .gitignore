@@ -1,0 +1,48 @@
+# --- Build output ---
+target/
+build/
+dist/
+out/
+*.class
+*.jar
+*.war
+
+# --- Node ---
+node_modules/
+.vite/
+coverage/
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+# 保留 .settings/org.eclipse.jdt.core.prefs（随工程交付，统一编译器空值分析行为）
+.settings/*
+!.settings/org.eclipse.jdt.core.prefs
+.project
+.classpath
+
+# --- OS ---
+Thumbs.db
+.DS_Store
+
+# --- Logs & data ---
+*.log
+logs/
+*.sqlite
+*.db
+application-local.yml
+.env.local
+
+# --- Evidence / runtime ---
+/evidence/
+/data/
+
+# --- Local dev toolchain (downloaded Maven/Node) ---
+/.tools/
+/tools-local/
+
+# --- TLS 证书（含私钥，禁止入库）---
+deploy/gateway/certs/*.crt
+deploy/gateway/certs/*.key
+deploy/gateway/certs/*.pem
