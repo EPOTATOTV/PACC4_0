@@ -1,5 +1,5 @@
 # PACC AI 推理服务（Python 3.11 / FastAPI）
 fastapi==0.110.2
-uvicorn[standard]==0.29.0
+uvicorn[standard]==0.52.4
 numpy==1.26.4
 pydantic==2.6.4
