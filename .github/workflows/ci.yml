@@ -65,7 +65,7 @@ jobs:
         run: mvn -B -q org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
         continue-on-error: true
       - name: 上传制品
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: java-artifacts
           path: |
@@ -90,7 +90,7 @@ jobs:
         working-directory: ptv-frontend
         run: npm ci && npm run build
       - name: 上传制品
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-dist
           path: ptv-frontend/dist
@@ -114,7 +114,7 @@ jobs:
       - run: go vet ./...
       - run: go build -trimpath -ldflags="-s -w" -o gateway-go .
       - name: 上传制品
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gateway-go-bin
           path: deploy/gateway-go/gateway-go
@@ -130,7 +130,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cargo build --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pipe-rust-bin
           path: deploy/pipe-rust/target/release/*
