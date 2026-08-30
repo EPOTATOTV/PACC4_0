@@ -28,6 +28,8 @@ public final class ClientConfig {
     public final int reconnectDelaySeconds;
     public final boolean autoReconnect;
     public final String signatureVersion;
+    /** WSS 上报签名密钥：与服务器端 PACC_WSS_SIGN_SECRET 保持一致时启用 HMAC 签名 + 防重放。 */
+    public final String wssSignSecret;
 
     private ClientConfig(Properties p) {
         this.pteid = get(p, "pacc.client.pteid", "PACC_CLIENT_PTEID", "PT0000000001");
@@ -45,6 +47,7 @@ public final class ClientConfig {
         this.reconnectDelaySeconds = getInt(p, "pacc.client.reconnect.delay.seconds", "PACC_CLIENT_RECONNECT_DELAY_SECONDS", 5);
         this.autoReconnect = getBool(p, "pacc.client.reconnect.enabled", "PACC_CLIENT_AUTO_RECONNECT", true);
         this.signatureVersion = get(p, "pacc.client.signature.version", "PACC_CLIENT_SIGNATURE_VERSION", "v4.0.0");
+        this.wssSignSecret = get(p, "pacc.client.wss.sign.secret", "PACC_CLIENT_WSS_SECRET", "pacc-dev-wss-sign-key-change-me");
     }
 
     /** 环境变量优先，其次配置文件，最后内置默认值。 */

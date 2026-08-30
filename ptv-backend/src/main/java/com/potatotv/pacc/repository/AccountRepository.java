@@ -14,6 +14,16 @@ public interface AccountRepository extends JpaRepository<Account, String> {
 
     Optional<Account> findByPhone(String phone);
 
+    Optional<Account> findByMcid(String mcid);
+
+    Optional<Account> findByEcid(String ecid);
+
+    Optional<Account> findByQq(String qq);
+
+    Optional<Account> findByResetTokenHash(String resetTokenHash);
+
+    boolean existsByEmail(String email);
+
     long countByStatus(String status);
 
     @Modifying

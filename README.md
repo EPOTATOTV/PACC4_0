@@ -44,17 +44,17 @@ d:\pacc\
 
 ## 核心能力
 
-- 内存篡改检测（驱动级扫描 + JVM 字节码校验）
-- 进程 / 模块监控（内核回调 + 注入检测）
-- 输入设备监控（IRP 拦截 + 点击时序分析）
-- USB 设备检测（设备 DNA 画像 + HID 描述符分析）
-- 游戏行为检测（移动 / 战斗 / 交互数据采集 + AI 分析）
-- 基岩版外挂检测（CE 专项 + 作弊客户端特征库）
-- Java 版外挂检测（JVM 探针 + Forge/Fabric 模组检测 + 作弊客户端特征库）
-- 红屏强制警告（全屏高优先级覆盖 + 键盘强制暂停 + 全在线广播）
-- PTEID 独立账号体系（与游戏账号完全解耦）
-- 管理员远程查端（WebRTC 屏幕查看 + 证据远程提取 + 远程解锁）
-- 本地加密持久化（AES-256 + SHA-256 哈希链，重启后保留）
+- 内存篡改检测：驱动级扫描 + JVM 字节码校验
+- 进程 / 模块监控：内核回调 + 注入检测
+- 输入设备监控：IRP 拦截 + 点击时序分析
+- USB 设备检测：设备 DNA 画像 + HID 描述符分析
+- 游戏行为检测：采集移动 / 战斗 / 交互数据，交给 AI 分析
+- 基岩版外挂检测：CE 专项 + 作弊客户端特征库
+- Java 版外挂检测：JVM 探针 + Forge/Fabric 模组检测 + 作弊客户端特征库
+- 红屏强制警告：全屏高优先级覆盖、键盘强制暂停、全在线广播
+- PTEID 独立账号体系，与游戏账号完全解耦
+- 管理员远程查端：WebRTC 屏幕查看 + 证据远程提取 + 远程解锁
+- 本地加密持久化：AES-256 + SHA-256 哈希链，重启后保留
 
 ## 三层架构
 
@@ -63,9 +63,9 @@ d:\pacc\
 3. **PTV 管控层**：部署于 PTV（PotatoTV）服务器，负责 AI 分析、红屏广播、PTEID 账号管理、远程查端
 
 **架构约束（不可变更）**：
-- 系统完全无法封禁玩家，仅能红屏警告 + 强制暂停 + 远程查端 + 永久记录
-- 系统完全无法获取游戏服务器数据，所有数据仅来自玩家本地采集
-- PTV 与游戏服务器无任何连接，管理后台部署于 PTV 服务器
+- 系统没有封禁能力。能做的只有红屏警告、强制暂停、远程查端和永久记录。
+- 游戏服务器的数据一概拿不到——所有数据都来自玩家本地采集。
+- 管理后台部署在 PTV 服务器上，PTV 与游戏服务器之间没有任何连接。
 
 ## 构建与运行
 
@@ -249,17 +249,57 @@ protoc --python_out=ptv-client/.. proto/pacc.proto
 
 ## 赛事反作弊（面向比赛级落地）
 
-不依赖游戏服务器，全部跑在**己方网关 + 设备表 + 对局令牌**之上，通过参赛规则（强制装客户端 + 绑定设备）保证覆盖面。后端落在 `controller/CompetitionController`、`service/CompetitionService`，新增实体 `LoginEvent / SuspicionFlag / Enrollment / MatchSession`；前端落在「赛事风控」页与玩家门户概览。
+不依赖游戏服务器，全部跑在**己方网关 + 设备表 + 对局令牌**之上，通过参赛规则（强制装客户端 + 绑定设备）保证覆盖面。后端落在 `controller/CompetitionController`、`service/CompetitionService`，新增实体 `LoginEvent / SuspicionFlag / Enrollment / MatchSession / TournamentStage / TournamentNotice / TournamentConfig`；前端落在「赛事风控」页、「赛事进程」页（赛程编排 / 公告 / 报名设置 / 可视化）与玩家门户概览。
 
 - **网关聚合检测**：每次登录落库 `pteid + 设备指纹 + IP`；24h 窗口内同一账号 ≥2 设备且 ≥2 IP → 多设备交替嫌疑；仅多 IP → 网络代练/共享嫌疑（含权重）。
 - **证据哈希链**：每条嫌疑 `chainHash = SHA-256(prevChainHash + 证据摘要)`，证据不可静默删改、可复核。
 - **裁判复核**：管理端对 OPEN 嫌疑一键「无异常 / 禁赛(ESB)」，记录复核人/备注（`POST /api/admin/competition/flags/{id}/review`）。
 - **参赛门禁（Enrollment)**：管理员报名时绑定 `PTEID + 许可设备指纹` → 待审批/通过/拒绝；玩家可自查报名状态与当前设备是否许可。
+- **报名配置与自助报名**：管理端配置赛事名称、腾讯文档收集表链接、截止时间与「报名中/已截止」开关（`GET/PUT /api/admin/competition/config`）；玩家经收集表填资料 → 平台绑设备 → 提交申请（`GET/POST /api/player/competition/register`），并返回当前报名人数。
 - **对局 session token 隔离（MatchSession）**：仅对已审批且绑定许可设备的选手发起对局并生成强随机入场 token；入场校验五重——token 归属一致、会话有效、未过期、**当前活动设备 == 场次许可设备**、刷新活跃；主办方可随时强制结束（`POST /api/admin/competition/matches`、`POST .../matches/{id}/end`）。
 - **宏观风控按 IP 聚类**：聚合登录事件找出同 IP 背后的多账号（疑似枪手/代练网络），按账号数分级提示（`GET /api/admin/competition/ip-clusters`）。
+- **可自由编辑的赛程（TournamentStage）**：每届赛制不同，阶段支持资格赛/小组赛/淘汰赛/决赛/自定义类别，待开始/进行中/已结束状态、开始/结束时间、结果比分与备注；可增删、上下排序（`GET/POST /api/admin/competition/stages`、`PUT .../{id}`、`PATCH .../reorder`、`DELETE .../{id}`）；玩家只读查看其已报名赛事的赛程（`GET /api/player/competition/stages`）。
+- **队伍分配与统计**：管理员为报名分配队伍标签与颜色，支持多选批量分到同一队（`POST /api/admin/competition/enrollments/{id}/team`、`.../team/batch`）；`GET /api/admin/competition/enrollments/stats` 聚合返回已报名/待审批/已拒绝人数与各队伍人数。
+- **赛事可视化（管理端「赛事进程 → 可视化」）**：已报名/待审批/已拒绝/队伍数统计卡片、各队伍人数横向条形图、赛程甘特时间轴、阶段状态与类别分布。
 - **玩家侧**：门户概览展示报名状态、当前设备是否许可、能否入场，并提供「入场验证（当前设备）」实时校验。
 
 > 说明：多账号共用 IP 也可能为网吧/局域网合法场景，聚类仅按数量分级提示，最终由裁判结合证据哈希链人工研判，不直接判定作弊。
+
+## 管理后台界面预览
+
+> 截图基于演示数据（启动后端时设置 `PACC_SEED=true`）在本地运行环境捕获，图片存放于本仓库 `screenshots/` 目录。
+
+### 赛事进程（赛事进程页 · 四个标签页）
+
+**赛程编排**：阶段列表可自由编辑——资格赛/小组赛/淘汰赛/决赛，支持上下排序、编辑与删除。
+
+![赛程编排](screenshots/01-tournament-schedule.png)
+
+**可视化**：顶部是已报名/待审批/已拒绝人数和队伍数四个统计卡片，往下是各队伍人数横向条形图、赛程甘特时间轴，还有阶段状态与类别分布。
+
+![可视化](screenshots/02-tournament-visualization.png)
+
+**公告**：发布公告，可置顶。
+
+![公告](screenshots/03-tournament-notices.png)
+
+**报名设置**：改赛事名称、填腾讯文档收集表链接、设报名截止时间，一键切换「报名中/已截止」。
+
+![报名设置](screenshots/04-tournament-registration.png)
+
+### 其他页面
+
+**数据大盘**：在线玩家、检测事件、红屏趋势、作弊类型分布，全局指标都在这。
+
+![数据大盘](screenshots/05-dashboard.png)
+
+**赛事风控**：从报名、审批、分队到发起对局的一整套参赛门禁，外加对局会话、IP 聚类，以及共享/代练嫌疑列表（证据哈希链）。
+
+![赛事风控](screenshots/06-competition-risk.png)
+
+**反作弊账号**：按 PTEID 或邮箱查账号，看信誉分、红屏次数和注册时间；敏感字段已脱敏。
+
+![反作弊账号](screenshots/07-accounts.png)
 
 ## 许可证
 

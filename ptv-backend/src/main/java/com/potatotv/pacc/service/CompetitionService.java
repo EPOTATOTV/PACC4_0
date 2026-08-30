@@ -1,6 +1,7 @@
 package com.potatotv.pacc.service;
 
 import com.potatotv.pacc.domain.Enrollment;
+import com.potatotv.pacc.domain.LoginEvent;
 import com.potatotv.pacc.domain.MatchSession;
 import com.potatotv.pacc.domain.SuspicionFlag;
 import com.potatotv.pacc.domain.TournamentConfig;
@@ -144,6 +145,31 @@ public class CompetitionService {
 
     public List<Enrollment> enrollmentList() {
         return enrollmentRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    /** 报名/队伍统计：总报名、按状态、按队伍人数（用于可视化）。 */
+    public Map<String, Object> enrollmentStats() {
+        List<Enrollment> all = enrollmentRepository.findAll();
+        long total = all.size();
+        long approved = all.stream().filter(e -> e.getStatus() == Enrollment.Status.APPROVED).count();
+        long pending = all.stream().filter(e -> e.getStatus() == Enrollment.Status.PENDING).count();
+        long rejected = all.stream().filter(e -> e.getStatus() == Enrollment.Status.REJECTED).count();
+        Map<String, Long> byStatus = new java.util.LinkedHashMap<>();
+        byStatus.put("TOTAL", total);
+        byStatus.put("APPROVED", approved);
+        byStatus.put("PENDING", pending);
+        byStatus.put("REJECTED", rejected);
+        Map<String, Long> byTeam = new java.util.TreeMap<>();
+        for (Enrollment e : all) {
+            if (e.getTeamName() != null && !e.getTeamName().isBlank()) {
+                byTeam.merge(e.getTeamName(), 1L, Long::sum);
+            }
+        }
+        Map<String, Object> res = new java.util.LinkedHashMap<>();
+        res.put("total", total);
+        res.put("by_status", byStatus);
+        res.put("by_team", byTeam);
+        return res;
     }
 
     /** 报名并提交审批。 */

@@ -1,14 +1,18 @@
-import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
+import { Alert, Button, Card, Modal, Space, Table, Typography, message } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
 import type { InspectSession } from '../types'
 import { StatusPill } from '../components/StatusPill'
+
+const { Title } = Typography
 
 export default function Inspect() {
   const [pending, setPending] = useState<InspectSession[]>([])
   const [all, setAll] = useState<InspectSession[]>([])
   const [err, setErr] = useState('')
-  const [msg, setMsg] = useState('')
+  const [note, setNote] = useState('')
+  const [modal, setModal] = useState<{ session: InspectSession; conclusion: 'confirmed' | 'false_positive' } | null>(null)
 
   async function load() {
     try {
@@ -21,126 +25,88 @@ export default function Inspect() {
     }
   }
 
-  useEffect(() => {
-    load()
-  }, [])
+  useEffect(() => { load() }, [])
 
   async function start(sessionId: string) {
     try {
       await api.inspects.start(sessionId)
-      setMsg('已开始查端会话')
+      message.success('已开始查端会话')
       load()
-    } catch (e) {
-      setErr((e as Error).message)
-    }
+    } catch (e) { setErr((e as Error).message) }
   }
 
-  async function conclude(sessionId: string, conclusion: string) {
-    const note = prompt(`提交查端结论：${conclusion === 'confirmed' ? '确认作弊' : '误报'}。备注：`, '')
-    if (note === null) return
+  async function doConclude() {
+    if (!modal) return
     try {
-      await api.inspects.conclude(sessionId, conclusion, note)
-      setMsg(`已完成，结论：${conclusion}`)
+      await api.inspects.conclude(modal.session.sessionId, modal.conclusion, note)
+      message.success(`已完成，结论：${modal.conclusion === 'confirmed' ? '确认作弊' : '误报'}`)
+      setModal(null); setNote('')
       load()
-    } catch (e) {
-      setErr((e as Error).message)
-    }
+    } catch (e) { setErr((e as Error).message) }
   }
+
+  const pendingCols: TableColumnsType<InspectSession> = [
+    { title: '会话 ID', dataIndex: 'sessionId' },
+    { title: 'PTEID', dataIndex: 'pteid' },
+    { title: '关联警告', dataIndex: 'alertId' },
+    { title: '状态', dataIndex: 'state', width: 110, render: (v: InspectSession['state']) => <StatusPill value={v} /> },
+    { title: '过期时间', dataIndex: 'expiresAt', width: 180, render: (v?: string) => (v ? new Date(v).toLocaleString('zh-CN', { hour12: false }) : '-') },
+    {
+      title: '操作', dataIndex: 'sessionId', width: 120,
+      render: (_, s) => <Button size="small" onClick={() => start(s.sessionId)}>开始查端</Button>,
+    },
+  ]
+
+  const allCols: TableColumnsType<InspectSession> = [
+    { title: 'PTEID', dataIndex: 'pteid' },
+    { title: '操作员', dataIndex: 'operator', render: (v?: string) => v || '-' },
+    { title: '状态', dataIndex: 'state', width: 110, render: (v: InspectSession['state']) => <StatusPill value={v} /> },
+    { title: '结论', dataIndex: 'conclusion', render: (v?: string) => v || '-' },
+    { title: '开始时间', dataIndex: 'startedAt', width: 180, render: (v?: string) => (v ? new Date(v).toLocaleString('zh-CN', { hour12: false }) : '-') },
+    {
+      title: '操作', dataIndex: 'state', width: 220,
+      render: (_, s) =>
+        s.state === 'ACTIVE' ? (
+          <Space size={6}>
+            <Button size="small" style={{ background: '#3fb950', color: '#0d1117', border: 'none' }} onClick={() => setModal({ session: s, conclusion: 'false_positive' })}>误报解除</Button>
+            <Button size="small" danger onClick={() => setModal({ session: s, conclusion: 'confirmed' })}>确认作弊</Button>
+          </Space>
+        ) : null,
+    },
+  ]
 
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>查端控制台</h1>
-      <div style={{ marginBottom: 16 }}>
-        <button onClick={load} style={btn}>刷新</button>
-        {msg && <span style={{ color: '#3fb950', marginLeft: 12 }}>{msg}</span>}
-        {err && <span style={{ color: '#ff3b30', marginLeft: 12 }}>{err}</span>}
-      </div>
+      <Title level={3} style={{ marginTop: 0 }}>查端控制台</Title>
 
-      <h2 style={{ fontSize: 16 }}>待处理队列</h2>
-      <div className="card" style={{ padding: 0, overflowX: 'auto', marginBottom: 24 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ color: '#8b949e', textAlign: 'left' }}>
-              <th style={th}>会话 ID</th>
-              <th style={th}>PTEID</th>
-              <th style={th}>关联警告</th>
-              <th style={th}>状态</th>
-              <th style={th}>过期时间</th>
-              <th style={th}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pending.map((s) => (
-              <tr key={s.sessionId} style={{ borderTop: '1px solid #21262d' }}>
-                <td style={td}>{s.sessionId}</td>
-                <td style={td}>{s.pteid}</td>
-                <td style={td}>{s.alertId}</td>
-                <td style={td}><StatusPill value={s.state} /></td>
-                <td style={td}>{s.expiresAt ? new Date(s.expiresAt).toLocaleString() : '-'}</td>
-                <td style={td}>
-                  <button style={btnSmall} onClick={() => start(s.sessionId)}>开始查端</button>
-                </td>
-              </tr>
-            ))}
-            {pending.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ ...td, textAlign: 'center', color: '#8b949e' }}>队列为空</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
 
-      <h2 style={{ fontSize: 16 }}>全部会话</h2>
-      <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ color: '#8b949e', textAlign: 'left' }}>
-              <th style={th}>PTEID</th>
-              <th style={th}>操作员</th>
-              <th style={th}>状态</th>
-              <th style={th}>结论</th>
-              <th style={th}>开始时间</th>
-              <th style={th}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {all.map((s) => (
-              <tr key={s.sessionId} style={{ borderTop: '1px solid #21262d' }}>
-                <td style={td}>{s.pteid}</td>
-                <td style={td}>{s.operator || '-'}</td>
-                <td style={td}><StatusPill value={s.state} /></td>
-                <td style={td}>{s.conclusion || '-'}</td>
-                <td style={td}>{s.startedAt ? new Date(s.startedAt).toLocaleString() : '-'}</td>
-                <td style={td}>
-                  {s.state === 'ACTIVE' && (
-                    <span style={{ display: 'flex', gap: 6 }}>
-                      <button style={btnSmallGreen} onClick={() => conclude(s.sessionId, 'false_positive')}>误报解除</button>
-                      <button style={btnSmall} onClick={() => conclude(s.sessionId, 'confirmed')}>确认作弊</button>
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {all.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ ...td, textAlign: 'center', color: '#8b949e' }}>无会话</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Button onClick={load} style={{ marginBottom: 16 }}>刷新</Button>
+
+      <Card title="待处理队列" style={{ marginBottom: 16 }} styles={{ body: { padding: 0 } }}>
+        <Table<InspectSession> rowKey="sessionId" columns={pendingCols} dataSource={pending} pagination={false} scroll={{ x: 640 }} locale={{ emptyText: '队列为空' }} />
+      </Card>
+
+      <Card title="全部会话" styles={{ body: { padding: 0 } }}>
+        <Table<InspectSession> rowKey="sessionId" columns={allCols} dataSource={all} pagination={{ pageSize: 15, hideOnSinglePage: true }} scroll={{ x: 760 }} locale={{ emptyText: '无会话' }} />
+      </Card>
+
+      <Modal
+        title={`提交查端结论：${modal?.conclusion === 'confirmed' ? '确认作弊' : '误报'}`}
+        open={!!modal}
+        onOk={doConclude}
+        onCancel={() => { setModal(null); setNote('') }}
+        okText="提交"
+      >
+        <p style={{ color: '#8b949e' }}>会话 {modal?.session.sessionId} · PTEID {modal?.session.pteid}</p>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="备注（可选）"
+          rows={4}
+          style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: 8 }}
+        />
+      </Modal>
     </div>
   )
-}
-
-const th: CSSProperties = { padding: '10px 14px', fontWeight: 600 }
-const td: CSSProperties = { padding: '10px 14px' }
-const btn: CSSProperties = {
-  padding: '8px 14px', borderRadius: 6, border: '1px solid #30363d',
-  background: '#161b22', color: '#e6edf3', cursor: 'pointer',
-}
-const btnSmall: CSSProperties = { ...btn, padding: '5px 10px', fontSize: 12 }
-const btnSmallGreen: CSSProperties = {
-  ...btnSmall, background: '#3fb950', color: '#0d1117', border: 'none',
 }

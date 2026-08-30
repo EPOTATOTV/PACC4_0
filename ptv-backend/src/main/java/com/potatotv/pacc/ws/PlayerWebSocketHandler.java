@@ -39,6 +39,7 @@ public class PlayerWebSocketHandler extends TextWebSocketHandler {
     private final RiskScoringService riskScoringService;
     private final RedscreenService redscreenService;
     private final AccountService accountService;
+    private final WssMessageGuard messageGuard;
 
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
@@ -58,6 +59,13 @@ public class PlayerWebSocketHandler extends TextWebSocketHandler {
         try {
             JsonNode node = mapper.readTree(message.getPayload());
             String type = node.path("type").asText();
+            // 完整性校验：签名 + 时间窗 + nonce 防重放（未启用签名时放行）
+            if (!messageGuard.verify(pteid, node)) {
+                log.warn("PTV 消息校验失败（可能抓包重放/篡改）pteid={} type={} session={}",
+                        pteid, type, session.getId());
+                send(session, Map.of("type", "error", "code", "BAD_SIGNATURE"));
+                return;
+            }
             switch (type) {
                 case "ping" -> send(session, Map.of("type", "pong", "ts", Instant.now().toString()));
                 case "event" -> handleEvent(pteid, edition, node);

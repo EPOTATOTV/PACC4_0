@@ -1,11 +1,13 @@
 import type {
   Account,
+  AdminLoginLog,
   Appeal,
   CheatRecord,
   CheatTypeCount,
   CompetitionOverview,
   DeviceRecord,
   Enrollment,
+  EnrollmentStats,
   InspectSession,
   IpCluster,
   MatchSession,
@@ -28,7 +30,6 @@ import type {
 
 const ADMIN_KEY = 'pacc_admin_key'
 const TOKEN_KEY = 'pacc_admin_token'
-const PLAYER_TOKEN_KEY = 'pacc_player_token'
 
 export function storedAdminKey(): string {
   return localStorage.getItem(ADMIN_KEY) ?? ''
@@ -43,16 +44,7 @@ export function clearAuth(): void {
   localStorage.removeItem(TOKEN_KEY)
 }
 
-// ---- 玩家门户凭据 ----
-export function storedPlayerToken(): string {
-  return localStorage.getItem(PLAYER_TOKEN_KEY) ?? ''
-}
-export function setPlayerToken(token: string): void {
-  localStorage.setItem(PLAYER_TOKEN_KEY, token)
-}
-export function clearPlayerAuth(): void {
-  localStorage.removeItem(PLAYER_TOKEN_KEY)
-}
+// 玩家门户凭据已迁至 HttpOnly 会话 cookie：JS 不再持有/读取令牌，仅依赖浏览器自动携带。
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
@@ -67,15 +59,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>
 }
 
-// 玩家门户请求：携带 Bearer 令牌；会话失效时抛 401，由页面跳回登录
+// 玩家门户请求：凭据由同源 HttpOnly cookie 自动携带；会话失效时抛 401，由页面跳回登录
 async function playerRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${storedPlayerToken()}`,
   }
-  const res = await fetch(`/api/player${path}`, { ...init, headers })
+  const res = await fetch(`/api/player${path}`, { ...init, headers, credentials: 'same-origin' })
   if (res.status === 401) {
-    clearPlayerAuth()
     throw new Error('登录已过期，请重新登录')
   }
   if (!res.ok) {
@@ -103,8 +93,42 @@ export const api = {
         body: JSON.stringify({ identity, password, remember }),
       })
     },
+    register(body: Record<string, string>) {
+      return fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    },
+    forget(email: string) {
+      return fetch('/api/auth/forget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+    },
+    reset(token: string, new_password: string) {
+      return fetch('/api/auth/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, new_password }),
+      })
+    },
   },
+  // ---- 管理后台登录（密钥 / 飞书）与登录日志 ----
+  feishu: {
+    url: () => fetch('/api/admin/feishu/oauth/url'),
+    callback: (code: string) =>
+      fetch('/api/admin/feishu/oauth/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      }),
+  },
+  adminLoginLogs: () => request<{ logs: AdminLoginLog[] }>('/login-logs'),
   player: {
+    me: () => playerRequest<{ pteid: string }>('/me'),
+    logout: () => fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }),
     summary: () => playerRequest<PlayerSummary>('/summary'),
     records: () => playerRequest<CheatRecord[]>('/records'),
     appeals: () => playerRequest<Appeal[]>('/appeals'),
@@ -152,6 +176,7 @@ export const api = {
         body: JSON.stringify({ decision, reviewer: 'admin', comment }),
       }),
     enrollments: () => request<Enrollment[]>('/competition/enrollments'),
+    enrollmentStats: () => request<EnrollmentStats>('/competition/enrollments/stats'),
     enroll: (body: Record<string, string>) =>
       request<Enrollment>('/competition/enrollments', { method: 'POST', body: JSON.stringify(body) }),
     approve: (id: string, approve: boolean, note = '') =>
@@ -178,7 +203,7 @@ export const api = {
       request<TournamentStage[]>(`/competition/stages?tournament_id=${encodeURIComponent(tournamentId)}`),
     addStage: (body: Record<string, string>) =>
       request<TournamentStage>('/competition/stages', { method: 'POST', body: JSON.stringify(body) }),
-    updateStage: (stageId: string, body: Record<string, string>) =>
+    updateStage: (stageId: string, body: Record<string, unknown>) =>
       request<{ ok: boolean }>(`/competition/stages/${stageId}`, { method: 'PUT', body: JSON.stringify(body) }),
     reorderStage: (tournamentId: string, from: number, to: number) =>
       request<{ ok: boolean }>('/competition/stages/reorder', {

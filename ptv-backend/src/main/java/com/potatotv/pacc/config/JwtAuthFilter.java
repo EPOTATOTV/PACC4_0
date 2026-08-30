@@ -7,6 +7,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /**
  * JWT 认证过滤器：从 Authorization/accessToken 解析玩家 PTEID 并注入请求属性。
@@ -34,10 +36,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain chain) throws ServletException, IOException {
         String pteid = null;
         String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
+        String bearer = (header != null && header.startsWith("Bearer ")) ? header.substring(7) : null;
+        // 浏览器门户：会话令牌位于 HttpOnly cookie；桌面客户端则走 Authorization 头
+        if (bearer == null) {
+            bearer = cookieValue(request, "pacc_player");
+        }
+        if (bearer != null && !bearer.isBlank()) {
             try {
                 Claims claims = Jwts.parser().requireIssuer(TokenService.ISSUER).verifyWith(key).build()
-                        .parseSignedClaims(header.substring(7)).getPayload();
+                        .parseSignedClaims(bearer).getPayload();
                 pteid = claims.getSubject();
             } catch (Exception ignored) {
                 // 未通过认证则视为匿名
@@ -55,5 +62,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    private static String cookieValue(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        return Arrays.stream(cookies).filter(c -> name.equals(c.getName()))
+                .map(Cookie::getValue).findFirst().orElse(null);
     }
 }

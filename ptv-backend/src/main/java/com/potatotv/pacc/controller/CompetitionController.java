@@ -68,6 +68,11 @@ public class CompetitionController {
         return competitionService.enrollmentList();
     }
 
+    @GetMapping("/api/admin/competition/enrollments/stats")
+    public Map<String, Object> enrollmentStats() {
+        return competitionService.enrollmentStats();
+    }
+
     /** 管理员为选手报名并绑定许可设备；若缺许可设备则按账号当前活动设备补录。 */
     @PostMapping("/api/admin/competition/enrollments")
     public ResponseEntity<?> enroll(@RequestBody Map<String, String> body) {
@@ -150,7 +155,7 @@ public class CompetitionController {
     // ---- 赛事进程（可自由编辑的阶段） ----
 
     @GetMapping("/api/admin/competition/stages")
-    public List<TournamentStage> stages(@RequestParam String tournamentId) {
+    public List<TournamentStage> stages(@RequestParam("tournament_id") String tournamentId) {
         return competitionService.stages(tournamentId);
     }
 
@@ -193,7 +198,7 @@ public class CompetitionController {
     // ---- 赛事公告 ----
 
     @GetMapping("/api/admin/competition/notices")
-    public List<TournamentNotice> notices(@RequestParam String tournamentId) {
+    public List<TournamentNotice> notices(@RequestParam("tournament_id") String tournamentId) {
         return competitionService.notices(tournamentId);
     }
 
@@ -221,7 +226,7 @@ public class CompetitionController {
     // ---- 赛事报名配置（腾讯文档收集表 + 截止时间） ----
 
     @GetMapping("/api/admin/competition/config")
-    public ResponseEntity<?> config(@RequestParam String tournamentId) {
+    public ResponseEntity<?> config(@RequestParam("tournament_id") String tournamentId) {
         return ResponseEntity.ok(competitionService.config(tournamentId));
     }
 
@@ -238,7 +243,7 @@ public class CompetitionController {
 
     /** 玩家：报名页信息（配置 + 我的状态 + 人数）。 */
     @GetMapping("/api/player/competition/register")
-    public ResponseEntity<?> playerRegisterInfo(@RequestParam String tournamentId, HttpServletRequest req) {
+    public ResponseEntity<?> playerRegisterInfo(@RequestParam("tournament_id") String tournamentId, HttpServletRequest req) {
         String pteid = req.getAttribute("pteid").toString();
         return ResponseEntity.ok(competitionService.registerInfo(tournamentId, pteid, currentFp(pteid)));
     }

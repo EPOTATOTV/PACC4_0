@@ -7,7 +7,6 @@ import com.potatotv.pacc.domain.RedscreenAlert;
 import com.potatotv.pacc.repository.AccountRepository;
 import com.potatotv.pacc.repository.CheatRecordRepository;
 import com.potatotv.pacc.repository.RedscreenAlertRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -26,7 +25,6 @@ import java.util.UUID;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @SuppressWarnings("null") // 流/存储层泛型 null 分析误报（本地定性安全）
 public class RedscreenService {
 
@@ -38,14 +36,31 @@ public class RedscreenService {
     private final WebhookDispatcher webhookDispatcher;
     private final ObjectMapper mapper;
 
-    @Value("${pacc.detection.redscreen-threshold:85}")
-    private int redscreenThreshold;
-    @Value("${pacc.detection.severe-threshold:95}")
-    private int severeThreshold;
-    @Value("${pacc.detection.suspicious-low:70}")
-    private int suspiciousLow;
-    @Value("${pacc.detection.cooldown-minutes:10}")
-    private int cooldownMinutes;
+    private final int redscreenThreshold;
+    private final int severeThreshold;
+    private final int cooldownMinutes;
+
+    public RedscreenService(RedscreenAlertRepository alertRepository,
+                            AccountRepository accountRepository,
+                            CheatRecordRepository cheatRecordRepository,
+                            OnlineStatusService onlineStatusService,
+                            InspectService inspectService,
+                            WebhookDispatcher webhookDispatcher,
+                            ObjectMapper mapper,
+                            @Value("${pacc.detection.redscreen-threshold:85}") int redscreenThreshold,
+                            @Value("${pacc.detection.severe-threshold:95}") int severeThreshold,
+                            @Value("${pacc.detection.cooldown-minutes:10}") int cooldownMinutes) {
+        this.alertRepository = alertRepository;
+        this.accountRepository = accountRepository;
+        this.cheatRecordRepository = cheatRecordRepository;
+        this.onlineStatusService = onlineStatusService;
+        this.inspectService = inspectService;
+        this.webhookDispatcher = webhookDispatcher;
+        this.mapper = mapper;
+        this.redscreenThreshold = redscreenThreshold;
+        this.severeThreshold = severeThreshold;
+        this.cooldownMinutes = cooldownMinutes;
+    }
 
     /**
      * 依据风险评分决策。返回是否触发红屏。
@@ -64,7 +79,7 @@ public class RedscreenService {
         }
 
         Account account = accountRepository.findById(pteid).orElse(null);
-        int level = riskScore >= severeThreshold ? 3 : 2;
+        int level = levelFor(riskScore, redscreenThreshold, severeThreshold);
 
         String alertId = "alert_" + Instant.now().toEpochMilli() + "_" + UUID.randomUUID().toString().substring(0, 4);
         long online = onlineStatusService.onlineCount();
@@ -152,6 +167,15 @@ public class RedscreenService {
                 .recordHash(recordHash)
                 .occurredAt(Instant.now())
                 .build());
+    }
+
+    /**
+     * 依据风险评分计算红屏等级（纯函数，便于确定性单测）：
+     * 低于阈值不触发（返回 0）；达到阈值返回 2 级，达到 severe 阈值返回 3 级（优先查端）。
+     */
+    public static int levelFor(int riskScore, int redscreenThreshold, int severeThreshold) {
+        if (riskScore < redscreenThreshold) return 0;
+        return riskScore >= severeThreshold ? 3 : 2;
     }
 
     public static String mask(String pteid) {

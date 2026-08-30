@@ -1,27 +1,30 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, setPlayerToken } from '../../api/client'
+import { Alert, Button, Checkbox, Form, Input, Typography } from 'antd'
+import { LockOutlined, UserOutlined } from '@ant-design/icons'
+import { api } from '../../api/client'
+import PlayerAuthShell from './PlayerAuthShell'
+
+const { Text } = Typography
+
+type Values = { identity: string; password: string }
 
 export default function PlayerLogin() {
-  const [identity, setIdentity] = useState('')
-  const [password, setPassword] = useState('')
-  const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
   const navigate = useNavigate()
 
-  async function submit() {
-    if (!identity || !password) return setErr('请输入账号与密码')
+  async function onFinish(v: Values) {
     setBusy(true)
     setErr('')
     try {
-      const res = await api.auth.login(identity, password, true)
+      const res = await api.auth.login(v.identity, v.password, true)
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         setErr((data as { error?: string }).error || `登录失败 (${res.status})`)
         return
       }
-      const data = (await res.json()) as { access_token: string }
-      setPlayerToken(data.access_token)
+      // 会话由后端写入 HttpOnly cookie，JS 不再持有令牌；跳转后由 /api/player/me 探测登录态
       navigate('/portal')
     } catch {
       setErr('无法连接 PTV 后端，请稍后再试')
@@ -31,48 +34,56 @@ export default function PlayerLogin() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="card" style={{ width: 380 }}>
-      {/* ============ 品牌 LOGO 占位点 ============
-          说明：Logo/企业外观标识本版本不替换。
-          替换时在此插入 <img src="/logo.png" width={120} /> 并放置
-         ptv-frontend/public/logo.png；当前保留文字标题。 */}
-        <h2 style={{ marginTop: 0, color: '#ff6b5e', marginBottom: 2 }}>PACC 玩家自助中心</h2>
-        <p style={{ color: '#8b949e', marginTop: 0 }}>查询个人记录 · 在线申诉 · 客服工单</p>
-        <input
-          placeholder="账号（PTEID 或注册邮箱/手机）"
-          value={identity}
-          onChange={(e) => setIdentity(e.target.value)}
-          style={input}
-        />
-        <input
-          type="password"
-          placeholder="密码"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-          style={{ ...input, marginTop: 8 }}
-        />
-        {err && <div style={{ color: '#ff3b30', fontSize: 13, margin: '8px 0' }}>{err}</div>}
-        <button
-          onClick={submit}
-          disabled={busy}
-          style={{
-            width: '100%', padding: 11, marginTop: 12, borderRadius: 6, border: 'none',
-            background: '#ff6b5e', color: '#fff', fontWeight: 600, cursor: 'pointer',
-          }}
+    <PlayerAuthShell
+      title="PACC 玩家自助中心"
+      subtitle="手机号 / MCID / ECID / QQ / 邮箱任一均可登录"
+      footer={<Link to="/" style={{ fontSize: 12 }}>‹ 返回管理后台</Link>}
+    >
+      {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
+
+      <Form layout="vertical" onFinish={onFinish} style={{ marginTop: 20 }} requiredMark={false}>
+        <Form.Item
+          name="identity" label="账号"
+          rules={[{ required: true, message: '请输入账号' }]}
         >
-          {busy ? '登录中…' : '登 录'}
-        </button>
-        <div style={{ marginTop: 14, fontSize: 12, color: '#8b949e', textAlign: 'center' }}>
-          <Link to="/" style={{ color: '#58a6ff', textDecoration: 'none' }}>‹ 返回管理后台</Link>
+          <Input
+            prefix={<UserOutlined />}
+            placeholder="手机号 / MCID / ECID / QQ / 邮箱"
+            size="large"
+            autoComplete="username"
+          />
+        </Form.Item>
+        <Form.Item
+          name="password" label="密码"
+          rules={[{ required: true, message: '请输入密码' }]}
+        >
+          <Input.Password
+            prefix={<LockOutlined />}
+            placeholder="密码"
+            size="large"
+            autoComplete="current-password"
+          />
+        </Form.Item>
+
+        <Form.Item style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Form.Item name="remember" valuePropName="checked" noStyle initialValue={true}>
+              <Checkbox>保持登录状态</Checkbox>
+            </Form.Item>
+            <Link to="/portal/forget">忘记密码</Link>
+          </div>
+        </Form.Item>
+
+        <Form.Item style={{ marginBottom: 8 }}>
+          <Button type="primary" htmlType="submit" block size="large" loading={busy}>
+            登 录
+          </Button>
+        </Form.Item>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Text type="secondary">还没有账号？</Text>
+          <Link to="/portal/register">立即注册</Link>
         </div>
-      </div>
-    </div>
+      </Form>
+    </PlayerAuthShell>
   )
 }
-
-const input = {
-  width: '100%', padding: '10px 12px', margin: '12px 0 0', borderRadius: 6,
-  border: '1px solid #30363d', background: '#0d1117', color: '#e6edf3',
-} as const

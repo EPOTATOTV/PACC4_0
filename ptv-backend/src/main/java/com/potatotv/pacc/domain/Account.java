@@ -31,9 +31,29 @@ public class Account {
 
     private String phone;
 
+    /** Minecraft 游戏 ID（工单中心登录凭证之一）。 */
+    @Column(unique = true)
+    private String mcid;
+
+    /** EaseCation 平台 ID（工单中心登录凭证之一）。 */
+    private String ecid;
+
+    /** QQ 号（工单中心登录凭证之一）。 */
+    @Column(unique = true)
+    private String qq;
+
+    /** 网易 UUID（可选，仅作账号关联；提供格式说明不做强校验）。 */
+    private String neteaseUuid;
+
     /** Argon2id 加盐哈希，禁止存明文。 */
     @Column(nullable = false)
     private String passwordHash;
+
+    /** 密码重置令牌的 SHA-256（仅存哈希，禁用明文），用于邮箱找回。 */
+    private String resetTokenHash;
+
+    /** 密码重置令牌过期时间。 */
+    private Instant resetExpiresAt;
 
     /** 信誉评分 0-100。 */
     @Builder.Default

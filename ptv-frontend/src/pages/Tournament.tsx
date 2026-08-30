@@ -1,23 +1,28 @@
-import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
+import { Alert, Button, Card, Checkbox, Col, Form, Input, Modal, Progress, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd'
+import type { TableColumnsType } from 'antd'
+import { ArrowDownOutlined, ArrowUpOutlined, PlusOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
-import type { TournamentNotice, TournamentStage } from '../types'
+import type { EnrollmentStats, TournamentNotice, TournamentStage } from '../types'
+
+const { Title, Text } = Typography
+const { TextArea } = Input
 
 const kindNames: Record<string, string> = {
   QUALIFIER: '资格赛', GROUP: '小组赛', KNOCKOUT: '淘汰赛', FINAL: '决赛', CUSTOM: '自定义',
 }
 const statusNames: Record<string, string> = { PENDING: '待开始', ACTIVE: '进行中', DONE: '已结束' }
-
 const kindColors: Record<string, string> = {
   QUALIFIER: '#58a6ff', GROUP: '#3fb950', KNOCKOUT: '#d29922', FINAL: '#ff3b30', CUSTOM: '#8e44ad',
 }
-const statusColor: Record<string, string> = { PENDING: '#768390', ACTIVE: '#d29922', DONE: '#3fb950' }
+const statusColors: Record<string, string> = { PENDING: 'default', ACTIVE: 'warning', DONE: 'success' }
 
 export default function Tournament() {
   const [tournamentId, setTournamentId] = useState('demo-tournament')
-  const [tab, setTab] = useState<'stages' | 'notices' | 'register' | 'overview'>('stages')
+  const [tab, setTab] = useState('stages')
   const [stages, setStages] = useState<TournamentStage[]>([])
   const [notices, setNotices] = useState<TournamentNotice[]>([])
+  const [stats, setStats] = useState<EnrollmentStats | null>(null)
   const [err, setErr] = useState('')
 
   // 新增阶段表单
@@ -36,6 +41,8 @@ export default function Tournament() {
   const [docUrl, setDocUrl] = useState('')
   const [deadline, setDeadline] = useState('')
   const [allowRegister, setAllowRegister] = useState(true)
+  // 编辑器
+  const [editing, setEditing] = useState<TournamentStage | null>(null)
 
   async function loadConfig() {
     if (!tournamentId.trim()) return
@@ -66,6 +73,11 @@ export default function Tournament() {
     } catch (e) { setErr((e as Error).message) }
   }
 
+  async function loadStats() {
+    try { setStats(await api.competition.enrollmentStats()); setErr('') } catch (e) { setErr((e as Error).message) }
+  }
+  useEffect(() => { if (tab === 'overview') loadStats() }, [tab])
+
   async function addStage() {
     if (!title.trim()) return setErr('请填写阶段标题')
     try {
@@ -78,26 +90,9 @@ export default function Tournament() {
     } catch (e) { setErr((e as Error).message) }
   }
 
-  async function saveStage(s: TournamentStage) {
-    const title = window.prompt('阶段标题', s.title) ?? s.title
-    const kind = window.prompt(`类别 (${Object.keys(kindNames).join('/')}) [回车保留]`, s.kind) ?? s.kind
-    const status = window.prompt(`状态 (PENDING/ACTIVE/DONE) [回车保留]`, s.status) ?? s.status
-    const start = window.prompt('开始时间 (YYYY-MM-DD HH:mm，可留空)', s.startTime ? toLocalText(s.startTime) : '') ?? (s.startTime ? toLocalText(s.startTime) : '')
-    const end = window.prompt('结束时间 (YYYY-MM-DD HH:mm，可留空)', s.endTime ? toLocalText(s.endTime) : '') ?? (s.endTime ? toLocalText(s.endTime) : '')
-    const result = window.prompt('结果/比分（可空）', s.resultNote ?? '') ?? ''
-    const note = window.prompt('备注（可空）', s.note ?? '') ?? ''
-    const k = kind.trim().toUpperCase()
-    const st = status.trim().toUpperCase()
+  async function applyStage(s: TournamentStage, patch: Record<string, unknown>) {
     try {
-      await api.competition.updateStage(s.stageId, {
-        title: title.trim() || s.title,
-        kind: (Object.keys(kindNames) as string[]).includes(k) ? k : s.kind,
-        status: (['PENDING', 'ACTIVE', 'DONE'] as string[]).includes(st) ? st : s.status,
-        start_time: parseLocalTime(start),
-        end_time: parseLocalTime(end),
-        result_note: result,
-        note,
-      })
+      await api.competition.updateStage(s.stageId, patch)
       load()
     } catch (e) { setErr((e as Error).message) }
   }
@@ -113,15 +108,16 @@ export default function Tournament() {
 
   async function toggleStatus(s: TournamentStage) {
     const next = s.status === 'PENDING' ? 'ACTIVE' : s.status === 'ACTIVE' ? 'DONE' : 'PENDING'
-    try {
-      await api.competition.updateStage(s.stageId, { status: next })
-      load()
-    } catch (e) { setErr((e as Error).message) }
+    await applyStage(s, { status: next })
   }
 
   async function delStage(s: TournamentStage) {
-    if (!window.confirm(`删除阶段「${s.title}」？`)) return
-    try { await api.competition.deleteStage(s.stageId); load() } catch (e) { setErr((e as Error).message) }
+    Modal.confirm({
+      title: '删除阶段',
+      content: `删除阶段「${s.title}」？`,
+      okButtonProps: { danger: true },
+      onOk: async () => { try { await api.competition.deleteStage(s.stageId); load() } catch (e) { setErr((e as Error).message) } },
+    })
   }
 
   async function publish() {
@@ -133,173 +129,262 @@ export default function Tournament() {
     } catch (e) { setErr((e as Error).message) }
   }
 
-  async function delNotice(n: TournamentNotice) {
-    if (!window.confirm(`删除公告「${n.title}」？`)) return
-    try { await api.competition.deleteNotice(n.noticeId); load() } catch (e) { setErr((e as Error).message) }
+  function delNotice(n: TournamentNotice) {
+    Modal.confirm({
+      title: '删除公告',
+      content: `删除公告「${n.title}」？`,
+      okButtonProps: { danger: true },
+      onOk: async () => { try { await api.competition.deleteNotice(n.noticeId); load() } catch (e) { setErr((e as Error).message) } },
+    })
   }
+
+  const stageCols: TableColumnsType<TournamentStage> = [
+    {
+      title: '排序', key: 'move', width: 70,
+      render: (_, __, idx) => (
+        <Space.Compact size="small">
+          <Button size="small" icon={<ArrowUpOutlined />} disabled={idx === 0} onClick={() => move(idx, -1)} />
+          <Button size="small" icon={<ArrowDownOutlined />} disabled={idx === stages.length - 1} onClick={() => move(idx, 1)} />
+        </Space.Compact>
+      ),
+    },
+    { title: '类别', dataIndex: 'kind', width: 90, render: (k: string) => <Tag color={kindColors[k]}> {kindNames[k] ?? k}</Tag> },
+    { title: '阶段', dataIndex: 'title', render: (v: string) => <Text strong>{v}</Text> },
+    { title: '状态', dataIndex: 'status', width: 100, render: (v: string, s) => <Tag color={statusColors[v]} style={{ cursor: 'pointer' }} onClick={() => toggleStatus(s)}>{statusNames[v] ?? v}</Tag> },
+    { title: '时间', key: 'time', width: 230, render: (_, s) => <Text type="secondary" style={{ fontSize: 12 }}>{s.startTime ? fmt(s.startTime) : ''}{s.startTime && s.endTime ? ' → ' : ''}{s.endTime ? fmt(s.endTime) : ''}</Text> },
+    { title: '结果', dataIndex: 'resultNote', width: 110, render: (v?: string) => <Text type={v ? 'success' : 'secondary'} style={{ fontSize: 12 }}>{v || '-'}</Text> },
+    {
+      title: '操作', key: 'ops', width: 120,
+      render: (_, s) => (
+        <Space size={6} wrap>
+          <Button size="small" onClick={() => setEditing(s)}>编辑</Button>
+          <Button size="small" danger onClick={() => delStage(s)}>删除</Button>
+        </Space>
+      ),
+    },
+  ]
+
+  const teamEntries = stats ? Object.entries(stats.by_team ?? {}).sort((a, b) => b[1] - a[1]) : []
+  const teamMax = Math.max(1, ...teamEntries.map(([, n]) => n))
+
+  const tabs = [
+    {
+      key: 'stages',
+      label: '赛程编排',
+      children: (
+        <>
+          <Card title="新增阶段" style={{ marginBottom: 16 }}>
+            <Form layout="vertical" onFinish={addStage}>
+              <Row gutter={12}>
+                <Col xs={24} sm={12} lg={5}><Form.Item label="标题" required><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="标题 *" /></Form.Item></Col>
+                <Col xs={12} sm={6} lg={3}><Form.Item label="类别"><Select value={kind} onChange={setKind} options={Object.entries(kindNames).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
+                <Col xs={12} sm={6} lg={3}><Form.Item label="状态"><Select value={status} onChange={setStatus} options={Object.entries(statusNames).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
+                <Col xs={24} sm={12} lg={4}><Form.Item label="开始时间(可选)"><input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
+                <Col xs={24} sm={12} lg={4}><Form.Item label="结束时间(可选)"><input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
+                <Col xs={24} sm={12} lg={4}><Form.Item label="备注(可选)"><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="备注" /></Form.Item></Col>
+                <Col xs={24} lg={1}><Form.Item label=" ">
+                  <Button type="primary" htmlType="submit" icon={<PlusOutlined />}>添加</Button>
+                </Form.Item></Col>
+              </Row>
+            </Form>
+          </Card>
+          <Card styles={{ body: { padding: 0 } }}>
+            <Table<TournamentStage>
+              rowKey="stageId"
+              columns={stageCols}
+              dataSource={stages}
+              pagination={false}
+              scroll={{ x: 800 }}
+              locale={{ emptyText: '该届暂无阶段，先添加一个。' }}
+            />
+          </Card>
+        </>
+      ),
+    },
+    {
+      key: 'overview',
+      label: '可视化',
+      children: (
+        <>
+          {stages.length === 0 ? (
+            <Card style={{ color: '#8b949e' }}>加载该届赛程后即可查看可视化。</Card>
+          ) : (
+            <>
+              <Card title="报名与队伍统计" style={{ marginBottom: 16 }}>
+                {stats ? (
+                  <>
+                    <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+                      <Col xs={12} sm={6}><Statistic title="已报名" value={stats.by_status.APPROVED ?? 0} valueStyle={{ color: '#3fb950', fontWeight: 700 }} /></Col>
+                      <Col xs={12} sm={6}><Statistic title="待审批" value={stats.by_status.PENDING ?? 0} valueStyle={{ color: '#d29922', fontWeight: 700 }} /></Col>
+                      <Col xs={12} sm={6}><Statistic title="已拒绝" value={stats.by_status.REJECTED ?? 0} valueStyle={{ color: '#ff3b30', fontWeight: 700 }} /></Col>
+                      <Col xs={12} sm={6}><Statistic title="队伍数" value={Object.keys(stats.by_team ?? {}).length} valueStyle={{ color: '#58a6ff', fontWeight: 700 }} /></Col>
+                    </Row>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 10 }}>各队伍人数</Text>
+                    {teamEntries.length === 0 ? (
+                      <Text type="secondary" style={{ fontSize: 12 }}>尚未分配队伍。</Text>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {teamEntries.map(([team, n]) => (
+                          <div key={team} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <span style={{ width: 130, fontSize: 12, color: '#e6edf3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>#{team}</span>
+                            <Progress style={{ flex: 1, margin: 0 }} percent={Math.round((n / teamMax) * 100)} showInfo={false} strokeColor="#58a6ff" />
+                            <b style={{ width: 28, textAlign: 'right', fontSize: 12 }}>{n}</b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Text type="secondary" style={{ fontSize: 12 }}>加载中…</Text>
+                )}
+              </Card>
+
+              <Card title="赛程总览（甘特时间轴）" style={{ marginBottom: 16 }}>
+                {renderGantt(stages)}
+              </Card>
+
+              <Row gutter={[16, 16]}>
+                <Col xs={24} lg={12}>
+                  <Card title="阶段状态">
+                    {['ACTIVE', 'PENDING', 'DONE'].map((s) => {
+                      const n = stages.filter((x) => x.status === s).length
+                      const pct = Math.round((n / (stages.length || 1)) * 100)
+                      return (
+                        <div key={s} style={{ marginBottom: 14 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                            <Text type="secondary">{statusNames[s]}</Text><Text strong>{n}</Text>
+                          </div>
+                          <Progress percent={pct} showInfo={false} size={{ height: 8 }} strokeColor={kindColors[s === 'ACTIVE' ? 'FINAL' : s === 'DONE' ? 'QUALIFIER' : 'GROUP']} />
+                        </div>
+                      )
+                    })}
+                  </Card>
+                </Col>
+                <Col xs={24} lg={12}>
+                  <Card title="阶段类别分布">
+                    {Object.entries(kindNames).map(([k, label]) => {
+                      const n = stages.filter((x) => x.kind === k).length
+                      const pct = Math.round((n / (stages.length || 1)) * 100)
+                      return (
+                        <div key={k} style={{ marginBottom: 14 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                            <Text type="secondary">{label}</Text><Text strong>{n}</Text>
+                          </div>
+                          <Progress percent={pct} showInfo={false} size={{ height: 8 }} strokeColor={kindColors[k] ?? '#58a6ff'} />
+                        </div>
+                      )
+                    })}
+                  </Card>
+                </Col>
+              </Row>
+            </>
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'notices',
+      label: '公告',
+      children: (
+        <>
+          <Card title="发布公告" style={{ marginBottom: 16 }}>
+            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+              <Input placeholder="公告标题 *" value={nTitle} onChange={(e) => setNTitle(e.target.value)} />
+              <TextArea placeholder="公告内容（赛制说明 / 对阵 / 提醒 / 成绩公示…）" value={nContent} onChange={(e) => setNContent(e.target.value)} rows={4} />
+              <Space size={12} align="center">
+                <Checkbox checked={nPinned} onChange={(e) => setNPinned(e.target.checked)}>置顶</Checkbox>
+                <Button type="primary" onClick={publish}>发布</Button>
+              </Space>
+            </Space>
+          </Card>
+          <Card styles={{ body: { padding: 0 } }}>
+            {notices.length === 0 ? (
+              <div style={{ padding: 20, color: '#8b949e' }}>暂无公告。</div>
+            ) : (
+              notices.map((n) => (
+                <div key={n.noticeId} style={{ padding: '12px 16px', borderTop: '1px solid #21262d' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {n.pinned && <Tag color="purple">置顶</Tag>}
+                    <Text strong>{n.title}</Text>
+                    <span style={{ flex: 1 }} />
+                    <Text type="secondary" style={{ fontSize: 11 }}>{fmt(n.createdAt)}</Text>
+                    <Button size="small" danger onClick={() => delNotice(n)}>删除</Button>
+                  </div>
+                  {n.content && <div style={{ marginTop: 6, color: '#c9d1d9', fontSize: 13, whiteSpace: 'pre-wrap' }}>{n.content}</div>}
+                </div>
+              ))
+            )}
+          </Card>
+        </>
+      ),
+    },
+    {
+      key: 'register',
+      label: '报名设置',
+      children: (
+        <Card>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13 }}>
+            选手经腾讯文档收集表填资料 → 本平台绑设备 → 提交申请
+          </Text>
+          <Space direction="vertical" style={{ width: '100%' }} size={10}>
+            <Input placeholder="赛事名称（公开展示）" value={cfgTitle} onChange={(e) => setCfgTitle(e.target.value)} />
+            <Input placeholder="腾讯文档收集表链接 https://..." value={docUrl} onChange={(e) => setDocUrl(e.target.value)} />
+            <Space wrap>
+              <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} />
+              <Tag color={allowRegister ? 'success' : 'default'} style={{ fontSize: 13, padding: '4px 12px', cursor: 'pointer' }} onClick={() => setAllowRegister(!allowRegister)}>
+                {allowRegister ? '报名中' : '已截止'}
+              </Tag>
+            </Space>
+            <div>
+              <Button type="primary" style={{ background: '#3fb950', borderColor: 'transparent' }} onClick={saveConfig}>保存</Button>
+            </div>
+          </Space>
+        </Card>
+      ),
+    },
+  ]
 
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>赛事进程</h1>
-      {err && <div style={{ color: '#ff3b30', marginBottom: 12 }}>{err}</div>}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        <input value={tournamentId} onChange={(e) => setTournamentId(e.target.value)}
-          placeholder="赛事 ID" style={{ ...input, maxWidth: 220 }} />
-        <button style={btn} onClick={load}>加载该届赛程</button>
-        <div style={{ flex: 1 }} />
-        <button style={{ ...btn, border: tab === 'stages' ? '1px solid #58a6ff' : undefined }} onClick={() => setTab('stages')}>赛程编排</button>
-        <button style={{ ...btn, border: tab === 'notices' ? '1px solid #58a6ff' : undefined }} onClick={() => setTab('notices')}>公告</button>
-        <button style={{ ...btn, border: tab === 'register' ? '1px solid #58a6ff' : undefined }} onClick={() => setTab('register')}>报名设置</button>
-        <button style={{ ...btn, border: tab === 'overview' ? '1px solid #58a6ff' : undefined }} onClick={() => setTab('overview')}>可视化</button>
-      </div>
+      <Title level={3} style={{ marginTop: 0 }}>赛事进程</Title>
 
-      {tab === 'stages' && (
-        <>
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: '#8b949e', marginBottom: 8 }}>新增阶段（每届赛制不同，自由编排）</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <input placeholder="标题 *" value={title} onChange={(e) => setTitle(e.target.value)} style={{ ...input, maxWidth: 220 }} />
-              <select value={kind} onChange={(e) => setKind(e.target.value)} style={input}>
-                {Object.entries(kindNames).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-              <select value={status} onChange={(e) => setStatus(e.target.value)} style={input}>
-                {Object.entries(statusNames).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-              <input placeholder="开始时间(可选)" type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={input} />
-              <input placeholder="结束时间(可选)" type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={input} />
-              <input placeholder="备注(可选)" value={note} onChange={(e) => setNote(e.target.value)} style={{ ...input, maxWidth: 160 }} />
-              <button style={btnGreen} onClick={addStage}>添加</button>
-            </div>
-          </div>
+      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
 
-          <div className="card" style={{ padding: 0 }}>
-            {stages.length === 0 && <div style={{ padding: 20, color: '#8b949e' }}>该届暂无阶段，先添加一个。</div>}
-            {stages.map((s, idx) => (
-              <div key={s.stageId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderTop: '1px solid #131920' }}>
-                <span style={moveBtns}>
-                  <button disabled={idx === 0} onClick={() => move(idx, -1)} style={mini}>↑</button>
-                  <button disabled={idx === stages.length - 1} onClick={() => move(idx, 1)} style={mini}>↓</button>
-                </span>
-                <span style={tsPill}>{kindNames[s.kind] ?? s.kind}</span>
-                <b style={{ flex: 1 }}>{s.title}</b>
-                <span onClick={() => toggleStatus(s)} style={{ ...pill(s.status), cursor: 'pointer' }}>{statusNames[s.status]}</span>
-                <span style={{ fontSize: 11, color: '#8b949e', width: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {s.startTime ? fmt(s.startTime) : ''}{s.startTime && s.endTime ? ' → ' : ''}{s.endTime ? fmt(s.endTime) : ''}
-                </span>
-                <span style={{ fontSize: 11, color: s.resultNote ? '#3fb950' : '#484f58' }}>{s.resultNote || '·'}</span>
-                <button style={btn} onClick={() => saveStage(s)}>编辑</button>
-                <button style={btnDanger} onClick={() => delStage(s)}>删除</button>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      <Space style={{ marginBottom: 16 }} wrap>
+        <Input value={tournamentId} onChange={(e) => setTournamentId(e.target.value)} placeholder="赛事 ID" style={{ width: 220 }} />
+        <Button onClick={load}>加载该届赛程</Button>
+      </Space>
 
-      {tab === 'overview' && (
-        <>
-          {stages.length === 0 ? (
-            <div className="card" style={{ color: '#8b949e' }}>加载该届赛程后即可查看可视化。</div>
-          ) : (
-            <>
-              <div className="card" style={{ marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, marginBottom: 12 }}>赛程总览（甘特时间轴）</div>
-                {renderGantt(stages)}
-              </div>
+      <Tabs activeKey={tab} onChange={setTab} items={tabs} />
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flexWrap: 'wrap' }} className="grid">
-                <div className="card">
-                  <div style={{ fontWeight: 700, marginBottom: 12 }}>阶段状态</div>
-                  {['ACTIVE', 'PENDING', 'DONE'].map((s) => {
-                    const n = stages.filter((x) => x.status === s).length
-                    const total = stages.length || 1
-                    return (
-                      <div key={s} style={{ marginBottom: 10 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                          <span>{statusNames[s]}</span><b>{n}</b>
-                        </div>
-                        <div style={{ height: 8, borderRadius: 4, background: '#161b22' }}>
-                          <div style={{ height: 8, borderRadius: 4, width: `${(n / total) * 100}%`, background: statusColor[s] }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                <div className="card">
-                  <div style={{ fontWeight: 700, marginBottom: 12 }}>阶段类别分布</div>
-                  {Object.entries(kindNames).map(([k, label]) => {
-                    const n = stages.filter((x) => x.kind === k).length
-                    const total = stages.length || 1
-                    return (
-                      <div key={k} style={{ marginBottom: 10 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                          <span>{label}</span><b>{n}</b>
-                        </div>
-                        <div style={{ height: 8, borderRadius: 4, background: '#161b22' }}>
-                          <div style={{ height: 8, borderRadius: 4, width: `${(n / total) * 100}%`, background: kindColors[k] }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </>
-          )}
-          {err && <div style={{ color: '#ff3b30', marginTop: 10 }}>{err}</div>}
-        </>
-      )}
-
-      {tab === 'notices' && (
-        <>
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: '#8b949e', marginBottom: 8 }}>发布公告</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <input placeholder="公告标题 *" value={nTitle} onChange={(e) => setNTitle(e.target.value)} style={input} />
-              <textarea placeholder="公告内容（赛制说明 / 对阵 / 提醒 / 成绩公示…）" value={nContent}
-                onChange={(e) => setNContent(e.target.value)} rows={4} style={{ ...input, resize: 'vertical' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <label style={{ fontSize: 13, color: '#8b949e', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input type="checkbox" checked={nPinned} onChange={(e) => setNPinned(e.target.checked)} /> 置顶
-                </label>
-                <button style={btnGreen} onClick={publish}>发布</button>
-              </div>
-            </div>
-          </div>
-
-          <div className="card" style={{ padding: 0 }}>
-            {notices.length === 0 && <div style={{ padding: 20, color: '#8b949e' }}>暂无公告。</div>}
-            {notices.map((n) => (
-              <div key={n.noticeId} style={{ padding: '12px 16px', borderTop: '1px solid #131920' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {n.pinned && <span style={{ ...tsPill, background: '#8e44ad' }}>置顶</span>}
-                  <b>{n.title}</b>
-                  <span style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: '#8b949e' }}>{fmt(n.createdAt)}</span>
-                  <button style={btnDanger} onClick={() => delNotice(n)}>删除</button>
-                </div>
-                {n.content && <div style={{ marginTop: 6, color: '#c9d1d9', fontSize: 13, whiteSpace: 'pre-wrap' }}>{n.content}</div>}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-      {tab === 'register' && (
-        <div className="card">
-          <div style={{ fontSize: 13, color: '#8b949e', marginBottom: 8 }}>报名设置（选手经腾讯文档收集表填资料 → 本平台绑设备 → 提交申请）</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} className="form">
-            <input placeholder="赛事名称（公开展示）" value={cfgTitle} onChange={(e) => setCfgTitle(e.target.value)} style={input} />
-            <input placeholder="腾讯文档收集表链接 https://..." value={docUrl} onChange={(e) => setDocUrl(e.target.value)} style={input} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={input} />
-              {allowRegister
-                ? <span onClick={() => setAllowRegister(false)} style={pill2(true)}>报名中</span>
-                : <span onClick={() => setAllowRegister(true)} style={pill2(false)}>已截止</span>}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button style={btnGreen} onClick={saveConfig}>保存</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        title="编辑阶段"
+        open={!!editing}
+        okText="保存"
+        cancelText="取消"
+        onCancel={() => setEditing(null)}
+        onOk={() => {
+          const s = editing
+          if (!s) return
+          applyStage(s, {
+            title: s.title, kind: s.kind, status: s.status,
+            start_time: s.startTime, end_time: s.endTime, result_note: s.resultNote, note: s.note,
+          })
+          setEditing(null)
+        }}
+      >
+        <Form layout="vertical">
+          <Form.Item label="标题"><Input value={editing?.title} onChange={(e) => editing && setEditing({ ...editing, title: e.target.value })} /></Form.Item>
+          <Row gutter={12}>
+            <Col span={12}><Form.Item label="类别"><Select value={editing?.kind} onChange={(v) => editing && setEditing({ ...editing, kind: v })} options={Object.entries(kindNames).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
+            <Col span={12}><Form.Item label="状态"><Select value={editing?.status} onChange={(v) => editing && setEditing({ ...editing, status: v })} options={Object.entries(statusNames).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
+            <Col span={12}><Form.Item label="开始时间"><input type="datetime-local" value={editing ? toLocalInput(editing.startTime ?? '') : ''} onChange={(e) => editing && setEditing({ ...editing, startTime: toIso(e.target.value, 0) })} style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
+            <Col span={12}><Form.Item label="结束时间"><input type="datetime-local" value={editing ? toLocalInput(editing.endTime ?? '') : ''} onChange={(e) => editing && setEditing({ ...editing, endTime: toIso(e.target.value, 1) })} style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
+            <Col span={24}><Form.Item label="结果/比分"><Input value={editing?.resultNote} onChange={(e) => editing && setEditing({ ...editing, resultNote: e.target.value })} /></Form.Item></Col>
+            <Col span={24}><Form.Item label="备注"><Input value={editing?.note} onChange={(e) => editing && setEditing({ ...editing, note: e.target.value })} /></Form.Item></Col>
+          </Row>
+        </Form>
+      </Modal>
     </div>
   )
 }
@@ -315,7 +400,6 @@ function fmt(s: string): string {
   const d = new Date(s)
   return isNaN(d.getTime()) ? s : d.toLocaleString('zh-CN', { hour12: false })
 }
-
 function toLocalInput(iso: string): string {
   if (!iso) return ''
   const d = new Date(iso)
@@ -324,28 +408,6 @@ function toLocalInput(iso: string): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-function toLocalText(iso: string): string {
-  return toLocalInput(iso).replace('T', ' ')
-}
-
-/** 把 'YYYY-MM-DD HH:mm'（或 ''/'-'）解析为 ISO；空或无解析返回 ''。 */
-function parseLocalTime(v: string): string {
-  const t = (v ?? '').trim()
-  if (!t || t === '-') return ''
-  const d = new Date(t.replace('T', ' '))
-  return isNaN(d.getTime()) ? '' : d.toISOString()
-}
-
-const tsPill: CSSProperties = { fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#21262d', color: '#8b949e' }
-const pill = (s: string): CSSProperties => ({
-  fontSize: 11, padding: '3px 10px', borderRadius: 10,
-  background: s === 'DONE' ? '#3fb950' : s === 'ACTIVE' ? '#d29922' : '#30363d',
-  color: s === 'DONE' ? '#0d1117' : s === 'ACTIVE' ? '#0d1117' : '#8b949e',
-})
-const moveBtns: CSSProperties = { display: 'flex', flexDirection: 'column' }
-const mini: CSSProperties = { fontSize: 10, padding: '0 4px', background: 'none', border: '1px solid #30363d', color: '#8b949e', cursor: 'pointer' }
-
-/** 计算甘特条：有起始时间的走真实时间轴，否则按顺序均分。 */
 type GanttBar = { s: TournamentStage; leftPct: number; widthPct: number }
 function buildGantt(stages: TournamentStage[]): GanttBar[] {
   const n = stages.length
@@ -405,11 +467,3 @@ function renderGantt(stages: TournamentStage[]) {
     </div>
   )
 }
-const input: CSSProperties = { padding: '8px 12px', borderRadius: 6, border: '1px solid #30363d', background: '#0d1117', color: '#e6edf3' }
-const btn: CSSProperties = { padding: '7px 16px', fontSize: 12, borderRadius: 5, border: '1px solid #30363d', background: '#161b22', color: '#e6edf3', cursor: 'pointer' }
-const btnGreen: CSSProperties = { ...btn, border: 'none', background: '#3fb950', color: '#0d1117' }
-const btnDanger: CSSProperties = { ...btn, border: 'none', background: '#ff3b30', color: '#fff' }
-const pill2 = (on: boolean): CSSProperties => ({
-  fontSize: 12, padding: '4px 12px', borderRadius: 12, cursor: 'pointer',
-  background: on ? '#3fb950' : '#30363d', color: on ? '#0d1117' : '#8b949e',
-})

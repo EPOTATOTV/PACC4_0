@@ -3,9 +3,13 @@ package com.potatotv.paccclient.transport;
 import com.potatotv.paccclient.Json;
 import com.potatotv.paccclient.detection.DetectionEvent;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
@@ -32,7 +36,11 @@ public final class WssReporter implements AutoCloseable {
     private final String signatureVersion;
     private final int reconnectDelaySeconds;
     private final boolean autoReconnect;
+    private final String wssSignSecret;
     private final Consumer<String> onMessage;
+
+    private static final SecureRandom RAND = new SecureRandom();
+    private static final long SIGN_WINDOW_SECONDS = 300;
 
     private final HttpClient client = HttpClient.newBuilder().build();
     private final Object lock = new Object();
@@ -49,7 +57,7 @@ public final class WssReporter implements AutoCloseable {
 
     public WssReporter(String pteid, String edition, String wssUri, int heartbeatSeconds,
                        String signatureVersion, int reconnectDelaySeconds, boolean autoReconnect,
-                       Consumer<String> onMessage) {
+                       String wssSignSecret, Consumer<String> onMessage) {
         this.pteid = pteid;
         this.edition = edition;
         this.wssUri = wssUri;
@@ -57,6 +65,7 @@ public final class WssReporter implements AutoCloseable {
         this.signatureVersion = signatureVersion;
         this.reconnectDelaySeconds = Math.max(1, reconnectDelaySeconds);
         this.autoReconnect = autoReconnect;
+        this.wssSignSecret = wssSignSecret == null ? "" : wssSignSecret;
         this.onMessage = onMessage;
     }
 
@@ -107,10 +116,47 @@ public final class WssReporter implements AutoCloseable {
         WebSocket s = socket;
         if (s == null) return; // 通道断开期间静默丢弃，等待自动重连
         try {
-            s.sendText(Json.encode(body), true);
+            s.sendText(Json.encode(sign(body)), true);
         } catch (Exception e) {
             System.err.println("[PTV-Client] 发送失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 为消息附加防重放签名（仅当配置了签名密钥时）。
+     * <p>签名覆盖 {@code pteid + "." + ts + "." + nonce + "." + 规范化载荷}，
+     * 服务器用相同密钥复算校验，可识别篡改与重放。</p>
+     */
+    private Map<String, Object> sign(Map<String, Object> body) {
+        if (wssSignSecret.isBlank()) return body;
+        LinkedHashMap<String, Object> m = new LinkedHashMap<>(body);
+        long ts = System.currentTimeMillis() / 1000;
+        byte[] nonceBytes = new byte[8];
+        RAND.nextBytes(nonceBytes);
+        String nonce = hex(nonceBytes);
+        m.put("ts", ts);
+        m.put("nonce", nonce);
+        // 规范载荷：去掉 sig 后按当前键序编码（服务器反序列化后保持同序复算）
+        String canonical = Json.encode(m);
+        String sig = hmacHex(wssSignSecret, pteid + "." + ts + "." + nonce + "." + canonical);
+        m.put("sig", sig);
+        return m;
+    }
+
+    private static String hmacHex(String secret, String data) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return hex(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("签名失败", e);
+        }
+    }
+
+    private static String hex(byte[] b) {
+        StringBuilder sb = new StringBuilder(b.length * 2);
+        for (byte v : b) sb.append(String.format("%02x", v));
+        return sb.toString();
     }
 
     private Map<String, Object> detectionEventPayload(DetectionEvent e) {

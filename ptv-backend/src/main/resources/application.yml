@@ -4,29 +4,52 @@ server:
 spring:
   application:
     name: pacc-ptv-backend
+  # 生产以 MySQL 为准；驱动由 Spring Boot 依据 URL 自动探测（无需显式 driver-class-name）。
+  # 不设置 SPRING_DATASOURCE_URL 且未启用 local profile 时，应用将无法连接数据库而启动失败（fail-closed）。
   datasource:
-    # 演示默认使用 H2；生产 / Docker 通过 SPRING_DATASOURCE_URL 切换 MySQL，
-    # 驱动由 Spring Boot 依据 URL 自动探测（无需显式指定 driver-class-name）。
-    url: jdbc:h2:mem:pacc;MODE=MySQL;DB_CLOSE_DELAY=-1
-    username: sa
-    password: ""
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/pacc?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8}
+    username: ${SPRING_DATASOURCE_USERNAME:pacc}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+  # SMTP：对公上线必须配真实邮件服务，否则密码找回无法发送（见 pacc.mail）。
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.from: ${SMTP_FROM:}
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
     open-in-view: false
-  h2:
-    console:
-      # 生产/默认禁用 H2 控制台（仅 dev profile 开启），减少攻击面
-      enabled: false
-      path: /h2-console
 
 pacc:
   security:
-    # 管理后台 API Key（生产应通过密钥托管注入）
-    admin-api-key: pacc-admin-secret-key
-    jwt-secret: "PACC-v4-runtime-secret-key-change-me-in-production-0123456789"
-    # JWT：RS256 需配置公私钥；此处 JWT 演示使用 HMAC
+    # 对公发布：以下密钥必须经由环境变量注入，禁用内嵌默认值。
+    # 任何一项为空/弱默认时，StartupSecretGuard 会在启动阶段直接抛错（fail-closed）。
+    admin-api-key: ${PACC_SECURITY_ADMIN_API_KEY:}
+    super-admin-key: ${PACC_SECURITY_SUPER_ADMIN_KEY:}
+    jwt-secret: ${PACC_SECURITY_JWT_SECRET:}
+    # 玩家端 WSS 上报签名密钥：非空时对上报消息做 HMAC 校验收紧（防重放/防篡改）。
+    wss-sign-secret: ${PACC_SECURITY_WSS_SIGN_SECRET:}
+    # 管理后台允许的跨域来源（Origin 白名单，逗号分隔）。
+    allowed-origins: "https://admin.potatotv.asia,http://admin.potatotv.asia,http://localhost:5173,https://localhost:5173"
+  mail:
+    # 仅 local 联调可开 stub；生产默认关闭（fail-closed：未配置真实 SMTP 时，找回邮件不实际发送）。
+    stub-enabled: ${PACC_MAIL_STUB_ENABLED:false}
+    # 密码重置邮件中使用的门户基地址（对公发布须为公网可访问的玩家门户地址）。
+    reset-base-url: ${PACC_MAIL_RESET_BASE_URL:https://pacc.potatotv.asia}
+  feishu:
+    # 管理员飞书 OAuth：不启用则后台可只用超级管理员授权密钥登录。
+    # 启用后默认拒绝所有飞书用户，须将其 open_id 或企业邮箱加入下方白名单才会放行。
+    enabled: ${PACC_FEISHU_ENABLED:false}
+    app-id: ${PACC_FEISHU_APP_ID:}
+    app-secret: ${PACC_FEISHU_APP_SECRET:}
+    super-admin-userids: ${PACC_FEISHU_SUPER_ADMIN_USERIDS:}
+    admin-userids: ${PACC_FEISHU_ADMIN_USERIDS:}
   pteid:
     prefix: "PT"
   detection:
@@ -66,14 +89,32 @@ management:
       show-details: never
 
 ---
-# 开发 profile：开启调试日志与 H2 控制台，方便本地排障
+# 本地开发 profile：允许 H2 + 演示默认密钥 + 邮件/飞书 stub，便于无外网联调。
+# 启动示例：mvn spring-boot:run -Dspring-boot.run.profiles=local
 spring:
   config:
     activate:
-      on-profile: dev
+      on-profile: local
+  datasource:
+    url: jdbc:h2:mem:pacc;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
   h2:
     console:
       enabled: true
+      path: /h2-console
+pacc:
+  security:
+    admin-api-key: pacc-admin-secret-key
+    super-admin-key: pacc-super-admin-secret-key
+    jwt-secret: "PACC-v4-runtime-secret-key-change-me-in-production-0123456789"
+    wss-sign-secret: "pacc-dev-wss-sign-key-change-me"
+  mail:
+    stub-enabled: true
+    # 本地联调：兜底前缀，避免构造重置链接时落到公网地址
+    reset-base-url: http://localhost:5173
+  feishu:
+    enabled: false
 logging:
   level:
     com.potatotv.pacc: DEBUG

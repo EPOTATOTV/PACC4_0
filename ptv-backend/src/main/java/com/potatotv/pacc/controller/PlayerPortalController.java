@@ -41,6 +41,15 @@ public class PlayerPortalController {
         return v == null ? "" : v.toString();
     }
 
+    /** 会话探测：供前端判断是否已登录并取回 PTEID（数据由 cookie 会话解析）。 */
+    @GetMapping("/me")
+    public Map<String, Object> me(HttpServletRequest req) {
+        String pteid = pteidOf(req);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("pteid", pteid);
+        return out;
+    }
+
     /** 我的作弊记录（自助查询）。 */
     @GetMapping("/records")
     public List<CheatRecord> myRecords(HttpServletRequest req) {

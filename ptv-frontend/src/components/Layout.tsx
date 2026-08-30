@@ -1,109 +1,92 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Button, Layout, Menu, Typography } from 'antd'
+import { LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
 import { clearAuth } from '../api/client'
 import type { ReactNode } from 'react'
 
-export default function Layout({ children }: { children: ReactNode }) {
+const { Sider, Content } = Layout
+const { Text } = Typography
+
+const navItems = [
+  { key: '/', to: '/', label: '数据大盘', exact: true },
+  { key: '/redscreen', to: '/redscreen', label: '红屏管理' },
+  { key: '/inspect', to: '/inspect', label: '查端控制台' },
+  { key: '/signatures', to: '/signatures', label: '特征库' },
+  { key: '/records', to: '/records', label: '作弊记录' },
+  { key: '/competition', to: '/competition', label: '赛事风控' },
+  { key: '/tournament', to: '/tournament', label: '赛事进程' },
+  { key: '/accounts', to: '/accounts', label: '账号' },
+  { key: '/detection41', to: '/detection41', label: 'v4.1 检测引擎' },
+  { key: '/compliance', to: '/compliance', label: '合规·SLA·客服' },
+  { key: '/login-logs', to: '/login-logs', label: '登录日志' },
+]
+
+export default function AdminLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
-  const navItems = [
-    { to: '/', label: '数据大盘' },
-    { to: '/redscreen', label: '红屏管理' },
-    { to: '/inspect', label: '查端控制台' },
-    { to: '/signatures', label: '特征库' },
-    { to: '/records', label: '作弊记录' },
-    { to: '/competition', label: '赛事风控' },
-    { to: '/tournament', label: '赛事进程' },
-    { to: '/accounts', label: '账号' },
-  ]
+  const location = useLocation()
+  const [collapsed, setCollapsed] = useState(false)
+
+  const selected = navItems.find((i) =>
+    i.exact ? location.pathname === i.to : location.pathname.startsWith(i.to),
+  )?.key
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <aside
-        style={{
-          width: 220,
-          background: '#0d1117',
-          borderRight: '1px solid #30363d',
-          padding: '18px 12px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-        }}
+    <Layout style={{ minHeight: '100vh' }}>
+      <Sider
+        width={220}
+        collapsible
+        collapsed={collapsed}
+        trigger={null}
+        breakpoint="lg"
+        collapsedWidth={0}
+        onBreakpoint={(broken) => setCollapsed(broken)}
+        style={{ background: '#0d1117', borderRight: '1px solid #30363d' }}
       >
-        {/* ============ 品牌 LOGO 占位点 ============
-            说明：按用户要求，Logo/企业外观标识本版本不替换。
-            若要为侧边栏挂载正式 LOGO，请在此处插入
-            <img src="/logo.png" width={120} /> 并将资产放入
-            ptv-frontend/public/logo.png。当前保留文字标题。 */}
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#ff3b30', padding: '6px 10px 16px' }}>
-          PACC 管控后台
-          <div style={{ fontSize: 11, fontWeight: 400, color: '#8b949e', marginTop: 2 }}>
-            Potatotv Anti-Cheat (PTV)
+        {!collapsed && (
+          <div style={{ padding: '20px 20px 12px' }}>
+            {/* ============ 品牌 LOGO 占位点 ============
+                说明：按用户要求，Logo/企业外观标识本版本不替换。
+                若要挂载正式 LOGO，请在此插入
+                <img src="/logo.png" width={120} /> 并将资产放入
+                ptv-frontend/public/logo.png。当前保留文字标题。 */}
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#ff3b30' }}>PACC 管控后台</div>
+            <Text type="secondary" style={{ fontSize: 11 }}>Potatotv Anti-Cheat (PTV)</Text>
           </div>
-        </div>
-        <NavLink
-          key="/detection41"
-          to="/detection41"
-          end={false}
-          style={({ isActive }) => ({
-            display: 'block',
-            padding: '10px 12px',
-            borderRadius: 6,
-            color: isActive ? '#0d1117' : '#e6edf3',
-            background: isActive ? '#ff6b5e' : 'transparent',
-            fontWeight: isActive ? 600 : 400,
-          })}
-        >
-          v4.1 检测引擎
-        </NavLink>
-        <NavLink
-          key="/compliance"
-          to="/compliance"
-          end={false}
-          style={({ isActive }) => ({
-            display: 'block',
-            padding: '10px 12px',
-            borderRadius: 6,
-            color: isActive ? '#0d1117' : '#e6edf3',
-            background: isActive ? '#ff6b5e' : 'transparent',
-            fontWeight: isActive ? 600 : 400,
-          })}
-        >
-          合规·SLA·客服
-        </NavLink>
-        {navItems.map((it) => (
-          <NavLink
-            key={it.to}
-            to={it.to}
-            end={it.to === '/'}
-            style={({ isActive }) => ({
-              display: 'block',
-              padding: '10px 12px',
-              borderRadius: 6,
-              color: isActive ? '#0d1117' : '#e6edf3',
-              background: isActive ? '#ff6b5e' : 'transparent',
-              fontWeight: isActive ? 600 : 400,
-            })}
-          >
-            {it.label}
-          </NavLink>
-        ))}
-        <button
-          onClick={() => {
-            clearAuth()
-            navigate('/')
-          }}
-          style={{
-            marginTop: 'auto',
-            padding: '10px 12px',
-            border: '1px solid #30363d',
-            background: '#161b22',
-            color: '#e6edf3',
-            borderRadius: 6,
-            cursor: 'pointer',
-          }}
-        >
-          退出登录
-        </button>
-      </aside>
-      <main style={{ flex: 1, padding: 24, overflow: 'auto' }}>{children}</main>
-    </div>
+        )}
+        {!collapsed && (
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={selected ? [selected] : []}
+            style={{ background: 'transparent', borderInlineEnd: 'none' }}
+            items={navItems.map((i) => ({ key: i.key, label: i.label, onClick: () => navigate(i.to) }))}
+          />
+        )}
+        {!collapsed && (
+          <div style={{ padding: '16px' }}>
+            <Button
+              block
+              icon={<LogoutOutlined />}
+              onClick={() => { clearAuth(); navigate('/') }}
+            >
+              退出登录
+            </Button>
+          </div>
+        )}
+      </Sider>
+      <Content style={{ padding: 24, overflow: 'auto' }}>{children}</Content>
+      <Button
+        type="text"
+        aria-label={collapsed ? '展开导航' : '收起导航'}
+        icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+        onClick={() => setCollapsed((v) => !v)}
+        style={{
+          position: 'fixed', right: 16, bottom: 16, zIndex: 10,
+          color: '#c9d1d9', fontSize: 16, width: 40, height: 40,
+          borderRadius: '50%',
+        }}
+      />
+    </Layout>
   )
 }

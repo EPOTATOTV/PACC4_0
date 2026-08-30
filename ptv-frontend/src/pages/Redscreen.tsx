@@ -1,8 +1,11 @@
-import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
+import { Alert, Card, Segmented, Table, Typography } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
 import type { RedscreenAlert } from '../types'
 import { StatusPill } from '../components/StatusPill'
+
+const { Title } = Typography
 
 export default function Redscreen() {
   const [state, setState] = useState('PENDING_INSPECT')
@@ -24,70 +27,41 @@ export default function Redscreen() {
 
   const states = ['PENDING_INSPECT', 'CONFIRMED', 'FALSE_POSITIVE']
 
+  const columns: TableColumnsType<RedscreenAlert> = [
+    { title: '警告 ID', dataIndex: 'alertId' },
+    { title: '级别', dataIndex: 'level', width: 90 },
+    { title: '作弊类型', dataIndex: 'cheatType' },
+    { title: '玩家', dataIndex: 'pteidMasked' },
+    { title: '版本', dataIndex: 'edition', width: 110 },
+    { title: '风险分', dataIndex: 'riskScore', width: 90 },
+    { title: '广播/送达', dataIndex: 'broadcastOnline', width: 110, render: (_, a) => `${a.broadcastOnline}/${a.broadcastAck}` },
+    { title: '时间', dataIndex: 'occurredAt', width: 180, render: (v?: string) => (v ? new Date(v).toLocaleString('zh-CN', { hour12: false }) : '-') },
+    { title: '状态', dataIndex: 'state', width: 130, render: (v: RedscreenAlert['state']) => <StatusPill value={v} /> },
+  ]
+
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>红屏管理</h1>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {states.map((s) => (
-          <button
-            key={s}
-            onClick={() => setState(s)}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 6,
-              border: '1px solid #30363d',
-              background: state === s ? '#ff3b30' : '#161b22',
-              color: '#e6edf3',
-              cursor: 'pointer',
-            }}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-      {err && <div style={{ color: '#ff3b30', marginBottom: 12 }}>{err}</div>}
-      <div className="card" style={{ overflowX: 'auto', padding: 0 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ color: '#8b949e', textAlign: 'left' }}>
-              <th style={th}>警告 ID</th>
-              <th style={th}>级别</th>
-              <th style={th}>作弊类型</th>
-              <th style={th}>玩家</th>
-              <th style={th}>版本</th>
-              <th style={th}>风险分</th>
-              <th style={th}>广播/送达</th>
-              <th style={th}>时间</th>
-              <th style={th}>状态</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((a) => (
-              <tr key={a.alertId} style={{ borderTop: '1px solid #21262d' }}>
-                <td style={td}>{a.alertId}</td>
-                <td style={td}>{a.level}</td>
-                <td style={td}>{a.cheatType}</td>
-                <td style={td}>{a.pteidMasked}</td>
-                <td style={td}>{a.edition}</td>
-                <td style={td}>{a.riskScore}</td>
-                <td style={td}>{a.broadcastOnline}/{a.broadcastAck}</td>
-                <td style={td}>{a.occurredAt ? new Date(a.occurredAt).toLocaleString() : '-'}</td>
-                <td style={td}><StatusPill value={a.state} /></td>
-              </tr>
-            ))}
-            {list.length === 0 && (
-              <tr>
-                <td colSpan={9} style={{ ...td, color: '#8b949e', textAlign: 'center' }}>
-                  暂无 {state} 记录
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Title level={3} style={{ marginTop: 0 }}>红屏管理</Title>
+
+      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+
+      <Segmented
+        value={state}
+        onChange={(v) => setState(v as string)}
+        options={states}
+        style={{ marginBottom: 16 }}
+      />
+
+      <Card styles={{ body: { padding: 0 } }}>
+        <Table<RedscreenAlert>
+          rowKey="alertId"
+          columns={columns}
+          dataSource={list}
+          pagination={{ pageSize: 15, hideOnSinglePage: true }}
+          scroll={{ x: 760 }}
+          locale={{ emptyText: `暂无 ${state} 记录` }}
+        />
+      </Card>
     </div>
   )
 }
-
-const th: CSSProperties = { padding: '10px 14px', fontWeight: 600 }
-const td: CSSProperties = { padding: '10px 14px' }

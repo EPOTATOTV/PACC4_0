@@ -1,8 +1,11 @@
-import type { CSSProperties } from 'react'
 import { useState } from 'react'
+import { Alert, Button, Card, Input, Space, Table, Typography } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
 import type { Account } from '../types'
 import { StatusPill } from '../components/StatusPill'
+
+const { Title, Text } = Typography
 
 export default function Accounts() {
   const [keyword, setKeyword] = useState('')
@@ -18,66 +21,47 @@ export default function Accounts() {
     }
   }
 
+  const columns: TableColumnsType<Account> = [
+    { title: 'PTEID', dataIndex: 'pteid', render: (v: string) => <span style={{ fontFamily: 'monospace' }}>{v}</span> },
+    { title: '邮箱', dataIndex: 'email' },
+    { title: '状态', dataIndex: 'status', width: 100, render: (v: Account['status']) => <StatusPill value={v} /> },
+    { title: '信誉分', dataIndex: 'reputation', width: 100, render: (v: number) => <span>{v}/100</span> },
+    { title: '红屏次数', dataIndex: 'totalRedscreen', width: 100 },
+    { title: '注册时间', dataIndex: 'registeredAt', width: 180, render: (v?: string) => (v ? new Date(v).toLocaleString('zh-CN', { hour12: false }) : '-') },
+  ]
+
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>反作弊账号</h1>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <input
+      <Title level={3} style={{ marginTop: 0 }}>反作弊账号</Title>
+
+      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+
+      <Space style={{ marginBottom: 16 }} wrap>
+        <Input
           placeholder="按 PTEID 或邮箱检索"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && load()}
-          style={{ ...input, flex: 1, maxWidth: 360 }}
+          onPressEnter={load}
+          style={{ width: 340 }}
+          allowClear
         />
-        <button onClick={load} style={btn}>查询</button>
-        {err && <span style={{ color: '#ff3b30' }}>{err}</span>}
-      </div>
+        <Button type="primary" onClick={load}>查询</Button>
+      </Space>
 
-      <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ color: '#8b949e', textAlign: 'left' }}>
-              <th style={th}>PTEID</th>
-              <th style={th}>邮箱</th>
-              <th style={th}>状态</th>
-              <th style={th}>信誉分</th>
-              <th style={th}>红屏次数</th>
-              <th style={th}>注册时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((a) => (
-              <tr key={a.pteid} style={{ borderTop: '1px solid #21262d' }}>
-                <td style={{ ...td, fontFamily: 'monospace' }}>{a.pteid}</td>
-                <td style={td}>{a.email}</td>
-                <td style={td}><StatusPill value={a.status} /></td>
-                <td style={td}>{a.reputation}/100</td>
-                <td style={td}>{a.totalRedscreen}</td>
-                <td style={td}>{a.registeredAt ? new Date(a.registeredAt).toLocaleString() : '-'}</td>
-              </tr>
-            ))}
-            {list.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ ...td, textAlign: 'center', color: '#8b949e' }}>无匹配账号</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div style={{ marginTop: 8, color: '#8b949e', fontSize: 12 }}>
+      <Card styles={{ body: { padding: 0 } }}>
+        <Table<Account>
+          rowKey="pteid"
+          columns={columns}
+          dataSource={list}
+          pagination={{ pageSize: 15, hideOnSinglePage: true }}
+          scroll={{ x: 640 }}
+          locale={{ emptyText: '无匹配账号' }}
+        />
+      </Card>
+
+      <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
         说明：PTEID 为独立反作弊账号，与游戏账号解耦。账号状态由红屏判定与查端结论驱动。
-      </div>
+      </Text>
     </div>
   )
-}
-
-const th: CSSProperties = { padding: '10px 14px', fontWeight: 600 }
-const td: CSSProperties = { padding: '10px 14px' }
-const btn: CSSProperties = {
-  padding: '8px 14px', borderRadius: 6, border: '1px solid #30363d',
-  background: '#161b22', color: '#e6edf3', cursor: 'pointer',
-}
-const input: CSSProperties = {
-  padding: '9px 12px', borderRadius: 6, border: '1px solid #30363d',
-  background: '#0d1117', color: '#e6edf3',
 }

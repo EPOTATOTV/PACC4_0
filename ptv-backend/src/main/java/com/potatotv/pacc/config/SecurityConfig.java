@@ -1,5 +1,6 @@
 package com.potatotv.pacc.config;
 
+import com.potatotv.pacc.service.AdminTokenService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +27,16 @@ public class SecurityConfig {
     @Value("${pacc.security.jwt-secret}")
     private String jwtSecret;
 
+    /** 管理后台允许的跨域来源（Origin 白名单，逗号分隔）。 */
+    @Value("${pacc.security.allowed-origins}")
+    private String allowedOrigins;
+
+    private final AdminTokenService adminTokenService;
+
+    public SecurityConfig(AdminTokenService adminTokenService) {
+        this.adminTokenService = adminTokenService;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
@@ -41,7 +52,7 @@ public class SecurityConfig {
         // 安全响应头 + 统一访问日志：置于过滤器链最前，覆盖所有请求
         http.addFilterBefore(new SecurityHeadersFilter(), ChannelProcessingFilter.class);
         http.addFilterBefore(new AccessLogFilter(), ChannelProcessingFilter.class);
-        http.addFilterBefore(new AdminKeyFilter(adminApiKey), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(new AdminKeyFilter(adminApiKey, adminTokenService, allowedOrigins), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(new JwtAuthFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

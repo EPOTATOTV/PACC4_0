@@ -40,7 +40,7 @@ public final class PaccClient {
         DetectionEngine engine = new DetectionEngine();
         WssReporter reporter = new WssReporter(pteid, cfg.edition, cfg.buildConnectUri(token, pteid),
                 cfg.heartbeatSeconds, cfg.signatureVersion, cfg.reconnectDelaySeconds, cfg.autoReconnect,
-                RedscreenReceiver::handle);
+                cfg.wssSignSecret, RedscreenReceiver::handle);
 
         try {
             reporter.connect();

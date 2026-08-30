@@ -105,6 +105,12 @@ export interface Enrollment {
   teamColor?: string
 }
 
+export interface EnrollmentStats {
+  total: number
+  by_status: { TOTAL: number; APPROVED: number; PENDING: number; REJECTED: number }
+  by_team: Record<string, number>
+}
+
 export interface CompetitionOverview {
   total_flags: number
   by_kind: Record<string, number>
@@ -272,4 +278,15 @@ export interface Peripheral {
   connected: boolean
   firstSeenAt?: string
   lastSeenAt?: string
+}
+
+/** 管理后台登录审计日志。 */
+export interface AdminLoginLog {
+  id: number
+  identity: string
+  method: 'key' | 'feishu'
+  role?: string | null
+  result: 'success' | 'fail'
+  ip: string
+  created_at: string
 }
