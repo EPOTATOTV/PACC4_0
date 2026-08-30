@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, Button, Card, Form, Input, Segmented, Typography } from 'antd'
 import { AuditOutlined, LockOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons'
-import { api, setAdminKey } from '../api/client'
+import { api } from '../api/client'
 
 const { Title, Text } = Typography
 type Mode = 'key' | 'feishu'
@@ -27,7 +27,7 @@ export default function Login() {
     try {
       const res = await api.login(v.key)
       if (res.ok) {
-        setAdminKey(v.key)
+        // 会话已写入 HttpOnly cookie，交由 /me 探测确认后重载进入后台
         location.reload()
         return
       }
@@ -46,9 +46,7 @@ export default function Login() {
     try {
       const res = await api.feishu.callback(v.code.trim())
       if (res.ok) {
-        const data = (await res.json()) as { access_token: string }
-        // 会话令牌由 AdminKeyFilter 识别（X-Admin-Key 头即携带该 JWT）
-        setAdminKey(data.access_token)
+        // 会话已写入 HttpOnly cookie，重载后由 /me 判定进入后台
         location.reload()
         return
       }

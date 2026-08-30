@@ -4,6 +4,7 @@ import com.potatotv.pacc.controller.AdminAuthController;
 import com.potatotv.pacc.service.AdminTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.lang.NonNull;
@@ -32,6 +33,9 @@ public class AdminKeyFilter extends OncePerRequestFilter {
     private final AdminTokenService adminTokenService;
     private final Set<String> allowedOrigins = new HashSet<>();
 
+    /** 管理端会话 cookie 名（与 AdminAuthController 下发一致）。 */
+    private static final String ADMIN_COOKIE = "pacc_admin";
+
     public AdminKeyFilter(String expectedKey, AdminTokenService adminTokenService, String allowedOriginsCsv) {
         this.expectedSha256 = sha256(expectedKey == null ? "" : expectedKey);
         this.adminTokenService = adminTokenService;
@@ -45,9 +49,11 @@ public class AdminKeyFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String uri = request.getRequestURI();
-        // 放行登录入口（处理器内完成校验），其余 /api/admin/** 需认证
+        // 放行登录入口与登录态探测/登出（处理器内自行校验 cookie），其余 /api/admin/** 需认证
         return !uri.startsWith("/api/admin/")
                 || uri.equals("/api/admin/login")
+                || uri.equals("/api/admin/me")
+                || uri.equals("/api/admin/logout")
                 || uri.startsWith("/api/admin/feishu/");
     }
 
@@ -61,13 +67,15 @@ public class AdminKeyFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 2) 认证：静态 Key 或来源指纹绑定的会话令牌
+        // 2) 认证：静态 Key 或来源指纹绑定的会话令牌（header 或 HttpOnly cookie，任一有效即可）
         String provided = request.getHeader("X-Admin-Key");
         boolean validKey = provided != null && MessageDigest.isEqual(
                 expectedSha256.getBytes(StandardCharsets.UTF_8),
                 sha256(provided).getBytes(StandardCharsets.UTF_8));
-        boolean validSession = !validKey && provided != null
-                && adminTokenService.parseRoleWithFingerprint(provided, fingerprint(request)) != null;
+        // 浏览器管理后台凭 HttpOnly cookie 会话（JS 不可读），桌面工具可走 X-Admin-Key 带同一 JWT
+        String session = provided != null ? provided : cookieValue(request, ADMIN_COOKIE);
+        boolean validSession = session != null
+                && adminTokenService.parseRoleWithFingerprint(session, fingerprint(request)) != null;
         if (!validKey && !validSession) {
             respond(response, HttpServletResponse.SC_UNAUTHORIZED, "{\"error\":\"管理后台认证失败\"}");
             return;
@@ -94,6 +102,15 @@ public class AdminKeyFilter extends OncePerRequestFilter {
             return (comma > 0 ? xff.substring(0, comma) : xff).trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private static String cookieValue(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie c : cookies) {
+            if (name.equals(c.getName())) return c.getValue();
+        }
+        return null;
     }
 
     private static String sha256(String s) {

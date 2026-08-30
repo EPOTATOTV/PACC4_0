@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { storedAdminKey } from './api/client'
+import { Spin } from 'antd'
+import { api } from './api/client'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -21,7 +23,26 @@ export default function App() {
     return <PlayerPortal />
   }
 
-  const authed = storedAdminKey() !== ''
+  const [authed, setAuthed] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    api.adminSession
+      .me()
+      .then(() => alive && setAuthed(true))
+      .catch(() => alive && setAuthed(false))
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  if (authed === null) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Spin />
+      </div>
+    )
+  }
 
   if (!authed) {
     return (

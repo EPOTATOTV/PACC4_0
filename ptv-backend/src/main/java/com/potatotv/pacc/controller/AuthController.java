@@ -47,6 +47,13 @@ public class AuthController {
     @Value("${pacc.mail.reset-base-url:}")
     private String resetBaseUrl;
 
+    @Value("${spring.mail.properties.mail.smtp.from:}")
+    private String mailSmtpFrom;
+
+    /** 回退发件人：SMTP 登录账号（多数服务商强制发件人=认证账号）。 */
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+
     @Autowired
     private JavaMailSender mailSender;
 
@@ -105,6 +112,9 @@ public class AuthController {
         try {
             MimeMessage m = mailSender.createMimeMessage();
             MimeMessageHelper h = new MimeMessageHelper(m, "UTF-8");
+            // 明确设置发件人：多数服务商要求与 SMTP 认证账号一致，否则拒发
+            String from = (mailSmtpFrom != null && !mailSmtpFrom.isBlank()) ? mailSmtpFrom : mailUsername;
+            h.setFrom(from);
             h.setSubject("PACC 密码重置");
             h.setText("您好：\n\n收到密码重置请求。请在 15 分钟内打开以下链接设置新密码：\n\n"
                     + link + "\n\n如非本人操作，请忽略此邮件。来自 PACC 反作弊系统。", false);

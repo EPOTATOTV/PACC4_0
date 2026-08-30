@@ -5,7 +5,9 @@ import com.potatotv.pacc.repository.AdminLoginLogRepository;
 import com.potatotv.pacc.service.AdminTokenService;
 import com.potatotv.pacc.service.FeishuAuthService;
 import com.potatotv.pacc.service.LoginThrottle;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,7 +61,8 @@ public class AdminAuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> body, HttpServletRequest request) {
+    public ResponseEntity<?> login(@RequestBody Map<String, String> body, HttpServletRequest request,
+                                   HttpServletResponse response) {
         String ip = clientIp(request);
         String scope = "admin:" + ip;
         if (!throttle.allowed(scope)) {
@@ -83,8 +86,10 @@ public class AdminAuthController {
         throttle.clear(scope);
         record(ip, fingerprint(key), "key", role, "success");
         log.info("管理后台登录成功 ip={} role={}", ip, role);
+        // 会话令牌仅写入 HttpOnly cookie，响应体不暴露，防 XSS 窃取
         String token = adminTokenService.create("super|" + role, role, fingerprint(ip, request.getHeader("User-Agent")));
-        return ResponseEntity.ok(Map.of("ok", true, "role", role, "access_token", token));
+        setAdminCookie(response, token, SESSION_MAX_AGE);
+        return ResponseEntity.ok(Map.of("ok", true, "role", role));
     }
 
     /** 飞书 OAuth：返回授权地址（供前端跳转）。 */
@@ -99,7 +104,8 @@ public class AdminAuthController {
 
     /** 飞书 OAuth 回调：用授权码换取管理员身份，签发会话令牌。 */
     @PostMapping("/feishu/oauth/callback")
-    public ResponseEntity<?> feishuCallback(@RequestBody Map<String, String> body, HttpServletRequest request) {
+    public ResponseEntity<?> feishuCallback(@RequestBody Map<String, String> body, HttpServletRequest request,
+                                            HttpServletResponse response) {
         String ip = clientIp(request);
         String scope = "feishu:" + ip;
         if (!throttle.allowed(scope)) {
@@ -121,8 +127,57 @@ public class AdminAuthController {
         record(ip, userId, "feishu", role, "success");
         log.info("飞书登录成功 ip={} userId={} role={}", ip, userId, role);
         String token = adminTokenService.create(userId, role, fingerprint(ip, request.getHeader("User-Agent")));
-        return ResponseEntity.ok(Map.of("ok", true, "role", role, "access_token", token,
-                "name", user.get().name()));
+        setAdminCookie(response, token, SESSION_MAX_AGE);
+        return ResponseEntity.ok(Map.of("ok", true, "role", role, "name", user.get().name()));
+    }
+
+    /** 管理端会话探测：cookie 有效时返回角色，供前端判定登录态。 */
+    @GetMapping("/me")
+    public ResponseEntity<?> me(HttpServletRequest request) {
+        String token = cookieValue(request, ADMIN_COOKIE);
+        if (token == null || token.isBlank()) {
+            return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED).body(Map.of("error", "未登录"));
+        }
+        String role = adminTokenService.parseRoleWithFingerprint(token, fingerprint(request));
+        if (role == null) {
+            return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED).body(Map.of("error", "会话失效，请重新登录"));
+        }
+        return ResponseEntity.ok(Map.of("ok", true, "role", role));
+    }
+
+    /** 管理端登出：清除 HttpOnly 会话 cookie。 */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletResponse response) {
+        setAdminCookie(response, "", 0);
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    private static final String ADMIN_COOKIE = "pacc_admin";
+    /** 与 AdminTokenService 的 12h 会话有效期保持一致。 */
+    private static final long SESSION_MAX_AGE = 12 * 60 * 60;
+
+    /** 写入 HttpOnly 管理会话 cookie；Path=/ 使所有管理接口自动携带。 */
+    private static void setAdminCookie(HttpServletResponse response, String value, long maxAgeSeconds) {
+        StringBuilder sb = new StringBuilder(ADMIN_COOKIE).append('=').append(value)
+                .append("; Path=/; HttpOnly; SameSite=Lax");
+        if (maxAgeSeconds > 0) {
+            sb.append("; Max-Age=").append(maxAgeSeconds);
+        }
+        // 生产 HTTPS 部署时附加 Secure；本地明文联调省略（与玩家 cookie 同一判定）
+        if ("https".equalsIgnoreCase(System.getenv("PACC_HTTPS_DEPLOY"))
+                || Boolean.parseBoolean(System.getenv("PACC_HTTPS_DEPLOY"))) {
+            sb.append("; Secure");
+        }
+        response.addHeader("Set-Cookie", sb.toString());
+    }
+
+    private static String cookieValue(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie c : cookies) {
+            if (name.equals(c.getName())) return c.getValue();
+        }
+        return null;
     }
 
     /** 管理登录日志（审计）。 */

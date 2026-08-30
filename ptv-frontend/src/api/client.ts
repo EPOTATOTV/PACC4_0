@@ -28,30 +28,16 @@ import type {
   TrendPoint,
 } from '../types'
 
-const ADMIN_KEY = 'pacc_admin_key'
-const TOKEN_KEY = 'pacc_admin_token'
-
-export function storedAdminKey(): string {
-  return localStorage.getItem(ADMIN_KEY) ?? ''
-}
-
-export function setAdminKey(key: string): void {
-  localStorage.setItem(ADMIN_KEY, key)
-}
-
-export function clearAuth(): void {
-  localStorage.removeItem(ADMIN_KEY)
-  localStorage.removeItem(TOKEN_KEY)
-}
+// 管理后台凭据已迁至 HttpOnly 会话 cookie（pacc_admin）：JS 不再持有/读取密钥或令牌，
+// 由浏览器同源自动附带；登录态统一由后端 /api/admin/me 探测判定。
 
 // 玩家门户凭据已迁至 HttpOnly 会话 cookie：JS 不再持有/读取令牌，仅依赖浏览器自动携带。
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-Admin-Key': storedAdminKey(),
   }
-  const res = await fetch(`/api/admin${path}`, { ...init, headers })
+  const res = await fetch(`/api/admin${path}`, { ...init, headers, credentials: 'same-origin' })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(text || `请求失败 (${res.status})`)
@@ -80,8 +66,22 @@ export const api = {
     return fetch('/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ admin_key: adminApiKey }),
     })
+  },
+
+  // 管理后台会话：HttpOnly cookie 承载，/me 探测登录态，/logout 清理 cookie
+  adminSession: {
+    me(): Promise<{ ok: boolean; role: string }> {
+      return fetch('/api/admin/me', { credentials: 'same-origin' }).then((r) => {
+        if (!r.ok) { const e = new Error('未登录') as Error & { status?: number }; e.status = r.status; throw e }
+        return r.json()
+      })
+    },
+    logout(): Promise<{ ok: boolean }> {
+      return fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' }).then((r) => r.json())
+    },
   },
 
   // ---- 玩家账号 / 门户 ----
@@ -122,6 +122,7 @@ export const api = {
       fetch('/api/admin/feishu/oauth/callback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ code }),
       }),
   },

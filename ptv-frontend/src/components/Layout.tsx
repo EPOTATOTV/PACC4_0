@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Layout, Menu, Typography } from 'antd'
 import { LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
-import { clearAuth } from '../api/client'
+import { api } from '../api/client'
 import type { ReactNode } from 'react'
 
 const { Sider, Content } = Layout
@@ -26,6 +26,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
+
+  async function logout() {
+    try {
+      await api.adminSession.logout()
+    } finally {
+      location.reload()
+    }
+  }
 
   const selected = navItems.find((i) =>
     i.exact ? location.pathname === i.to : location.pathname.startsWith(i.to),
@@ -68,7 +76,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <Button
               block
               icon={<LogoutOutlined />}
-              onClick={() => { clearAuth(); navigate('/') }}
+              onClick={() => logout()}
             >
               退出登录
             </Button>
