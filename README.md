@@ -202,6 +202,11 @@ protoc --python_out=ptv-client/.. proto/pacc.proto
 
 ### 安全
 - **安全响应头**：全部 API 响应附加 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、`Strict-Transport-Security`、`Cache-Control: no-store`（见 `config/SecurityHeadersFilter`）。
+- **Fail-Closed 密钥守卫**：生产（非 `local`）启动即校验 `admin-api-key / super-admin-key / jwt-secret / wss-sign-secret` 长度与弱默认值、SMTP 缺失、飞书启用但缺 AppID，任一不满足直接拒绝启动（见 `config/StartupSecretGuard`）。
+- **会话 Cookie 化**：玩家与管理后台令牌统一走 **HttpOnly + SameSite=Lax + `Secure`(生产) Cookie**，`/me` 探测登录态、`/logout` 清 Cookie；前端彻底移除 `localStorage`（见 `AuthController` / `AdminAuthController` / `AdminKeyFilter` / `JwtAuthFilter`）。
+- **管理会话指纹绑定**：管理令牌签发时绑定来源 IP + UA 指纹，每请求核验，防令牌跨设备冒用（见 `AdminAuthController.fingerprint`）。
+- **飞书企业 SSO**：`AdminAuthController` 提供标准 OAuth 一键登录（授权 URL → `state` 防 CSRF → 回调换身份 → 白名单鉴权），支持 `super-admin-userids` / `admin-userids` 白名单按 **open_id / 邮箱 / 手机号** 匹配，未命中即拒绝（见 `FeishuAuthService`）。
+- **真实 SMTP 找回**：密码找回经真实 SMTP 发送，`MAIL_STUB_ENABLED` 仅限本地联调走 stub（见 `AuthController.sendResetMail`）。
 - **JWT 校验加固**：令牌签发与校验均约束 `iss`（`pacc-ptv`）与 `aud`（`pacc-client`），拒绝来路不明的伪造令牌（见 `service/TokenService`、`config/JwtAuthFilter`）。
 - **登录爆破缓解**：管理后台（按来源 IP）与玩家登录（按账号 **+ 客户端 IP** 双维度）固定窗口限流，超阈值返回 `429`（见 `service/LoginThrottle`）；玩家登录失败统一返回 `401`（账号与密码错误一致），锁定/枚举信息不再下发给客户端。
 - **玩家门户强制鉴权**：`/api/player/**` 必须携带有效玩家 JWT，匿名或令牌失效一律 `401` 拒绝（见 `config/JwtAuthFilter`）。
@@ -212,12 +217,21 @@ protoc --python_out=ptv-client/.. proto/pacc.proto
 > **生产部署注意（务必照做）**
 > - 必须用随机强密钥覆盖默认的 `pacc.security.jwt-secret`（固定默认值仅用于本地演示；否则持有该默认值者可伪造任意玩家 JWT，冒充任意账号）。
 > - 同步覆盖 `pacc.security.admin-api-key`，禁用默认管理密钥。
-> - 玩家门户 token 目前存于前端 `localStorage`（存在 XSS 盗窃风险），`remember=true` 时有效期 7 天；生产若涉高价值账号，建议缩短 token 有效期并接入可吊销/刷新机制，同时为前端开启 CSP 与严格 `HttpOnly` Cookie 方案。
+> - 玩家与管理后台令牌均已迁移至 **HttpOnly + SameSite=Lax + Secure Cookie**（`pacc_player` / `pacc_admin`，见 `AuthController` / `AdminAuthController`），前端不再读写 `localStorage`，从源头规避 XSS 窃取令牌。
+> - 生产 `local` 之外都会执行 **Fail-Closed 启动守卫**：`admin-api-key / super-admin-key / jwt-secret / wss-sign-secret` 缺失或过短、SMTP 未配置、开启飞书登录但缺应用配置时直接拒绝启动（见 `config/StartupSecretGuard`）。
+> - 密码找回需真实 SMTP（`SMTP_HOST/USERNAME/PASSWORD/FROM`）；本地联调可 `PACC_MAIL_STUB_ENABLED=true` 走 stub。
 
 ### 日志
 - **统一访问日志**：记录 `method / path / status / duration / client`，不记录查询串与请求头/体（避免泄露 WS 令牌），含控制字符清洗防日志注入，≥400 按 `WARN`、≥500 按 `ERROR`（见 `config/AccessLogFilter`）。
 - **全局异常脱敏**：客户端只返回通用错误信息，不回显堆栈/SQL；完整堆栈仅写入服务端日志（见 `config/GlobalExceptionHandler`）。
 - **日志级别**：默认 `INFO`（生产安全），调试期在 `dev` profile 下切换 `DEBUG`；统一访问日志 `ACCESS` 独立 logger 便于采集。
+
+### 数据库迁移（Flyway）
+- 表结构由 **Flyway 版本化迁移**管理（`flyway-core` + `flyway-mysql`），脚本放 `db/migration/V1__init.sql`（18 张表 DDL，覆盖账号 / 反作弊 / 查端 / 赛事 / 申诉等，含唯一约束与索引）。
+- 生产 `ddl-auto: validate`（fail-closed：Hibernate 仅校验结构与脚本一致，防漂移）+ `flyway.enabled=true` + `baseline-on-migrate=true`。
+- **存量库**：已有历史表时 Flyway 自动 baseline（标记到版本 1），不重建、不丢数据；**全新库**：首次启动完整执行 V1 建全表。
+- 后续改表不要改 `V1`，新增 `V2__xxx.sql`、`V3__xxx.sql` 依版本递增，Flyway 自动增量应用。
+- local profile 用 H2 内存库：关闭 Flyway、`ddl-auto: update`，开发无需管迁移。
 
 ## CI/CD 流水线
 

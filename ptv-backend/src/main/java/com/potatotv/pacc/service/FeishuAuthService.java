@@ -56,23 +56,29 @@ public class FeishuAuthService {
     private String testUserName;
 
     /** 飞书用户画像。role 为 null 表示未授权（登录应拒绝）。 */
-    public record FeishuUser(String userId, String name, String email, String role) {}
+    public record FeishuUser(String userId, String name, String email, String mobile, String role) {}
 
     /** 飞书集成是否启用（未配置企业应用时保持 false）。 */
     public boolean isEnabled() {
         return enabled;
     }
 
-    /** 构造 OAuth 授权地址。生产指向真实飞书授权端点；未启用时为本地回环 stub。 */
-    public String buildAuthorizeUrl(String redirectUri) {
+    /** 构造 OAuth 授权地址并登记 state（防 CSRF）。生产指向真实飞书授权端点；未启用时为本地回环 stub。 */
+    public String buildAuthorizeUrl(String redirectUri, String state) {
+        issuedCode.set(state);
         if (!enabled) {
-            String code = "code_" + System.currentTimeMillis();
-            issuedCode.set(code);
             return "https://pacc-feishu.local/oauth/authorize?app_id=" + appId
-                    + "&redirect_uri=" + redirectUri + "&code=" + code;
+                    + "&redirect_uri=" + redirectUri + "&code=" + state;
         }
         return FEISHU_OPEN_BASE + "/authen/v1/authorize?app_id=" + appId
-                + "&redirect_uri=" + redirectUri;
+                + "&redirect_uri=" + redirectUri + "&state=" + state;
+    }
+
+    /** 校验回调 state 是否为本会话签发，防 OAuth 回调伪造/重放。 */
+    public boolean validateState(String state) {
+        if (state == null || state.isBlank()) return false;
+        String issued = issuedCode.getAndSet(null);
+        return state.equals(issued);
     }
 
     /** 用授权 code 换取用户身份并按白名单判定角色；未授权返回 empty。 */
@@ -84,7 +90,7 @@ public class FeishuAuthService {
             if (testCode.equals(code)) {
                 log.info("飞书登录(stub) 通过测试码 userId={}", testUserId);
                 return Optional.of(new FeishuUser(testUserId, testUserName,
-                        testUserId + "@feishu.local", "super-admin"));
+                        testUserId + "@feishu.local", "13800000000", "super-admin"));
             }
             log.warn("飞书(未启用) 收到未知 code，拒绝");
             return Optional.empty();
@@ -108,38 +114,89 @@ public class FeishuAuthService {
             Map<String, Object> data = (Map<String, Object>) resp.get("data");
             if (data == null) return Optional.empty();
             String userId = str(data.get("open_id"));
+            // access_token 接口通常只保证 open_id / union_id，未消费（user_access_token 不应落日志）
+            String userAccessToken = str(data.get("access_token"));
             String name = str(data.get("name"));
             if (name.isBlank()) name = str(data.get("union_id"));
             String email = str(data.get("email"));
             if (email.isBlank()) email = str(data.get("enterprise_email"));
-            log.info("飞书换取身份成功 open_id={} name={} 耗时{}ms", userId, name,
+            String mobile = "";
+            // 手机号/企业邮箱不随换 token 稳定返回，需用 user_access_token 二次拉通讯录用户详情
+            if (!userAccessToken.isBlank()) {
+                Map<String, Object> detail = fetchUserDetail(userId, userAccessToken);
+                if (detail != null) {
+                    if (email.isBlank()) email = str(detail.get("email"));
+                    if (email.isBlank()) email = str(detail.get("enterprise_email"));
+                    mobile = str(detail.get("mobile"));
+                    mobile = normalizeMobile(mobile);
+                } else {
+                    log.warn("飞书二次拉取用户详情失败（无手机号权限或接口受限），仅靠 open_id 鉴权 userId={}", userId);
+                }
+            }
+            log.info("飞书换取身份成功 open_id={} name={} email={} mobile={} 耗时{}ms", userId, name,
+                    email.isBlank() ? "-" : email, mobile.isBlank() ? "-" : mobile,
                     System.currentTimeMillis() - t0);
 
-            String role = roleOf(userId, email);
+            String role = roleOf(userId, email, mobile);
             if (role == null) {
-                log.warn("飞书用户未在白名单，拒绝登录 userId={} name={}", userId, name);
+                log.warn("飞书用户未在白名单，拒绝登录 userId={} name={} email={} mobile={}", userId, name,
+                        email.isBlank() ? "-" : email, mobile.isBlank() ? "-" : mobile);
                 return Optional.empty();
             }
-            return Optional.of(new FeishuUser(userId, name, email, role));
+            return Optional.of(new FeishuUser(userId, name, email, mobile, role));
         } catch (Exception e) {
             log.warn("飞书 OAuth 调用异常: {}", e.getMessage());
             return Optional.empty();
         }
     }
 
-    /** 依据 open_id / email 匹配配置白名单；两者任一命中即授权。 */
-    private String roleOf(String userId, String email) {
-        if (in(superAdminUserIds, userId, email)) return "super-admin";
-        if (in(adminUserIds, userId, email)) return "operator";
+    /**
+     * 用 user_access_token 拉取通讯录用户详情，返回其在通讯录中的邮箱/手机号。
+     * 需要应用开通通讯录读取权限；无权限时返回 null（鉴权退化为 open_id 匹配）。
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> fetchUserDetail(String openId, String userAccessToken) {
+        try {
+            Map<String, Object> resp = client.get()
+                    .uri("/contact/v3/users/{user_id}?user_id_type=open_id", openId)
+                    .header("Authorization", "Bearer " + userAccessToken)
+                    .retrieve()
+                    .body(Map.class);
+            Object codeObj = resp.get("code");
+            if (codeObj == null || !"0".equals(String.valueOf(codeObj))) {
+                log.warn("飞书拉取用户详情失败 code={} msg={}", codeObj, resp.get("msg"));
+                return null;
+            }
+            return (Map<String, Object>) resp.get("data");
+        } catch (Exception e) {
+            log.warn("飞书拉取用户详情异常: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** 手机号归一化：去空格/连字符，避免格式差异导致白名单不匹配。 */
+    private static String normalizeMobile(String v) {
+        if (v == null || v.isBlank()) return "";
+        return v.replaceAll("[^0-9+]", "");
+    }
+
+    /** 依据 open_id / email / mobile 匹配配置白名单；任一命中即授权。 */
+    private String roleOf(String userId, String email, String mobile) {
+        if (in(superAdminUserIds, userId, email, mobile)) return "super-admin";
+        if (in(adminUserIds, userId, email, mobile)) return "operator";
         return null; // 默认拒绝
     }
 
-    private static boolean in(String csv, String userId, String email) {
+    private static boolean in(String csv, String userId, String email, String mobile) {
         if (csv == null || csv.isBlank()) return false;
         for (String s : csv.split(",")) {
             String v = s.trim();
             if (v.isEmpty()) continue;
-            if (v.equals(userId) || (email != null && v.equals(email))) return true;
+            if (v.equals(userId)
+                    || (email != null && v.equals(email))
+                    || (mobile != null && normalizeMobile(mobile).equals(normalizeMobile(v)))) {
+                return true;
+            }
         }
         return false;
     }

@@ -60,6 +60,16 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
+        <!-- Flyway：版本化数据库迁移（表结构由迁移脚本管理，生产 ddl-auto=validate） -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
         <!-- Prometheus 指标暴露（监控栈） -->
         <dependency>
             <groupId>io.micrometer</groupId>

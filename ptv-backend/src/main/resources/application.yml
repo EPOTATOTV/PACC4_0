@@ -22,9 +22,14 @@ spring:
       mail.smtp.from: ${SMTP_FROM:}
   jpa:
     hibernate:
-      ddl-auto: update
+      # 生产 schema 由 Flyway 迁移脚本管理，Hibernate 仅做结构校验（fail-closed 防漂移）
+      ddl-auto: validate
     show-sql: false
     open-in-view: false
+  # Flyway：版本化数据库迁移。生产默认开启，schema 以 db/migration/*.sql 为准
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
 
 pacc:
   security:
@@ -44,7 +49,7 @@ pacc:
     reset-base-url: ${PACC_MAIL_RESET_BASE_URL:https://pacc.potatotv.asia}
   feishu:
     # 管理员飞书 OAuth：不启用则后台可只用超级管理员授权密钥登录。
-    # 启用后默认拒绝所有飞书用户，须将其 open_id 或企业邮箱加入下方白名单才会放行。
+    # 启用后默认拒绝所有飞书用户，须将其 open_id / 邮箱 / 手机号加入下方白名单才会放行。
     enabled: ${PACC_FEISHU_ENABLED:false}
     app-id: ${PACC_FEISHU_APP_ID:}
     app-secret: ${PACC_FEISHU_APP_SECRET:}
@@ -87,6 +92,10 @@ management:
       probes:
         enabled: true
       show-details: never
+  health:
+    # SMTP 未配置（stub 模式）时不让 mail 探测器把 /health 打成 DOWN；配好真实 SMTP 后如需参与就绪检查可改回 true
+    mail:
+      enabled: false
 
 ---
 # 本地开发 profile：允许 H2 + 演示默认密钥 + 邮件/飞书 stub，便于无外网联调。
@@ -99,6 +108,12 @@ spring:
     url: jdbc:h2:mem:pacc;MODE=MySQL;DB_CLOSE_DELAY=-1
     username: sa
     password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+  # local 用 H2 内存库，简化建表，无需 Flyway 迁移
+  flyway:
+    enabled: false
   h2:
     console:
       enabled: true

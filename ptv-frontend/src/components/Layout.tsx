@@ -31,7 +31,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     try {
       await api.adminSession.logout()
     } finally {
-      location.reload()
+      // 清 cookie 后整页刷新，由 /api/admin/me 重新判定登录态
+      navigate(0)
     }
   }
 

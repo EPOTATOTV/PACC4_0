@@ -66,6 +66,9 @@ jobs:
     needs: build-push
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # 上传 SARIF 到 Code Scanning 需该权限
+    permissions:
+      security-events: write
     strategy:
       fail-fast: false
       matrix:

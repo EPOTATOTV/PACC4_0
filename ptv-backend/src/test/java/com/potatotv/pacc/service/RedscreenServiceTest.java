@@ -97,6 +97,46 @@ class RedscreenServiceTest {
         assertEquals("****", RedscreenService.mask("abc"));
     }
 
+    @Test
+    void inspectEnqueueFailureDegradesToZero() {
+        prepFullFlow();
+        Mockito.doThrow(new RuntimeException("queue down")).when(inspect)
+                .enqueue(anyString(), anyString(), Mockito.anyInt());
+        RedscreenAlert alert = service.decideAndHandle("PT42", "killaura", 90, "bedrock", "查端失败");
+        assertNotNull(alert);
+    }
+
+    @Test
+    void webhookFailureDoesNotBlockRedscreen() {
+        prepFullFlow();
+        Mockito.doThrow(new RuntimeException("webhook down")).when(webhook)
+                .onRedscreen(Mockito.<RedscreenAlert>any(), Mockito.anyInt());
+        RedscreenAlert alert = service.decideAndHandle("PT42", "killaura", 90, "bedrock", "推送失败");
+        assertNotNull(alert);
+    }
+
+    @Test
+    void accountReachingTwoRedscreensBecomesHighRisk() {
+        prepFullFlow();
+        Account account = Account.builder().reputation(40).pteid("PT42").build();
+        // 首次触发后对库内账号模拟第 2 次计数
+        account.setTotalRedscreen(1);
+        when(accountRepo.findById("PT42")).thenReturn(Optional.of(account));
+        RedscreenAlert alert = service.decideAndHandle("PT42", "killaura", 90, "bedrock", "二次触发");
+        assertNotNull(alert);
+        assertEquals("high_risk", account.getStatus());
+        assertEquals(2, account.getTotalRedscreen());
+    }
+
+    @Test
+    void missingAccountSkipsAccountUpdateButStillBroadcasts() {
+        prepFullFlow();
+        when(accountRepo.findById("PT42")).thenReturn(Optional.empty());
+        RedscreenAlert alert = service.decideAndHandle("PT42", "killaura", 90, "bedrock", "无账号");
+        assertNotNull(alert);
+        assertEquals(3L, alert.getBroadcastAck());
+    }
+
     private void prepFullFlow() {
         when(alertRepo.existsByPteidAndCheatTypeAndOccurredAtAfter(anyString(), anyString(), any()))
                 .thenReturn(false);

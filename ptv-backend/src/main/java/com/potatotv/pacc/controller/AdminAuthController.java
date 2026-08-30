@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -92,14 +94,52 @@ public class AdminAuthController {
         return ResponseEntity.ok(Map.of("ok", true, "role", role));
     }
 
-    /** 飞书 OAuth：返回授权地址（供前端跳转）。 */
+    /** 飞书 OAuth：返回授权地址（供前端整页跳转）。 */
     @GetMapping("/feishu/oauth/url")
     public ResponseEntity<?> feishuUrl(HttpServletRequest request) {
         String base = request.getScheme() + "://" + request.getHeader("Host");
         String redirect = base + "/api/admin/feishu/oauth/callback";
+        String state = java.util.UUID.randomUUID().toString();
         return ResponseEntity.ok(Map.of(
-                "url", feishuAuthService.buildAuthorizeUrl(redirect),
+                "url", feishuAuthService.buildAuthorizeUrl(redirect, state),
                 "enabled", feishuAuthService.isEnabled()));
+    }
+
+    /** 飞书 OAuth 浏览器回跳端点：校验 code+state，签发 cookie 后 302 跳回前端。 */
+    @GetMapping("/feishu/oauth/callback")
+    public void feishuCallbackGet(@RequestParam(required = false) String code,
+                                  @RequestParam(required = false) String state,
+                                  HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String ip = clientIp(request);
+        String error;
+        if (!feishuAuthService.validateState(state)) {
+            error = "state_verification_failed";
+            log.warn("飞书回调 state 校验失败 ip={}", ip);
+        } else {
+            var user = feishuAuthService.exchange(code);
+            if (user.isEmpty()) {
+                error = "oauth_failed";
+                log.warn("飞书登录失败 ip={}", ip);
+            } else {
+                String userId = user.get().userId();
+                String role = user.get().role();
+                record(ip, userId, "feishu", role, "success");
+                log.info("飞书登录成功 ip={} userId={} role={}", ip, userId, role);
+                String token = adminTokenService.create(userId, role, fingerprint(ip, request.getHeader("User-Agent")));
+                setAdminCookie(response, token, SESSION_MAX_AGE);
+                response.sendRedirect(loginRedirect(request));
+                return;
+            }
+        }
+        record(ip, "(feishu)", "feishu", null, "fail");
+        response.sendRedirect(loginRedirect(request) + "?feishu_error=" + error);
+    }
+
+    /** 飞书回调后回到前端登录页；若部署同域则回根路径，否则回登录页。 */
+    private static String loginRedirect(HttpServletRequest request) {
+        String base = request.getScheme() + "://" + request.getHeader("Host");
+        String ctx = request.getContextPath() == null ? "" : request.getContextPath();
+        return base + ctx + "/";
     }
 
     /** 飞书 OAuth 回调：用授权码换取管理员身份，签发会话令牌。 */
@@ -138,7 +178,7 @@ public class AdminAuthController {
         if (token == null || token.isBlank()) {
             return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED).body(Map.of("error", "未登录"));
         }
-        String role = adminTokenService.parseRoleWithFingerprint(token, fingerprint(request));
+        String role = adminTokenService.parseRoleWithFingerprint(token, fingerprint(clientIp(request), request.getHeader("User-Agent")));
         if (role == null) {
             return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED).body(Map.of("error", "会话失效，请重新登录"));
         }
@@ -216,7 +256,7 @@ public class AdminAuthController {
     }
 
     /** 来源指纹（IP + UA）：签发会话令牌时绑定，供后续每请求核验，防令牌跨设备冒用。 */
-    static String fingerprint(String ip, String userAgent) {
+    public static String fingerprint(String ip, String userAgent) {
         return sha256((ip == null ? "" : ip) + "|" + (userAgent == null ? "" : userAgent));
     }
 

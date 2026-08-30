@@ -30,6 +30,9 @@ jobs:
     name: 密钥扫描 (gitleaks)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # 按需放开：gitleaks 需将发现的密钥写入 Code Scanning alerts
+    permissions:
+      security-events: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -153,6 +156,9 @@ jobs:
     name: 依赖漏洞扫描 (Trivy)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # 上传 SARIF 到 Code Scanning 需该权限
+    permissions:
+      security-events: write
     steps:
       - uses: actions/checkout@v4
       - name: Trivy 文件系统扫描

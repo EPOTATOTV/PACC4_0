@@ -98,4 +98,35 @@ class RiskScoringServiceTest {
         // debugger 环境维度 0.6 权重 → 100*0.6=60
         assertEquals(60, service.score(event("debugger", "medium", 100), account(100)));
     }
+
+    @Test
+    void nullAccountFallsBackToCleanReputation() {
+        // account 为 null → 信誉按 100 处理，历史加成 0 → 76
+        assertEquals(76, service.score(event("memory_tamper", "medium", 80), null));
+    }
+
+    @Test
+    void negativeAndOver100ClientScoreAreClamped() {
+        // 端侧分 -50 → 钳到 0 → 0*0.95=0 + 信誉加成 1.0*12=12
+        assertEquals(12, service.score(event("memory_tamper", "medium", -50), account(0)));
+        // 端侧分 500 → 钳到 100 → 100*0.95=95
+        assertEquals(95, service.score(event("memory_tamper", "medium", 500), account(100)));
+    }
+
+    @Test
+    void nullEventTypeAndSeverityDoNotThrow() {
+        // null eventType/setverity 不抛 NPE，走 BEHAVIOR 默认维度 + 无 critical 抬升
+        DetectionEvent e = event("unknown_type", null, 100);
+        e.setClientRiskScore(100);
+        // dimensionOf fallback BEHAVIOR → 100*0.8=80
+        assertEquals(80, service.score(e, account(100)));
+    }
+
+    @Test
+    void nullEvidenceStillBuildsLuaContext() {
+        // evidence 为 null 时上下文构建不 NPE，规则评估照常执行
+        DetectionEvent e = event("killaura", "medium", 100);
+        e.setEvidence(null);
+        assertEquals(80, service.score(e, account(100)));
+    }
 }
