@@ -6,6 +6,13 @@ out/
 *.class
 *.jar
 *.war
+# .NET 编译产物
+bin/
+obj/
+# 下载站发布二进制（由脚本构建产出，不入库）
+deploy/dl-web/files/*.zip
+deploy/dl-web/files/*.apk
+deploy/dl-web/files/*.tar.gz
 
 # --- Node ---
 node_modules/

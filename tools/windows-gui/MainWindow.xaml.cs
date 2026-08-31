@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using PaccManager.Services;
@@ -9,11 +10,90 @@ public partial class MainWindow : Window
 {
     private readonly ConfigManager _config = new();
 
+    private readonly UpdateChecker _updater = new();
+
     public MainWindow()
     {
         InitializeComponent();
-        ConfigPathText.Text = _config.FilePath;
-        Loaded += (_, _) => OnLoadConfig(); // 启动即加载现有配置
+        // 窗口渲染后异步检查更新，不阻塞启动
+        ContentRendered += OnContentRendered;
+    }
+
+    private async void OnContentRendered(object? sender, EventArgs e)
+    {
+        var info = await _updater.FetchVersionAsync();
+        if (info is null) return; // 离线或解析失败，静默
+
+        // 1) 客户端自身更新：有新版则引导前往下载页
+        if (!string.IsNullOrEmpty(info.ClientVersion)
+            && UpdateChecker.CompareVersions(info.ClientVersion, UpdateChecker.LocalVersion) > 0)
+        {
+            var downloadUrl = info.ClientUrl?.StartsWith("/") == true
+                ? "https://dl.potatotv.asia" + info.ClientUrl
+                : info.ClientUrl;
+            var result = MessageBox.Show(this,
+                $"发现新版本 {info.ClientVersion}（当前 {UpdateChecker.LocalVersion}）。\n\n" +
+                "是否前往下载页获取新版？", "PACC 更新可用",
+                MessageBoxButton.YesNo, MessageBoxImage.Information);
+            if (result == MessageBoxResult.Yes && !string.IsNullOrEmpty(downloadUrl))
+            {
+                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(downloadUrl) { UseShellExecute = true }); }
+                catch { StatusText.Text = "无法打开下载链接，请手动访问 dl.potatotv.asia"; }
+            }
+        }
+
+        // 2) 探针更新：由本管理器统一下载校验后替换，避免 jar 运行中自我覆盖被锁
+        await UpdateProbeSilentlyAsync(info);
+    }
+
+    private async Task UpdateProbeSilentlyAsync(ReleaseInfo info)
+    {
+        if (string.IsNullOrEmpty(info.ProbeVersion) || string.IsNullOrEmpty(info.ProbeUrl) || string.IsNullOrEmpty(info.ProbeSha256))
+            return;
+
+        string appDir = InstallDir ?? AppContext.BaseDirectory;
+        string binDir = System.IO.Path.Combine(appDir, "bin");
+        string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-4.0.0.jar");
+        string versionFile = System.IO.Path.Combine(binDir, "probe.version");
+
+        // 已有同版本探针则不重复下载
+        try
+        {
+            if (System.IO.File.Exists(versionFile) && System.IO.File.ReadAllText(versionFile).Trim() == info.ProbeVersion)
+                return;
+        }
+        catch { /* 忽略读取失败，继续更新 */ }
+
+        string tempPath = probeFile + ".download";
+        try
+        {
+            var ok = await _updater.DownloadProbeAsync(info, tempPath);
+            if (string.IsNullOrEmpty(ok)) return; // 下载/校验失败，静默保留旧版
+            if (!System.IO.Directory.Exists(binDir)) System.IO.Directory.CreateDirectory(binDir);
+            System.IO.File.Copy(ok, probeFile, true);
+            System.IO.File.WriteAllText(versionFile, info.ProbeVersion);
+            StatusText.Text = $"探针已更新至 {info.ProbeVersion}（重启 PTV 服务后生效）";
+        }
+        catch { /* 更新失败不影响主程序 */ }
+        finally
+        {
+            try { if (System.IO.File.Exists(tempPath)) System.IO.File.Delete(tempPath); } catch { /* 清理失败忽略 */ }
+        }
+    }
+
+    /// <summary>读取安装目录（install.iss 写入 HKCU 注册表），无则回退当前运行目录。</summary>
+    private static string? InstallDir
+    {
+        get
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                    @"Software\PotatoTV\PACC 客户端");
+                return key?.GetValue("InstallPath") as string;
+            }
+            catch { return null; }
+        }
     }
 
     // ---------- 安装页 ----------
@@ -67,72 +147,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ---------- 配置页 ----------
-    private void OnLoadConfig(object sender, RoutedEventArgs e)
-    {
-        CfgEndpoint.Text = _config.Get("pacc.client.endpoint") ?? "wss://pacc.potatotv.asia/ws/ptv";
-        CfgApiBase.Text = _config.Get("pacc.client.api-base") ?? "https://api.potatotv.asia";
-        CfgThreshold.Text = _config.Get("pacc.detection.redscreen-threshold") ?? "85";
-        CfgSampleRate.Text = _config.Get("pacc.detection.sample-rate") ?? "1.0";
-        CfgLogLevel.Text = _config.Get("pacc.log.level") ?? "INFO";
-        CfgPteid.Text = _config.Get("pacc.client.pteid") ?? "";
-        ConfigStatus.Text = "已加载: " + (_config.Load() ? "存在 " : "默认（文件不存在，保存后生成）");
-    }
-
-    private void OnSaveConfig(object sender, RoutedEventArgs e)
-    {
-        if (!Valid("红屏阈值", CfgThreshold.Text)) return;
-        if (!Valid("采样率", CfgSampleRate.Text)) return;
-        if (string.IsNullOrWhiteSpace(CfgLogLevel.Text))
-        {
-            ConfigStatus.Text = "日志级别不能为空";
-            return;
-        }
-        _config.Set("pacc.client.endpoint", CfgEndpoint.Text.Trim());
-        _config.Set("pacc.client.api-base", CfgApiBase.Text.Trim());
-        _config.Set("pacc.detection.redscreen-threshold", CfgThreshold.Text.Trim());
-        _config.Set("pacc.detection.sample-rate", CfgSampleRate.Text.Trim());
-        _config.Set("pacc.log.level", CfgLogLevel.Text.Trim().ToUpperInvariant());
-        _config.Set("pacc.client.pteid", CfgPteid.Text.Trim());
-        try
-        {
-            _config.Save();
-            StatusText.Text = "配置已保存";
-            ConfigStatus.Text = "已保存到: " + _config.FilePath;
-        }
-        catch (Exception ex)
-        {
-            ConfigStatus.Text = "保存失败: " + ex.Message;
-        }
-    }
-
-    private bool Valid(string label, string raw)
-    {
-        var (ok, msg) = ConfigManager.Validate(label.IfNumericKey(), raw);
-        if (!ok) ConfigStatus.Text = msg;
-        return ok;
-    }
-
-    private async void OnTestConfig(object sender, RoutedEventArgs e)
-    {
-        StatusText.Text = "测试中…";
-        var endpoint = CfgEndpoint.Text.Trim();
-        var api = CfgApiBase.Text.Trim();
-        var sb = new StringBuilder();
-        sb.AppendLine($"WSS 入口: {endpoint}");
-        var (ms1, d1) = await Diagnostics.ProbeHttpsAsync(ToHttps(endpoint));
-        sb.AppendLine($"  {{\"ms\":{ms1},\"result\":\"{d1}\"}}");
-        var (ms2, d2) = await Diagnostics.ProbeHttpsAsync(ToHttps(api) + "/api/health");
-        sb.AppendLine($"REST API: {api}/api/health -> {d2} ({ms2} ms)");
-        EndpointProbe.Text = d1;
-        ApiBaseProbe.Text = d2;
-        InstallCheckBox.Text = sb.ToString();
-        StatusText.Text = "测试完成";
-    }
-
-    private static string ToHttps(string s) =>
-        s.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? s : "https://" + s;
-
     // ---------- 诊断页 ----------
     private async void OnDiagNetwork(object sender, RoutedEventArgs e)
     {
@@ -160,19 +174,5 @@ public partial class MainWindow : Window
     {
         Clipboard.SetText(DiagnosticBox.Text);
         StatusText.Text = "报告已复制到剪贴板";
-    }
-}
-
-internal static class NumKey
-{
-    /// <summary>将 UI 中文标签映射为半自动校验键（用于区间校验）。</summary>
-    public static string IfNumericKey(this string label)
-    {
-        return label switch
-        {
-            "红屏阈值" => "redscreen-threshold",
-            "采样率" => "sample-rate",
-            _ => label,
-        };
     }
 }

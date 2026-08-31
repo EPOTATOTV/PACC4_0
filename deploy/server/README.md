@@ -2,7 +2,7 @@
 
 对应代码：
 - 编排入口：[docker-compose.yml](../../docker-compose.yml)
-- 环境模板：[.env.production.example](./.env.production.example)
+- 环境配置：根目录 `.env`（已存在于项目，参考 `.env.example`）
 - 一键脚本：[deploy-server.sh](./deploy-server.sh)
 - 网关证书：[deploy/gateway/certs](../gateway/certs/README.md)
 
@@ -19,8 +19,10 @@
 git clone https://github.com/你的仓库/pacc.git && cd pacc
 # 或 scp：scp -r d:\pacc root@IP:/root/pacc && cd /root/pacc
 
-# 2) 填生产配置
-cp deploy/server/.env.production.example .env
+# 2) 配置根目录 .env（脚本直接读取它）
+#    本机开发用的 .env 已存在且密钥基本就绪；上线前把 4 个占位/开发项改成真实值即可：
+#      - MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD  （现为 change-me，去改成强密码）
+#      - PACC_MAIL_STUB_ENABLED 从 true 改 false，并填 SMTP_HOST/USERNAME/PASSWORD/FROM
 nano .env        # 逐项填真实值，见第四节必填清单
 
 # 3) 一键部署
@@ -28,7 +30,7 @@ chmod +x deploy/server/deploy-server.sh
 ./deploy/server/deploy-server.sh
 ```
 
-脚本会自动：装 Docker → 预检 `.env` → 构建启动全部服务 → 等所有容器 healthy → 检查健康端点 / Flyway 版本 → 做一次鉴权 fail-closed 冒烟（`/api/admin/me` 应 401）。
+脚本会自动：装 Docker → **预检根目录 `.env`**（密钥齐全且非占位符，否则 fail-closed 拒启）→ 构建启动全部服务 → 等所有容器 healthy → 检查健康端点 / Flyway 版本 → 做一次鉴权 fail-closed 冒烟（`/api/admin/me` 应 401）。
 
 ## 三、对外访问（四子域统一走网关 gateway）
 
@@ -62,7 +64,42 @@ chmod +x deploy/server/deploy-server.sh
 
 ⚠️ 密钥见 [RELEASE_CHECKLIST.md 发布前必处理项](../../RELEASE_CHECKLIST.md)。`.env` 含私密信息，切勿提交版本库（已在 `.gitignore`）。
 
-## 五、常用运维命令
+## 五、客户端发行（Windows 安装向导 + 自动更新）
+
+发行物在 `dl.potatotv.asia` 分发，装机后 `PaccManager` 自行管理探针更新。
+
+| 产物 | 路径 | 用途 |
+|---|---|---|
+| 安装向导 | `tools/installer/Output/PACCClientSetup-4.0.0.exe` | 一键安装，含 `PaccManager.exe` + 探针 jar + 配置 |
+| 下载包 | `deploy/dl-web/files/pacc-client-windows-x64-v4.0.0.zip` | 免安装压缩包（`dl` 域直下） |
+| 版本清单 | `deploy/dl-web/files/version.json` | 自动更新对照（client + probe 各自 sha256） |
+| 探针发布件 | `deploy/dl-web/files/ptv-agent-4.0.0.jar` | 供 PaccManager 相对下载替换 |
+
+重新打包（需 .NET 8 Desktop SDK + Maven）：
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\windows-gui\build-client.ps1
+```
+
+重新编译安装向导（需 Inno Setup，装好后）：
+```powershell
+& "C:\Program Files\Inno Setup 7\ISCC.exe" "tools\installer\pacc-client-installer.iss"
+```
+
+### 安装向导手动验证（必须在真实桌面，勿在隔离终端）
+
+`PaccManager.exe` 声明 `requireAdministrator`（写 Program Files 需提权），故**静默/自动安装验证无法在沙箱终端完成**（UAC 授权弹框会挂起）。首次发布前请在有桌面会话的机器上双击运行：
+
+```
+tools\installer\Output\PACCClientSetup-4.0.0.exe
+```
+
+- 点「是」通过 UAC 提权 → 进入 Inno 向导
+- 默认装到 `C:\Program Files\PACC 客户端\`，可选桌面快捷方式
+- 装后目录应含：`PaccManager.exe`、`bin\ptv-agent-4.0.0.jar`、`pacc-client.properties`、`deploy\installer.ps1`
+- 开始菜单出现「PACC 客户端」；「设置 → 应用」可卸载
+- 完成可选「现在启动」，首次启动应拉取 `dl.potatotv.asia/files/version.json` 检查更新（离线则静默）
+
+## 六、常用运维命令
 
 ```bash
 docker compose ps                    # 状态
@@ -75,7 +112,7 @@ docker compose down                  # 停止（数据保留）
 docker exec pacc-mysql sh -c 'mysqldump -upacc -p"$MYSQL_PASSWORD" pacc' > backup.sql
 ```
 
-## 六、常见问题
+## 七、常见问题
 
 - **启动失败**：多为 `.env` 占位符未替换或密钥缺失。看 `docker compose logs ptv-backend`。
 - **生效新 `.env`**：改完必须 `docker compose up -d --build` 重建。

@@ -28,14 +28,18 @@ d:\pacc\
 │   ├── docker/             #   容器构建公共配置（Maven 镜像设置）
 │   ├── gateway/            #   域名网关（admin/api/pacc/dl 四子域名 + TLS）
 │   ├── gateway-go/         #   Go 边缘网关（限流 + 鉴权 + Prometheus 指标）
-│   ├── dl-web/             #   PACC 客户端下载站静态资源
+│   ├── dl-web/             #   PACC 客户端下载站静态资源（version.json + zip + 探针 jar）
 │   ├── ai/                 #   AI 推理服务（FastAPI + NumPy，规则加权 + 统计异常）
 │   ├── pipe-rust/          #   Rust 数据管道（SHA-256 指纹 + HMAC 签名 + 窗口聚合 + AES 加密）
 │   ├── monitoring/         #   监控栈（Prometheus + Grafana + 告警规则）
 │   ├── helm/               #   Kubernetes Helm Chart（后端/前端/MySQL/Ingress）
-│   └── k8s/                #   Kubernetes 编排（可选）
+│   ├── k8s/                #   Kubernetes 编排（可选）
+│   └── server/             #   单机生产部署（一键脚本 + .env 校验 + 冒烟）
 ├── tools/
-│   └── windows-gui/        # Windows 管理工具（C#/.NET 8 WPF：安装 GUI + 配置 + 诊断）
+│   ├── windows-gui/        # Windows 管理工具（C#/.NET 8 WPF：安装/诊断 + 探针统一更新）
+│   │   ├── build-client.ps1    # 一键打包 EXE + jar + 下载站产物
+│   │   └── deploy/installer.ps1 # 安装探针服务脚本
+│   └── installer/          # Inno Setup 安装向导（pacc-client-installer.iss）
 ├── docker-compose.yml      # 一体化部署编排（Docker Compose，推荐）
 ├── .env.example            # 部署环境变量模板（复制为 .env 使用）
 ├── .dockerignore           # 容器构建上下文排除规则
@@ -86,6 +90,16 @@ cd ptv-frontend
 npm install
 npm run dev          # 开发模式，默认 http://localhost:5173
 ```
+
+### 部署方式总览
+
+系统采用 **Docker Compose 一体化编排**（默认），四子域名经 `gateway` 统一入口对外。三套部署教学任选：
+
+| 场景 | 入口 |
+|---|---|
+| 命令行零基础部署 | [部署教程-零基础手把手版.md](部署教程-零基础手把手版.md) |
+| 宝塔面板图形化部署 | [宝塔面板部署教程.md](宝塔面板部署教程.md) |
+| 单机生产一键脚本（装 Docker→校验 .env→启动→冒烟） | `deploy/server/README.md` |
 
 ### 一体化部署（Docker Compose，推荐）
 
@@ -138,6 +152,22 @@ java -jar target/ptv-client-4.0.0.jar       # 配置见 src/main/resources/pacc-
 > 玩家端演示模式会调用 `POST /api/auth/login` 自动换取真实 JWT（替代无效的 `demo-access-token`），
 > 再以该令牌建立 WSS 长连接；断线后按配置间隔自动重连。
 
+### 客户端发行（Windows：安装向导 + PaccManager + 自动更新）
+
+面向大众的 Windows 发行物由两部分组成：**WPF 管理工具 `PaccManager.exe`**（安装/诊断）与 **Java 探针 `ptv-agent-*.jar`**（反作弊采集）。统一入口是安装向导，装完后 `PaccManager` 自己负责探针更新。
+
+- **安装向导**：`tools/installer/Output/PACCClientSetup-4.0.0.exe`（Inno Setup 编译，装到 `Program Files`，含 EXE + jar + 配置；提权安装，需在**真实桌面**会话运行）
+- **一键打包**：`tools/windows-gui/build-client.ps1`（自动构建 EXE + jar + 下载站 zip，并从根 `.env` 读取 WSS 密钥写入客户端配置）
+- **探针统一更新**：`PaccManager` 启动时拉取 `dl` 下载站的 `version.json`，比对探针版本，**SHA-256 校验后**静默替换 `bin\ptv-agent-*.jar`（避免 jar 运行中自我覆盖被锁问题）
+- **配置来源**：安装时生成 `pacc-client.properties`（含 WSS 密钥，取自部署侧 `PACC_SECURITY_WSS_SIGN_SECRET`），与后端保持一致
+
+**对外分发地址**（经 `dl` 子域）：
+| 文件 | 位置 |
+|---|---|
+| 免安装压缩包 | `deploy/dl-web/files/pacc-client-windows-x64-v4.0.0.zip` |
+| 版本清单（client + probe 各自 sha256） | `deploy/dl-web/files/version.json` |
+| 探针独立发布件 | `deploy/dl-web/files/ptv-agent-4.0.0.jar` |
+
 ### 通信协议生成（proto → Java）
 
 统一协议定义于 `proto/pacc.proto`（Protocol Buffers 3）。按需用 `protoc` 生成客户端/服务端绑定：
@@ -173,7 +203,9 @@ protoc --python_out=ptv-client/.. proto/pacc.proto
 | Rust 数据管道 | `deploy/pipe-rust` | Rust | ✅ 完整实现（指纹 / 签名 / 聚合 / 加密） |
 | Lua 动态规则引擎 | `ptv-backend/.../rule/LuaRuleEngine` | Lua + Luaj | ✅ 完整实现（热更新规则） |
 | 监控栈 | `deploy/monitoring` | Prometheus + Grafana | ✅ 完整实现（compose profile） |
-| Windows 管理工具 | `tools/windows-gui` | C# / .NET 8 WPF | ✅ 完整实现（安装/配置/诊断） |
+| Windows 管理工具 | `tools/windows-gui` | C# / .NET 8 WPF | ✅ 完整实现（安装/诊断/探针统一更新，无配置页） |
+| 客户端安装向导 | `tools/installer` | Inno Setup | ✅ 完整实现（提权安装 + 卸载） |
+| 单机生产部署 | `deploy/server` | Bash | ✅ 完整实现（一键脚本 + .env 校验 + 冒烟） |
 | 部署编排 | `docker-compose.yml` + `deploy/` | Docker / Compose / Helm / K8s | ✅ 完整实现 |
 
 ## 技术栈与环境清单覆盖（详见 `Untitled.md`）

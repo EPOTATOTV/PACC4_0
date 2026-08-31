@@ -26,10 +26,35 @@ fi
 docker --version >/dev/null 2>&1 || die "Docker 不可用，请检查"
 docker compose version >/dev/null 2>&1 || die "docker compose 不可用，请安装 docker-compose-plugin"
 
-# ---------- 2. 配置预检：.env ----------
-[ -f .env ] || cp .env.production.example .env
-# 若 .env 仍是模板（含占位符），说明没填完，拒绝继续（fail-closed）
-grep -q '<改成' .env && die "⚠ .env 仍含占位符 <改成...>，请先填真实值再重跑"
+# ---------- 2. 配置加载与预检（读根目录 .env，fail-closed） ----------
+[ -f .env ] || die "找不到 .env。请先配置根目录 .env（参考 .env.example）再运行"
+# 载入 .env 供脚本内部变量使用（docker compose 自身也会自动读取 .env）
+set -a; . ./.env; set +a
+
+# 凡仍含模板占位符 / 演示弱值 / 为空，一律拒启
+die_on_placeholder() { # $1=变量值 $2=变量名
+  case "$1" in
+    ''|*change-me*|*'<改成'*) die "⚠ $2 未配置或仍为占位符，请填入真实值后重跑" ;;
+  esac
+}
+die_on_placeholder "$MYSQL_ROOT_PASSWORD" MYSQL_ROOT_PASSWORD
+die_on_placeholder "$MYSQL_PASSWORD"        MYSQL_PASSWORD
+die_on_placeholder "$PACC_ADMIN_API_KEY"        PACC_ADMIN_API_KEY
+die_on_placeholder "$PACC_SECURITY_SUPER_ADMIN_KEY" PACC_SECURITY_SUPER_ADMIN_KEY
+die_on_placeholder "$PACC_SECURITY_JWT_SECRET"     PACC_SECURITY_JWT_SECRET
+die_on_placeholder "$PACC_SECURITY_WSS_SIGN_SECRET" PACC_SECURITY_WSS_SIGN_SECRET
+
+# JWT≥32B、WSS≥16B 长度校验（短于阈值视为配置错误）
+[ "${#PACC_SECURITY_JWT_SECRET}" -ge 32 ] || die "⚠ PACC_SECURITY_JWT_SECRET 需 ≥32 字节"
+[ "${#PACC_SECURITY_WSS_SIGN_SECRET}" -ge 16 ] || die "⚠ PACC_SECURITY_WSS_SIGN_SECRET 需 ≥16 字节"
+
+# SMTP：生产关掉 stub 时必须有真实 SMTP 配置，否则密码找回不发信
+if [ "$PACC_MAIL_STUB_ENABLED" = "false" ]; then
+  [ -n "$SMTP_HOST" ] && [ -n "$SMTP_USERNAME" ] && [ -n "$SMTP_PASSWORD" ] && [ -n "$SMTP_FROM" ] \
+    || die "⚠ SMTP 为 false 但 SMTP_HOST/USERNAME/PASSWORD/FROM 未配全（密码找回功能需要）"
+fi
+
+ok "配置预检通过（密钥齐全且非占位符）"
 
 # ---------- 3. 动作分支 ----------
 case "${1:-up}" in
