@@ -56,3 +56,11 @@ application-local.yml
 deploy/gateway/certs/*.crt
 deploy/gateway/certs/*.key
 deploy/gateway/certs/*.pem
+
+# --- 内部设计文档与发布/授权配置（本机保留，不入库、不上传）---
+/GITHUB_SETUP.md
+/RELEASE_CHECKLIST.md
+/Untitled.md
+/PACC v4.0 企业级游戏反作弊系统技术设计文档（基岩版 + Java 版双端统一架构）.md
+/PACC v4.1 企业级全平台反作弊系统 AI 设计文档（基岩版 + Java 版双端统一 _ PTEID 账号体系 _ 红屏强制管控架构）.md
+/PACC 纯玩家端反作弊系统 v3.0 技术设计文档（红屏警告 + PTV 管控架构）.md
