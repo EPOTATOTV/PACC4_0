@@ -6,7 +6,7 @@
 
 ```
 deploy/helm/
-├── Chart.yaml            # 元数据（v4.0.0）
+├── Chart.yaml            # 元数据（v4.2.0）
 ├── values.yaml           # 全局参数（镜像、副本、资源、域名、密钥）
 └── templates/
     ├── _helpers.tpl      # 名称/镜像/连接串辅助函数

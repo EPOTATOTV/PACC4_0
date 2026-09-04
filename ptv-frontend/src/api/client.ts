@@ -26,6 +26,9 @@ import type {
   TournamentStage,
   PlayerRegisterInfo,
   TrendPoint,
+  SystemInfo,
+  SystemConfig,
+  SystemAdmins,
 } from '../types'
 
 // 管理后台凭据已迁至 HttpOnly 会话 cookie（pacc_admin）：JS 不再持有/读取密钥或令牌，
@@ -290,5 +293,12 @@ export const api = {
       request<any>(`/support/appeals/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
     transitionTicket: (id: string, body: Record<string, string>) =>
       request<any>(`/support/tickets/${id}/transition`, { method: 'POST', body: JSON.stringify(body) }),
+  },
+
+  // ---- v4.2 系统管理 ----
+  system: {
+    info: () => request<SystemInfo>('/system/info'),
+    config: () => request<SystemConfig>('/system/config'),
+    admins: () => request<SystemAdmins>('/system/admins'),
   },
 }

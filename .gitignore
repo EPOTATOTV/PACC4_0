@@ -64,3 +64,7 @@ deploy/gateway/certs/*.pem
 /PACC v4.0 企业级游戏反作弊系统技术设计文档（基岩版 + Java 版双端统一架构）.md
 /PACC v4.1 企业级全平台反作弊系统 AI 设计文档（基岩版 + Java 版双端统一 _ PTEID 账号体系 _ 红屏强制管控架构）.md
 /PACC 纯玩家端反作弊系统 v3.0 技术设计文档（红屏警告 + PTV 管控架构）.md
+/PACC 客户端与管理端页面升级技术设计文档（v4.1 App化版）.md
+# --- 本地实施规划（本机保留，不入库）---
+/.trae/documents/
+/.trae/work/

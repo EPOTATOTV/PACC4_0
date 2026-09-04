@@ -12,6 +12,8 @@ import PlayerAppeals from './PlayerAppeals'
 import PlayerTickets from './PlayerTickets'
 import PlayerDevices from './PlayerDevices'
 import PlayerTournament from './PlayerTournament'
+import PlayerSettings from './PlayerSettings'
+import PlayerDiagnostics from './PlayerDiagnostics'
 
 /**
  * 玩家自助门户入口：未登录显示登录页，已登录进入带侧边栏的多页布局。
@@ -49,6 +51,8 @@ export default function PlayerPortal() {
         <Route path="/portal/devices" element={<PlayerDevices />} />
         <Route path="/portal/appeals" element={<PlayerAppeals />} />
         <Route path="/portal/tickets" element={<PlayerTickets />} />
+        <Route path="/portal/settings" element={<PlayerSettings />} />
+        <Route path="/portal/diagnostics" element={<PlayerDiagnostics />} />
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Routes>
     </PlayerLayout>

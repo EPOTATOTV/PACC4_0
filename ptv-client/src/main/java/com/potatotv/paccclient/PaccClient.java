@@ -18,7 +18,7 @@ public final class PaccClient {
 
     public static void main(String[] args) {
         ClientConfig cfg = ClientConfig.load();
-        System.out.println("[PTV-Client] PACC v4.0 玩家端启动 pteid=" + cfg.pteid
+        System.out.println("[PTV-Client] PACC v4.2 玩家端启动 pteid=" + cfg.pteid
                 + " edition=" + cfg.edition + " signature=" + cfg.signatureVersion);
 
         // 获取访问令牌：演示模式自动登录 PTV 换取真实 JWT，保证 WSS 握手通过

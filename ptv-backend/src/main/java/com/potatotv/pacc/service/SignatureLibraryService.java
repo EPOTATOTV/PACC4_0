@@ -32,7 +32,7 @@ public class SignatureLibraryService {
                 .pattern(pattern)
                 .riskLevel(riskLevel)
                 .edition(edition)
-                .libraryVersion(libraryVersion == null ? "v4.0.0" : libraryVersion)
+                .libraryVersion(libraryVersion == null ? "v4.2.0" : libraryVersion)
                 .state("DRAFT")
                 .createdBy(operator)
                 .createdAt(Instant.now())

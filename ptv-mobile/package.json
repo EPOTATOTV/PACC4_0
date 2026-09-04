@@ -1,0 +1,28 @@
+{
+  "name": "pacc-mobile",
+  "version": "4.2.0",
+  "private": true,
+  "description": "PACC v4.2 移动端 App（Capacitor + 复用 ptv-frontend 构建产物，远程管理与查看）",
+  "scripts": {
+    "sync": "npx cap sync",
+    "add:android": "npx cap add android",
+    "add:ios": "npx cap add ios",
+    "open:android": "npx cap open android",
+    "open:ios": "npx cap open ios",
+    "web:build": "npm run build --prefix ../ptv-frontend"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7",
+    "@capacitor/app": "^7",
+    "@capacitor/core": "^7",
+    "@capacitor/ios": "^7",
+    "@capacitor/network": "^7",
+    "@capacitor/push-notifications": "^7",
+    "@capacitor/secure-storage-plugin": "^1.2.0",
+    "@capacitor-community/biometrics": "^6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7",
+    "typescript": "^5.4.5"
+  }
+}

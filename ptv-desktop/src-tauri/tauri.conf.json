@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PACCClient",
+  "version": "4.2.0",
+  "identifier": "asia.potatotv.pacc.client",
+  "build": {
+    "beforeDevCommand": "npm run dev --prefix ../ptv-frontend",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run web:build",
+    "frontendDist": "../ptv-frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "PACC 客户端 v4.2",
+        "width": 1080,
+        "height": 720,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true
+      },
+      {
+        "label": "redscreen",
+        "title": "PACC 红屏警告",
+        "visible": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "fullscreen": true,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": ["../ptv-client/lib/ptv-client-*.jar"]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_TAURI_SIGNING_PUBKEY",
+      "endpoints": [
+        "https://dl.potatotv.asia/files/pacc-desktop-{{target}}{{arch}}-{{current_version}}.json"
+      ]
+    }
+  }
+}

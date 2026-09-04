@@ -13,9 +13,9 @@
 
     <groupId>com.potatotv.pacc</groupId>
     <artifactId>ptv-backend</artifactId>
-    <version>4.0.0</version>
+    <version>4.2.0</version>
     <name>PACC PTV 管控后端</name>
-    <description>PACC v4.0 PTV 管控层：账号 / 检测 / AI 评分 / 红屏广播 / 远程查端 / 记录 / 特征库 / 统计</description>
+    <description>PACC v4.2 PTV 管控层：账号 / 检测 / AI 评分 / 红屏广播 / 远程查端 / 记录 / 特征库 / 统计</description>
 
     <properties>
         <java.version>21</java.version>

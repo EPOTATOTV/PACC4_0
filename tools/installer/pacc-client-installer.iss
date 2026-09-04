@@ -1,13 +1,13 @@
 ; ============================================================
-; PACC v4.0 Windows 客户端安装向导（Inno Setup 脚本）
+; PACC v4.2 Windows 客户端安装向导（Inno Setup 脚本）
 ; 依赖：Inno Setup 6（https://jrsoftware.org/isinfo.php）
 ; 用法：ISCC.exe pacc-client-installer.iss
-; 产出：Output\PACCClientSetup-4.0.0.exe
+; 产出：Output\PACCClientSetup-4.2.0.exe
 ; 前置：先运行 tools/windows-gui/build-client.ps1 生成 dist/win-x64 下的文件
 ; ============================================================
 
 #define MyAppName "PACC 客户端"
-#define MyAppVersion "4.0.0"
+#define MyAppVersion "4.2.0"
 #define MyAppPublisher "PotatoTV"
 #define MyAppExeName "PaccManager.exe"
 ; 单文件自包含产物目录（由 build-client.ps1 生成在项目根 dist/win-x64）
@@ -38,7 +38,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 ; 单文件自包含 EXE（含 .NET 运行时，目标机无需预装 .NET）
 Source: "{#DistDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Java 探针（客户端运行时需要）——发布名与 version.json 的 probe 一致
-Source: "{#DistDir}\ptv-agent-4.0.0.jar"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "{#DistDir}\ptv-agent-4.2.0.jar"; DestDir: "{app}\bin"; Flags: ignoreversion
 ; 客户端默认配置
 Source: "{#DistDir}\pacc-client.properties"; DestDir: "{app}"; Flags: ignoreversion
 ; 安装编排脚本（供手动调用，安装驱动时）

@@ -1,5 +1,5 @@
-# ============================================================
-# PACC v4.0 PTV 系统编排（Docker Compose）
+﻿# ============================================================
+# PACC v4.2 PTV 系统编排（Docker Compose）
 #
 # 快速开始：
 #   copy .env.example .env        # 按需修改密钥
@@ -40,7 +40,7 @@ services:
     build:
       context: .
       dockerfile: ptv-backend/Dockerfile
-    image: pacc/ptv-backend:4.0.0
+    image: pacc/ptv-backend:4.2.0
     container_name: pacc-backend
     restart: unless-stopped
     depends_on:
@@ -83,7 +83,7 @@ services:
     build:
       context: .
       dockerfile: ptv-frontend/Dockerfile
-    image: pacc/ptv-frontend:4.0.0
+    image: pacc/ptv-frontend:4.2.0
     container_name: pacc-frontend
     restart: unless-stopped
     depends_on:
@@ -108,7 +108,7 @@ services:
     build:
       context: .
       dockerfile: deploy/gateway/Dockerfile
-    image: pacc/gateway:4.0.0
+    image: pacc/gateway:4.2.0
     container_name: pacc-gateway
     restart: unless-stopped
     depends_on:
@@ -127,7 +127,7 @@ services:
     build:
       context: deploy/gateway-go
       dockerfile: Dockerfile
-    image: pacc/gateway-go:4.0.0
+    image: pacc/gateway-go:4.2.0
     container_name: pacc-gateway-go
     restart: unless-stopped
     depends_on:
@@ -152,7 +152,7 @@ services:
     build:
       context: deploy/ai
       dockerfile: Dockerfile
-    image: pacc/ai:4.0.0
+    image: pacc/ai:4.2.0
     container_name: pacc-ai
     restart: unless-stopped
     environment:

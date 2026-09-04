@@ -1,6 +1,6 @@
-# PACC v4.0 — 企业级游戏反作弊系统（双端统一架构）
+# PACC v4.2 — 企业级游戏反作弊系统（双端统一架构）
 
-> **PACC（Professional Anti-Cheat Client）v4.0**：面向 Minecraft 基岩版与 Java 版双端统一的企业级纯玩家端反作弊系统。
+> **PACC（Professional Anti-Cheat Client）v4.2**：面向 Minecraft 基岩版与 Java 版双端统一的企业级纯玩家端反作弊系统。
 >
 > 采用 **纯玩家端检测 + PTV 管控 + 红屏强制警告 + 管理员远程查端** 架构。系统**不具备封禁玩家能力**，仅通过红屏警告、强制暂停键盘输入、全在线广播、永久记录与管理员远程查端进行威慑与取证。
 
@@ -8,8 +8,8 @@
 
 ```
 d:\pacc\
-├── PACC v4.0 企业级游戏反作弊系统技术设计文档...md   # 技术设计文档
-├── PACC v4.0 开发者使用说明.md                        # 开发者使用说明
+├── PACC v4.2 企业级游戏反作弊系统技术设计文档...md   # 技术设计文档
+├── PACC v4.2 开发者使用说明.md                        # 开发者使用说明
 ├── PACC 纯玩家端反作弊系统 v3.0 技术设计文档...md      # v3.0 技术设计文档（历史基线）
 │
 ├── proto/                  # 玩家端 ↔ PTV 统一通信协议（Protocol Buffers）
@@ -80,7 +80,7 @@ d:\pacc\
 ```bash
 cd ptv-backend
 mvn clean package
-java -jar target/ptv-backend-4.0.0.jar
+java -jar target/ptv-backend-4.2.0.jar
 ```
 
 ### 管理后台前端（React + Vite）
@@ -146,7 +146,7 @@ docker compose down -v                            # 连数据一并清除
 ```bash
 cd ptv-client
 mvn clean package
-java -jar target/ptv-client-4.0.0.jar       # 配置见 src/main/resources/pacc-client.properties
+java -jar target/ptv-client-4.2.0.jar       # 配置见 src/main/resources/pacc-client.properties
 ```
 
 > 玩家端演示模式会调用 `POST /api/auth/login` 自动换取真实 JWT（替代无效的 `demo-access-token`），
@@ -156,7 +156,7 @@ java -jar target/ptv-client-4.0.0.jar       # 配置见 src/main/resources/pacc-
 
 面向大众的 Windows 发行物由两部分组成：**WPF 管理工具 `PaccManager.exe`**（安装/诊断）与 **Java 探针 `ptv-agent-*.jar`**（反作弊采集）。统一入口是安装向导，装完后 `PaccManager` 自己负责探针更新。
 
-- **安装向导**：`tools/installer/Output/PACCClientSetup-4.0.0.exe`（Inno Setup 编译，装到 `Program Files`，含 EXE + jar + 配置；提权安装，需在**真实桌面**会话运行）
+- **安装向导**：`tools/installer/Output/PACCClientSetup-4.2.0.exe`（Inno Setup 编译，装到 `Program Files`，含 EXE + jar + 配置；提权安装，需在**真实桌面**会话运行）
 - **一键打包**：`tools/windows-gui/build-client.ps1`（自动构建 EXE + jar + 下载站 zip，并从根 `.env` 读取 WSS 密钥写入客户端配置）
 - **探针统一更新**：`PaccManager` 启动时拉取 `dl` 下载站的 `version.json`，比对探针版本，**SHA-256 校验后**静默替换 `bin\ptv-agent-*.jar`（避免 jar 运行中自我覆盖被锁问题）
 - **配置来源**：安装时生成 `pacc-client.properties`（含 WSS 密钥，取自部署侧 `PACC_SECURITY_WSS_SIGN_SECRET`），与后端保持一致
@@ -164,9 +164,9 @@ java -jar target/ptv-client-4.0.0.jar       # 配置见 src/main/resources/pacc-
 **对外分发地址**（经 `dl` 子域）：
 | 文件 | 位置 |
 |---|---|
-| 免安装压缩包 | `deploy/dl-web/files/pacc-client-windows-x64-v4.0.0.zip` |
+| 免安装压缩包 | `deploy/dl-web/files/pacc-client-windows-x64-v4.2.0.zip` |
 | 版本清单（client + probe 各自 sha256） | `deploy/dl-web/files/version.json` |
-| 探针独立发布件 | `deploy/dl-web/files/ptv-agent-4.0.0.jar` |
+| 探针独立发布件 | `deploy/dl-web/files/ptv-agent-4.2.0.jar` |
 
 ### 通信协议生成（proto → Java）
 

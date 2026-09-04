@@ -1,9 +1,9 @@
-# PACC v4.0 Helm values
+# PACC v4.2 Helm values
 #   helm install pacc ./deploy/helm -f my-values.yaml
 
 global:
   imageRegistry: ""
-  imageTag: "4.0.0"
+  imageTag: "4.2.0"
 
 secrets:
   # 生产环境请使用自有密钥或引用外部 Secret

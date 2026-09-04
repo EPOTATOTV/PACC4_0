@@ -1,8 +1,8 @@
-﻿# PACC v4.0 Windows 客户端一键打包脚本
+# PACC v4.2 Windows 客户端一键打包脚本
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/build-client.ps1
 # 职责：构建 WPF 单文件 EXE -> 构建 Java 探针 jar -> 写入客户端配置（自动读取根目录 .env 的 WSS 密钥）
-#      -> 组装 zip 到 download 发布目录 deploy/dl-web/files/pacc-client-windows-x64-v4.0.0.zip
+#      -> 组装 zip 到 download 发布目录 deploy/dl-web/files/pacc-client-windows-x64-v4.2.0.zip
 #      -> 生成 version.json（客户端自动更新清单，含 sha256 防篡改）
 # 前置依赖：.NET 8 SDK（dotnet）、JDK 21 + Maven（mvn）
 $ErrorActionPreference = "Stop"
@@ -10,9 +10,9 @@ $ErrorActionPreference = "Stop"
 $root      = (Resolve-Path "$PSScriptRoot/../..").Path        # 项目根目录
 $exeOut    = Join-Path $root "dist/win-x64"                   # WPF 单文件输出目录
 $jarDir    = "$root/ptv-client/target"
-$artifactId = "ptv-client-4.0.0.jar"
-$publish   = "$root/deploy/dl-web/files/pacc-client-windows-x64-v4.0.0.zip"
-$version   = "v4.0.0"
+$artifactId = "ptv-client-4.2.0.jar"
+$publish   = "$root/deploy/dl-web/files/pacc-client-windows-x64-v4.2.0.zip"
+$version   = "v4.2.0"
 
 Write-Host "== PACC Windows 客户端打包 ($version) ==" -ForegroundColor Cyan
 
@@ -39,7 +39,7 @@ if ($mvnCode -ne 0) { throw "mvn package 失败 (exit=$mvnCode)" }
 $jar = Join-Path $jarDir $artifactId
 if (-not (Test-Path $jar)) { throw "未找到 $jar" }
 # 以探针发布名放入 exeOut（zip 内）与 install.iss 的源目录一致
-$probeName = "ptv-agent-4.0.0.jar"
+$probeName = "ptv-agent-4.2.0.jar"
 Copy-Item $jar (Join-Path $exeOut $probeName) -Force
 
 # ---------- 3. 生成客户端配置（自动读 .env 的 WSS 密钥）----------
@@ -51,7 +51,7 @@ $secret = (Select-String -Path $envFile -Pattern '^PACC_SECURITY_WSS_SIGN_SECRET
 if ([string]::IsNullOrWhiteSpace($secret)) { throw ".env 未设置 PACC_SECURITY_WSS_SIGN_SECRET" }
 
 @"
-# PACC v4.0 客户端配置（由 build-client.ps1 自动生成）
+# PACC v4.2 客户端配置（由 build-client.ps1 自动生成）
 pacc.client.endpoint=wss://pacc.potatotv.asia/ws/ptv
 pacc.client.api-base=https://api.potatotv.asia
 pacc.detection.redscreen-threshold=85
@@ -85,7 +85,7 @@ $json = @"
   "probe_version": "$version",
   "probe_url": "/files/$probeName",
   "probe_sha256": "$probeHash",
-  "min_version": "4.0.0"
+  "min_version": "4.2.0"
 }
 "@
 $jsonPath = Join-Path $publishDir "version.json"

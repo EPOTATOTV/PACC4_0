@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: pacc/ptv-backend:4.0.0
+          image: pacc/ptv-backend:4.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -64,7 +64,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: pacc/ptv-frontend:4.0.0
+          image: pacc/ptv-frontend:4.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

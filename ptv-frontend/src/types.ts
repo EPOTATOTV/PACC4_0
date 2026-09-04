@@ -290,3 +290,39 @@ export interface AdminLoginLog {
   ip: string
   created_at: string
 }
+
+// ---- v4.2 系统管理 ----
+export interface SystemInfo {
+  app: string
+  version: string
+  java_version: string
+  active_profiles: string[]
+  uptime_ms: number
+  database: string
+  host_uptime: string
+}
+
+export interface SystemConfig {
+  detection: {
+    redscreen_threshold: number
+    severe_threshold: number
+    suspicious_low: number
+    cooldown_minutes: number
+  }
+  rules: { enabled: boolean; max_bonus: number }
+  ai: { enabled: boolean }
+  feishu: { enabled: boolean }
+}
+
+export interface AdminIdentity {
+  identity: string
+  method: 'key' | 'feishu' | 'none'
+  role: string
+  enabled: boolean
+}
+
+export interface SystemAdmins {
+  accounts: AdminIdentity[]
+  recent_login_events: number
+  note: string
+}

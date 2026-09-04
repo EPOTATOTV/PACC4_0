@@ -6,7 +6,7 @@ option java_package = "com.potatotv.pacc.protocol.v1";
 option java_outer_classname = "PaccProto";
 
 // =========================================================================
-// PACC v4.0 统一通信协议（玩家端 <-> PTV 管控服务器）
+// PACC v4.2 统一通信协议（玩家端 <-> PTV 管控服务器）
 // 协议基于 Protocol Buffers + TLS 1.3 / WSS。系统与游戏服务器无任何通信。
 // =========================================================================
 

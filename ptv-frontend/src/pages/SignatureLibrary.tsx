@@ -32,7 +32,7 @@ export default function SignatureLibrary() {
   async function add() {
     if (!name || !pattern) return setErr('名称与特征码必填')
     try {
-      await api.signatures.add({ name, pattern, risk_level: risk, edition, library_version: 'v4.0.0', operator: 'admin' })
+      await api.signatures.add({ name, pattern, risk_level: risk, edition, library_version: 'v4.2.0', operator: 'admin' })
       setName(''); setPattern('')
       message.success('特征已加入草稿，需灰度发布后生效')
       load()

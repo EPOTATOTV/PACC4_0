@@ -15,6 +15,8 @@ const navItems = [
   { key: '/portal/devices', to: '/portal/devices', label: '我的设备' },
   { key: '/portal/appeals', to: '/portal/appeals', label: '在线申诉' },
   { key: '/portal/tickets', to: '/portal/tickets', label: '客服工单' },
+  { key: '/portal/settings', to: '/portal/settings', label: '客户端设置' },
+  { key: '/portal/diagnostics', to: '/portal/diagnostics', label: '诊断工具' },
 ]
 
 export default function PlayerLayout({ children }: { children: ReactNode }) {

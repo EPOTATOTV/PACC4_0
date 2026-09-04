@@ -101,7 +101,7 @@ public class DataSeeder implements CommandLineRunner {
         for (String[] s : sigs) {
             try {
                 signatureLibraryService.add(s[0], s[1], Integer.parseInt(s[2]),
-                        Signature.Edition.valueOf(s[3]), "v4.0.0", "system-seed");
+                        Signature.Edition.valueOf(s[3]), "v4.2.0", "system-seed");
             } catch (Exception ignored) {
             }
         }

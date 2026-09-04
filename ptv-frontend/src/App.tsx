@@ -15,6 +15,9 @@ import CheatRecords from './pages/CheatRecords'
 import Competition from './pages/Competition'
 import Tournament from './pages/Tournament'
 import AdminLoginLogs from './pages/AdminLoginLogs'
+import System from './pages/System'
+import Admins from './pages/Admins'
+import Audit from './pages/Audit'
 import PlayerPortal from './pages/player/PlayerPortal'
 
 export default function App() {
@@ -66,6 +69,9 @@ export default function App() {
         <Route path="/detection41" element={<Detection41 />} />
         <Route path="/compliance" element={<Compliance />} />
         <Route path="/login-logs" element={<AdminLoginLogs />} />
+        <Route path="/audit" element={<Audit />} />
+        <Route path="/admins" element={<Admins />} />
+        <Route path="/system" element={<System />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

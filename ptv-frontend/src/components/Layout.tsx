@@ -19,7 +19,9 @@ const navItems = [
   { key: '/accounts', to: '/accounts', label: '账号' },
   { key: '/detection41', to: '/detection41', label: 'v4.1 检测引擎' },
   { key: '/compliance', to: '/compliance', label: '合规·SLA·客服' },
-  { key: '/login-logs', to: '/login-logs', label: '登录日志' },
+  { key: '/audit', to: '/audit', label: '审计日志' },
+  { key: '/admins', to: '/admins', label: '管理员管理' },
+  { key: '/system', to: '/system', label: '系统设置' },
 ]
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

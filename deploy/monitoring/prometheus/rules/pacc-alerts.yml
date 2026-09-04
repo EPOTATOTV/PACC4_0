@@ -1,4 +1,4 @@
-# PACC v4.0 告警规则
+# PACC v4.2 告警规则
 groups:
   - name: pacc-services
     rules:

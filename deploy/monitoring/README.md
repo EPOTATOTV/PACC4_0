@@ -1,4 +1,4 @@
-# PACC v4.0 监控栈（Prometheus + Grafana）
+# PACC v4.2 监控栈（Prometheus + Grafana）
 
 监控与可观测性环境（环境清单四-3）实现：
 - **Prometheus**：抓取 PTV 后端 `/actuator/prometheus`、Go 网关 `/metrics`、AI 服务
