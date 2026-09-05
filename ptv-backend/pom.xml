@@ -128,6 +128,13 @@
             <version>3.0.1</version>
         </dependency>
 
+        <!-- Protobuf：WSS 信令信封（PaccWire 生成）拼装/解析；proto 定义见 ../proto/pacc_wire.proto -->
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>3.23.2</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

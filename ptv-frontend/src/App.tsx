@@ -19,11 +19,17 @@ import System from './pages/System'
 import Admins from './pages/Admins'
 import Audit from './pages/Audit'
 import PlayerPortal from './pages/player/PlayerPortal'
+import PlayerScreenShare from './pages/player/PlayerScreenShare'
 
 export default function App() {
   // 玩家自助门户独立于管理端鉴权，路径以 /portal 开头即进入
   if (window.location.pathname.startsWith('/portal')) {
     return <PlayerPortal />
+  }
+
+  // 远程查端屏幕共享页：桌面壳 WebView 以 /screen-share 打开，独立于管理端鉴权
+  if (window.location.pathname.startsWith('/screen-share')) {
+    return <PlayerScreenShare />
   }
 
   const [authed, setAuthed] = useState<boolean | null>(null)

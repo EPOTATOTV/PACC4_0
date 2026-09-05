@@ -4,6 +4,7 @@ import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
 import type { InspectSession } from '../types'
 import { StatusPill } from '../components/StatusPill'
+import { acceptScreenShare, type SignalTransport } from '../webrtc/webrtc'
 
 const { Title, Text } = Typography
 
@@ -26,6 +27,8 @@ export default function Inspect() {
   const [log, setLog] = useState<string[]>([])
   const [forensics, setForensics] = useState<Forensics | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [screenOn, setScreenOn] = useState(false)
 
   async function load() {
     try {
@@ -40,13 +43,20 @@ export default function Inspect() {
 
   useEffect(() => { load() }, [])
 
-  // 打开查端抽屉：建立 /ws/admin 信令通道，实时展示玩家端回传的取证信令
+  // 打开查端抽屉：建立 /ws/admin 信令通道，实时展示玩家端回传的取证信令与 B2 实时屏幕
   useEffect(() => {
     if (!view) return
-    setLog([]); setForensics(null); setWsStatus('连接中')
+    setLog([]); setForensics(null); setScreenOn(false); setWsStatus('连接中')
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
     const ws = new WebSocket(`${proto}://${window.location.host}/ws/admin?session_id=${encodeURIComponent(view.sessionId)}`)
     wsRef.current = ws
+    // B2：管理端作为被叫，接收玩家端 WebView 的屏幕共享；信令复用本 ws 通道
+    const transport: SignalTransport = {
+      send: (p) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)) },
+    }
+    const screen = videoRef.current
+      ? acceptScreenShare(transport, view.sessionId, videoRef.current)
+      : null
     ws.onopen = () => setWsStatus('已连接')
     ws.onclose = () => setWsStatus((s) => (s === '已连接' ? '掉线' : '已断开'))
     ws.onerror = () => setWsStatus('掉线')
@@ -58,11 +68,16 @@ export default function Inspect() {
         setLog((l) => [...l, '玩家已连接，等待取证...'])
       } else if (msg?.type === 'inspect_forensics') {
         setForensics(msg)
+      } else if (msg?.type === 'inspect_offer' || msg?.type === 'inspect_ice') {
+        setScreenOn(true)
+        screen?.onSignal(msg as Record<string, unknown>).catch(console.error)
       }
     }
     return () => {
+      screen?.stop()
       wsRef.current?.close()
       wsRef.current = null
+      setScreenOn(false)
     }
   }, [view?.sessionId])
 
@@ -161,6 +176,27 @@ export default function Inspect() {
           <Badge status={wsColor} text={wsStatus} />
           <Text type="secondary" style={{ marginLeft: 12 }}>PTEID {view?.pteid}</Text>
         </div>
+
+        <Card size="small" title="实时屏幕" style={{ marginBottom: 12 }}>
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            autoPlay
+            style={{
+              width: '100%',
+              aspectRatio: '16 / 9',
+              background: '#010409',
+              borderRadius: 6,
+              display: screenOn ? 'block' : 'none',
+            }}
+          />
+          {!screenOn && (
+            <Text type="secondary" style={{ lineHeight: '128px', display: 'block', textAlign: 'center' }}>
+              等待玩家端开启屏幕共享...
+            </Text>
+          )}
+        </Card>
 
         {forensics ? (
           <Card size="small" title="玩家端取证" style={{ marginBottom: 12 }}>

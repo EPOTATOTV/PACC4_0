@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package pacc;
+
+option java_multiple_files = false;
+option java_package = "com.potatotv.pacc.proto";
+option java_outer_classname = "PaccWire";
+
+// WSS 统一消息信封（protobuf 编码）。
+// 承载查端信令（inspect_*）经二进制帧收发；红屏/检测事件暂以 JSON 文本帧，
+// 二者在服务端 PlayerWebSocketHandler 按帧类型分派。签名基于规范字段做 HMAC。
+message WsEnvelope {
+  // inspect_request / inspect_started / inspect_forensics / inspect_offer /
+  // inspect_answer / inspect_ice / inspect_bye / inspect_closed / ping / pong
+  string type = 1;
+  int64 ts_ms = 2;        // 毫秒时间戳，防重放窗口
+  string nonce = 3;       // 一次性随机数（防重放）
+  string session_id = 4;  // 查端会话 ID（inspect_* 必填）
+  string pteid = 5;       // 玩家身份（首次 or 两端确定后带）
+  string payload_json = 6; // 业务负载：取证 / offer / ice 等 JSON（保持向后兼容）
+  int32 sig_version = 7;  // 签名版本（对 signature 语义）
+  string signature = 8;   // 规范字段 HMAC-SHA256 十六进制
+}
+
+// inspect_forensics 的 payload 结构化负载（可选使用；兼容则可放 payload_json）。
+message Forensics {
+  string os = 1;
+  string java = 2;
+  int32 cpu_threads = 3;
+  repeated ProcessInfo processes = 4;
+}
+
+message ProcessInfo {
+  int64 pid = 1;
+  string name = 2;
+  string cpu = 3;
+}

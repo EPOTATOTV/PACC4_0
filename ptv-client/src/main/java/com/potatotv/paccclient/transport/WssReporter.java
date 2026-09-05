@@ -125,6 +125,20 @@ public final class WssReporter implements AutoCloseable {
         send(payload);
     }
 
+    /**
+     * 以二进制帧发送一条已签名的 protobuf 信封（查端信令经 protobuf 收发）。
+     * 断线时不入离线队列（离线队列暂存 JSON 文本事件；查端信令为实时信令）。
+     */
+    public void sendEnvelope(byte[] envelopeBytes) {
+        WebSocket s = socket;
+        if (s == null || envelopeBytes == null) return;
+        try {
+            s.sendBinary(java.nio.ByteBuffer.wrap(envelopeBytes), true);
+        } catch (Exception e) {
+            System.err.println("[PTV-Client] 发送信封失败: " + e.getMessage());
+        }
+    }
+
     private void send(Map<String, Object> body) {
         String payload = Json.encode(sign(body));
         WebSocket s = socket;

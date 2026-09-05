@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.DetectionEvent;
+import com.potatotv.pacc.proto.PaccWire;
 import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.InspectSignalBus;
 import com.potatotv.pacc.service.OnlineStatusService;
@@ -13,10 +14,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 import java.time.Instant;
 import java.util.Map;
@@ -33,7 +35,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PlayerWebSocketHandler extends TextWebSocketHandler {
+public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
 
     private final ObjectMapper mapper;
     private final OnlineStatusService onlineStatusService;
@@ -42,6 +44,7 @@ public class PlayerWebSocketHandler extends TextWebSocketHandler {
     private final AccountService accountService;
     private final WssMessageGuard messageGuard;
     private final InspectSignalBus inspectSignalBus;
+    private final PaccWireCodec paccWireCodec;
 
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
@@ -81,6 +84,32 @@ public class PlayerWebSocketHandler extends TextWebSocketHandler {
             }
         } catch (Exception e) {
             log.warn("解析玩家消息失败 pteid={} err={}", pteid, e.getMessage());
+        }
+    }
+
+    /**
+     * 二进制帧 = protobuf 查端信令信封：验签后按 {@code inspect_*} 转发给管理端信号总线
+     * （与 JSON 文本帧事件/红屏链路并存）。text 帧仍走 {@link #handleTextMessage}。
+     */
+    @Override
+    protected void handleBinaryMessage(@NonNull WebSocketSession session, @NonNull BinaryMessage message) {
+        String pteid = (String) session.getAttributes().get("pteid");
+        try {
+            PaccWire.WsEnvelope env = paccWireCodec.parse(message.getPayload().array());
+            if (!paccWireCodec.verify(env)) {
+                log.warn("信封校验失败（可能抓包重放/篡改）pteid={} type={} session={}",
+                        pteid, env.getType(), session.getId());
+                return;
+            }
+            String type = env.getType();
+            if (type == null || !type.startsWith("inspect_")) {
+                log.debug("二进制信封忽略 type={} pteid={}", type, pteid);
+                return;
+            }
+            boolean forwarded = inspectSignalBus.forwardPlayerToAdmin(session, env.getPayloadJson());
+            log.info("查端信令(protobuf) {} pteid={} forwarded={} session={}", type, pteid, forwarded, session.getId());
+        } catch (Exception e) {
+            log.warn("解析二进制信封失败 pteid={} err={}", pteid, e.getMessage());
         }
     }
 

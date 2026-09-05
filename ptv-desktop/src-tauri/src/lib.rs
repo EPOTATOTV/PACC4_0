@@ -60,6 +60,8 @@ fn client_jar(app: &AppHandle) -> Option<PathBuf> {
 }
 
 const LOG_DIR: &str = r"C:\ProgramData\PACC\logs";
+/// Java 客户端共享的查端屏幕共享凭据文件（RT 由客户端登录后以受限权限写入）。
+const WS_CRED_FILE: &str = r"C:\ProgramData\PACC\ws-credentials.json";
 
 /// 启动 Java 客户端服务：日志重定向到本机日志目录。
 fn spawn_client(app: &AppHandle) {
@@ -127,6 +129,29 @@ fn diagnostics_json(app: AppHandle) -> String {
     .to_string()
 }
 
+/// 桌面桥：为前端"查端屏幕共享页"注入连接 /ws/ptv 所需的 pteid+token（B2）。
+/// <p>玩家 JWT 存于 HttpOnly cookie，WebView 的 JS 无法读取，故由宿主桥转发：
+/// 优先读 Java 客户端共享的本地凭据文件，其次回退环境变量；未注入时返回 Err，
+/// 前端据此回退到 URL 参数传参。</p>
+#[tauri::command]
+fn screen_share_credentials() -> Result<serde_json::Value, String> {
+    if let Ok(content) = std::fs::read_to_string(WS_CRED_FILE) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+            let p = v.get("pteid").and_then(|x| x.as_str()).unwrap_or("");
+            let t = v.get("token").and_then(|x| x.as_str()).unwrap_or("");
+            if !p.is_empty() && !t.is_empty() {
+                return Ok(serde_json::json!({ "pteid": p, "token": t }));
+            }
+        }
+    }
+    let pteid = std::env::var("PACC_SCREEN_PTEID").unwrap_or_default();
+    let token = std::env::var("PACC_SCREEN_TOKEN").unwrap_or_default();
+    if pteid.is_empty() || token.is_empty() {
+        return Err("未注入查端屏幕共享凭据（PACC_SCREEN_PTEID/PACC_SCREEN_TOKEN 或 ws-credentials.json）".into());
+    }
+    Ok(serde_json::json!({ "pteid": pteid, "token": token }))
+}
+
 /// 桌面壳入口：封装 React GUI（继承自 ptv-frontend）+ Java 客户端进程 + 系统托盘 + 红屏窗口。
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -178,7 +203,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             toggle_redscreen,
             show_main_window,
-            diagnostics_json
+            diagnostics_json,
+            screen_share_credentials
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

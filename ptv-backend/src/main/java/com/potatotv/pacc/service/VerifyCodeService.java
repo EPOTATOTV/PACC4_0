@@ -1,17 +1,19 @@
 package com.potatotv.pacc.service;
 
+import com.potatotv.pacc.cluster.InMemoryOtpLedger;
+import com.potatotv.pacc.cluster.OtpEntry;
+import com.potatotv.pacc.cluster.OtpLedger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 验证码（OTP）服务：进程内带 TTL 存储，用于注册/重置前的邮箱/手机目标校验。
- * <p>进程内实现，适合单实例/演示；生产多实例应换用 Redis 等集中式存储（对齐 {@link LoginThrottle}）。
+ * 验证码（OTP）服务：带 TTL 存储，用于注册/重置前的邮箱/手机目标校验。
+ * <p>存储经 {@link OtpLedger} 抽象，默认进程内；多实例时以 Redis 实现交换（见 cluster 包）。
  * 只存验证码哈希不存明文；错误 5 次锁定；过期自动清退。</p>
  */
 @Component
@@ -22,17 +24,21 @@ public class VerifyCodeService {
 
     private final long ttlMs;
     private final long resendMs;
+    private final OtpLedger ledger;
 
-    /** 验证码条目：只存哈希与过期/锁定元数据。 */
-    private record Entry(long createdMs, int attempts, long failLockedMs, String codeHash) {
+    /** 测试便利构造：进程内实现，ttl=ttlMinutes 分钟、重发间隔=resendSeconds 秒。 */
+    public VerifyCodeService(long ttlMinutes, long resendSeconds) {
+        this(ttlMinutes, resendSeconds, new InMemoryOtpLedger(ttlMinutes * 60_000L));
     }
 
-    private final Map<String, Entry> store = new ConcurrentHashMap<>();
-
+    /** Spring 主构造：注入存储实现，ttl/重发间隔来自配置。 */
+    @Autowired
     public VerifyCodeService(@Value("${pacc.otp.ttl-minutes:10}") long ttlMinutes,
-                             @Value("${pacc.otp.resend-seconds:60}") long resendSeconds) {
+                             @Value("${pacc.otp.resend-seconds:60}") long resendSeconds,
+                             OtpLedger ledger) {
         this.ttlMs = ttlMinutes * 60_000L;
         this.resendMs = resendSeconds * 1000L;
+        this.ledger = ledger;
     }
 
     /**
@@ -42,46 +48,40 @@ public class VerifyCodeService {
      */
     public String issue(String target, String scene) {
         String key = key(scene, target);
-        prune();
         long now = System.currentTimeMillis();
-        Entry prev = store.get(key);
+        OtpEntry prev = ledger.get(key);
         if (prev != null && now - prev.createdMs() < resendMs) {
             return null;
         }
         String code = String.format("%06d", RAND.nextInt(1_000_000));
-        store.put(key, new Entry(now, 0, 0, sha256Hex(code)));
+        ledger.put(key, new OtpEntry(now, 0, 0, sha256Hex(code)), ttlMs);
         return code;
     }
 
     /** 校验并消费验证码（一次性）；错误 5 次锁定到过期。 */
     public boolean verify(String target, String scene, String code) {
-        prune();
         String key = key(scene, target);
-        Entry e = store.get(key);
+        OtpEntry e = ledger.get(key);
         if (e == null || code == null) return false;
         long now = System.currentTimeMillis();
         if (now < e.failLockedMs()) return false;
         if (now - e.createdMs() > ttlMs) {
-            store.remove(key);
+            ledger.remove(key);
             return false;
         }
-        if (constantTimeEquals(e.codeHash, sha256Hex(code))) {
-            store.remove(key);
+        if (constantTimeEquals(e.codeHash(), sha256Hex(code))) {
+            ledger.remove(key);
             return true;
         }
-        int attempts = e.attempts + 1;
-        long locked = attempts >= FAIL_LIMIT ? now + ttlMs : e.failLockedMs;
-        store.put(key, new Entry(e.createdMs, attempts, locked, e.codeHash));
+        int attempts = e.attempts() + 1;
+        long locked = attempts >= FAIL_LIMIT ? now + ttlMs : e.failLockedMs();
+        ledger.put(key, new OtpEntry(e.createdMs(), attempts, locked, e.codeHash()), ttlMs);
         return false;
     }
 
     private static String key(String scene, String target) {
-        return scene + ":" + (target == null ? "" : target.trim().toLowerCase());
-    }
-
-    private void prune() {
-        long now = System.currentTimeMillis();
-        store.entrySet().removeIf(en -> now - en.getValue().createdMs > ttlMs);
+        String s = scene == null ? "" : scene.trim().toLowerCase();
+        return s + ":" + (target == null ? "" : target.trim().toLowerCase());
     }
 
     private static boolean constantTimeEquals(String a, String b) {

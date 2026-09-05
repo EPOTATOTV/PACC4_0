@@ -16,10 +16,14 @@
         <maven.compiler.target>21</maven.compiler.target>
     </properties>
 
-    <!-- 玩家端保持零第三方运行时依赖（仅用 JDK，便于广泛平台部署）：
-         使用 java.net.http.WebSocket + TLS 1.3 与 PTV 服务器通信。
-         生产可从 PTV 拉取签名库并解析 protobuf（此处演示用 JSON）。 -->
+    <!-- 玩家端运行时依赖：仅引入 protobuf（WSS 查端信令信封，见 proto/pacc_wire.proto），
+         不引入任何我世界服务器相关依赖；检测/传输核心仍用 JDK（java.net.http + TLS 1.3）。 -->
     <dependencies>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>3.23.2</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
