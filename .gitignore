@@ -66,14 +66,17 @@ deploy/gateway/certs/*.pem
 /PACC 纯玩家端反作弊系统 v3.0 技术设计文档（红屏警告 + PTV 管控架构）.md
 /PACC 客户端与管理端页面升级技术设计文档（v4.1 App化版）.md
 /PACC v4.0 开发者使用说明.md
+/PACC v4.3 升级思路与技术路线图（基于代码深度分析）.md
 # 所有 PACC 版本级技术/规划文档（含 v4.4→v5.0 路线图等，避免 git add . 误带入库）
 /PACC v[0-9]*.md
+/Russo-One-1.ttf
 # --- 调试 scratch 临时文件（本机定位排障用，不入库）---
 /_err*.txt
 /_probe*.txt
 /_start*.txt
 /_tail*.txt
 /_*.out
+/.env.example
 # --- 本地实施规划（本机保留，不入库）---
 /.trae/documents/
 /.trae/work/
