@@ -8,4 +8,5 @@ import java.util.List;
 public interface SuspicionFlagRepository extends JpaRepository<SuspicionFlag, String> {
     List<SuspicionFlag> findAllByOrderByCreatedAtDesc();
     List<SuspicionFlag> findByPteidOrderByCreatedAtDesc(String pteid);
+    long countByKind(SuspicionFlag.Kind kind);
 }

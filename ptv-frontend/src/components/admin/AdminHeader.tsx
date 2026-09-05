@@ -10,6 +10,8 @@ import {
 } from '@ant-design/icons'
 import { api } from '../../api/client'
 import Brand from '../Brand'
+import LanguageSwitcher from '../LanguageSwitcher'
+import { useI18n } from '../../i18n'
 
 const { Header } = Layout
 
@@ -27,6 +29,7 @@ export default function AdminHeader({
   onSearch: (k: string) => void
 }) {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [todo, setTodo] = useState(0)
 
   useEffect(() => {
@@ -66,7 +69,7 @@ export default function AdminHeader({
     >
       <Button
         type="text"
-        aria-label={collapsed ? '展开导航' : '收起导航'}
+        aria-label={collapsed ? t('common.expandNav') : t('common.collapseNav')}
         icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
         onClick={onToggle}
         style={{ color: '#c9d1d9' }}
@@ -74,29 +77,30 @@ export default function AdminHeader({
       <Brand size="sm" subtitle="PTV 管控后台" />
       <div style={{ flex: 1 }} />
       <Input.Search
-        placeholder="搜索菜单页面"
+        placeholder={t('common.searchMenu')}
         allowClear
         style={{ width: 240 }}
         onChange={(e) => onSearch(e.target.value)}
         onSearch={onSearch}
       />
-      <Tooltip title="待审申诉 / 开启工单">
+      <Tooltip title={t('common.todo')}>
         <Badge count={todo} size="small">
           <Button
             type="text"
-            aria-label="待办通知"
+            aria-label={t('common.todo')}
             icon={<BellOutlined />}
             style={{ color: '#c9d1d9', fontSize: 16 }}
             onClick={() => navigate('/compliance')}
           />
         </Badge>
       </Tooltip>
+      <LanguageSwitcher compact />
       <Dropdown
         menu={{
           items: [
-            { key: 'settings', icon: <SettingOutlined />, label: '系统设置' },
+            { key: 'settings', icon: <SettingOutlined />, label: t('common.systemSettings') },
             { type: 'divider' },
-            { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
+            { key: 'logout', icon: <LogoutOutlined />, label: t('common.logout'), danger: true },
           ],
           onClick: ({ key }) => {
             if (key === 'settings') navigate('/system')

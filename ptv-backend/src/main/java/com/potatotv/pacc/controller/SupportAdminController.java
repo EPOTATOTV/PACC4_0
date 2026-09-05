@@ -4,6 +4,7 @@ import com.potatotv.pacc.domain.Appeal;
 import com.potatotv.pacc.domain.SupportTicket;
 import com.potatotv.pacc.repository.AppealRepository;
 import com.potatotv.pacc.repository.SupportTicketRepository;
+import com.potatotv.pacc.service.AppealService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,26 +32,46 @@ public class SupportAdminController {
 
     private final AppealRepository appealRepository;
     private final SupportTicketRepository ticketRepository;
+    private final AppealService appealService;
 
-    /** 待处理申诉列表。 */
+    /** 待处理申诉列表（可按状态 + 审核阶段过滤）。 */
     @GetMapping("/appeals")
-    public List<Appeal> pendingAppeals(@RequestParam(defaultValue = "pending") String status) {
-        return appealRepository.findByStatusOrderByCreatedAtAsc(status);
+    public List<Appeal> pendingAppeals(@RequestParam(defaultValue = "pending") String status,
+                                       @RequestParam(required = false) String stage) {
+        List<Appeal> list = appealRepository.findByStatusOrderByCreatedAtAsc(status);
+        if (stage != null && !stage.isBlank()) {
+            return list.stream().filter(a -> stage.equals(a.getReviewStage())).toList();
+        }
+        return list;
     }
 
-    /** 审批申诉（approve 撤销对应作弊记录由调用方自行处理，此处更新申诉状态）。 */
+    /** 申诉详情（含证据快照，供审核）。 */
+    @GetMapping("/appeals/{id}")
+    public ResponseEntity<?> appealDetail(@PathVariable String id) {
+        return appealRepository.findById(id)
+                .map(a -> ResponseEntity.ok((Object) a))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * 审批申诉。动作：approve（通过并恢复）/ reject（驳回）/ advance（升级到下一级）。
+     * reviewer/role/comment 由调用方提供（角色对应 sys/support/analyst/techlead）。
+     */
     @PostMapping("/appeals/{id}/review")
     public ResponseEntity<?> reviewAppeal(@PathVariable String id, @RequestBody Map<String, String> body) {
-        return appealRepository.findById(id)
-                .map(a -> {
-                    a.setStatus(body.getOrDefault("status", "approved"));
-                    a.setReviewer(body.getOrDefault("reviewer", "admin"));
-                    a.setReviewComment(body.getOrDefault("comment", ""));
-                    a.setReviewedAt(Instant.now());
-                    appealRepository.save(a);
-                    return ResponseEntity.ok(Map.of("appeal_id", a.getAppealId(), "status", a.getStatus()));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        String action = body.getOrDefault("action", body.getOrDefault("status", "approved"));
+        // 兼容旧调用：status=approved/rejected 映射为 approve/reject
+        if ("approved".equals(action)) action = "approve";
+        if ("rejected".equals(action)) action = "reject";
+        Appeal a = appealService.review(id, action,
+                body.getOrDefault("reviewer", "admin"),
+                body.getOrDefault("role", ""),
+                body.getOrDefault("comment", ""));
+        if (a == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(Map.of(
+                "appeal_id", a.getAppealId(),
+                "status", a.getStatus(),
+                "review_stage", a.getReviewStage()));
     }
 
     /** 工单列表（按状态）。 */

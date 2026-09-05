@@ -66,6 +66,12 @@ pacc:
     severe-threshold: 95           # 三级红屏阈值
     suspicious-low: 70             # 一级（可疑）下限
     cooldown-minutes: 10           # 同账号同类型红屏冷却
+  countermeasure:
+    # v4.5 硬件级作弊与完整性对抗的判定阈值（服务端可调，经 /api/admin/system/config 暴露）
+    input-macro-cv: 0.06           # 点击间隔变异系数低于此值判为宏（人类 ~0.3-0.5）
+    hardware-match-score: 70       # 命中高危硬件指纹的最低风险分
+    integrity-suspect: 25          # 完整性轻微可疑（深观察）阈值
+    integrity-tampered: 60         # 完整性严重破坏（直接红屏）阈值
   websocket:
     endpoint: /ws                # 玩家端 WebSocket 长连接端点
   webhook:

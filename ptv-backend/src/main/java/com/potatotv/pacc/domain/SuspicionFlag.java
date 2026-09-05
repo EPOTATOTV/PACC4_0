@@ -33,6 +33,9 @@ public class SuspicionFlag {
         SHARED_ACCOUNT_MULTI_DEVICE, // 同一账号短期多设备交替
         SHARED_ACCOUNT_MULTI_IP,     // 同一账号短期多 IP 交替（代练/共享）
         DEVICE_FLAPPING,             // 设备指纹异常抖动
+        MEDIUM_CONFIDENCE,           // 检测中置信（70-84）：深度观察 + 增强采样，不红屏
+        HARDWARE_CHEAT,              // v4.5 硬件级作弊（DMA/宏设备/手柄模拟器）
+        TAMPERED_INTEGRITY,          // v4.5 完整性/对抗状态被破坏（签名失效/DSE关闭/TESTSIGNING/代码哈希不符）
         UNKNOWN
     }
 

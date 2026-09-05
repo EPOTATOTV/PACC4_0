@@ -4,11 +4,14 @@ import { Alert, Button, Card, Form, Input, Segmented, Typography } from 'antd'
 import { AuditOutlined, LockOutlined, TeamOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 import Brand from '../components/Brand'
+import LanguageSwitcher from '../components/LanguageSwitcher'
+import { useI18n } from '../i18n'
 
 const { Text } = Typography
 type Mode = 'key' | 'feishu'
 
 export default function Login() {
+  const { t } = useI18n()
   const [mode, setMode] = useState<Mode>('key')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -23,9 +26,9 @@ export default function Login() {
         location.reload()
         return
       }
-      setErr(res.status === 429 ? '尝试过于频繁，请稍后再试' : '管理密钥错误或权限不足')
+      setErr(res.status === 429 ? t('login.errRateLimited') : t('login.errKey'))
     } catch {
-      setErr('无法连接 PTV 后端，请确认服务已启动')
+      setErr(t('login.errNetwork'))
     } finally {
       setBusy(false)
     }
@@ -42,9 +45,9 @@ export default function Login() {
         window.location.href = data.url
         return
       }
-      setErr('飞书登录暂不可用，请使用授权密钥登录')
+      setErr(t('login.errFeishu'))
     } catch {
-      setErr('无法连接 PTV 后端，请确认服务已启动')
+      setErr(t('login.errNetwork'))
     } finally {
       setBusy(false)
     }
@@ -57,15 +60,15 @@ export default function Login() {
       }}
     >
       <Card style={{ width: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} styles={{ body: { padding: 28 } }}>
-        <Brand size="md" subtitle="PTV 管控平台 · 管理员登录" />
+        <Brand size="md" subtitle={t('login.title')} />
 
         <Segmented
           block
           value={mode}
           onChange={(m) => { setMode(m as Mode); setErr('') }}
           options={[
-            { label: '超级管理员授权', value: 'key', icon: <AuditOutlined /> },
-            { label: '公司飞书登录', value: 'feishu', icon: <TeamOutlined /> },
+            { label: t('login.superAdminKey'), value: 'key', icon: <AuditOutlined /> },
+            { label: t('login.feishu'), value: 'feishu', icon: <TeamOutlined /> },
           ]}
           style={{ margin: '20px 0 4px' }}
         />
@@ -74,15 +77,15 @@ export default function Login() {
 
         {mode === 'key' ? (
           <Form layout="vertical" onFinish={submit} style={{ marginTop: 16 }} requiredMark={false}>
-            <Form.Item name="key" label="管理员授权密钥" rules={[{ required: true, message: '请输入授权密钥' }]}>
-              <Input.Password prefix={<LockOutlined />} placeholder="由超级管理员分配的密钥" size="large" />
+            <Form.Item name="key" label={t('login.keyLabel')} rules={[{ required: true, message: t('login.keyRequired') }]}>
+              <Input.Password prefix={<LockOutlined />} placeholder={t('login.keyPlaceholder')} size="large" />
             </Form.Item>
             <Form.Item style={{ marginBottom: 4 }}>
               <Button type="primary" htmlType="submit" block size="large" loading={busy} danger>
-                登 录
+                {t('login.submit')}
               </Button>
             </Form.Item>
-            <Text type="secondary" style={{ fontSize: 12 }}>由系统超级管理员分配的授权密钥（含权限分级）</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>{t('login.keyHint')}</Text>
           </Form>
         ) : (
           <Button
@@ -94,12 +97,23 @@ export default function Login() {
             onClick={feishuLogin}
             style={{ marginTop: 20 }}
           >
-            使用飞书账号授权登录
+            {t('login.feishuLogin')}
           </Button>
         )}
 
         <div style={{ marginTop: 18, textAlign: 'center' }}>
-          <Link to="/portal">前往玩家自助门户 ›</Link>
+          <Link to="/portal">{t('login.toPortal')}</Link>
+        </div>
+
+        <div
+          style={{
+            marginTop: 16,
+            textAlign: 'center',
+            borderTop: '1px solid #30363d',
+            paddingTop: 14,
+          }}
+        >
+          <LanguageSwitcher />
         </div>
       </Card>
     </div>

@@ -7,28 +7,35 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.CheatRecord;
+import com.potatotv.pacc.domain.ConfidenceTier;
 import com.potatotv.pacc.domain.RedscreenAlert;
+import com.potatotv.pacc.domain.SuspicionFlag;
 import com.potatotv.pacc.repository.AccountRepository;
 import com.potatotv.pacc.repository.CheatRecordRepository;
 import com.potatotv.pacc.repository.RedscreenAlertRepository;
+import com.potatotv.pacc.repository.SuspicionFlagRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 /**
- * 红屏决策确定性单测：阈值边界、等级判定、脱敏、冷却与低分不触发。
+ * 红屏决策确定性单测：阈值边界、等级判定、脱敏、冷却、低/中置信分级与高置信红屏。
  */
 class RedscreenServiceTest {
 
     private RedscreenAlertRepository alertRepo;
     private AccountRepository accountRepo;
     private CheatRecordRepository cheatRepo;
+    private SuspicionFlagRepository suspicionRepo;
     private OnlineStatusService online;
     private InspectService inspect;
     private WebhookDispatcher webhook;
@@ -42,10 +49,12 @@ class RedscreenServiceTest {
         alertRepo = mock(RedscreenAlertRepository.class);
         accountRepo = mock(AccountRepository.class);
         cheatRepo = mock(CheatRecordRepository.class);
+        suspicionRepo = mock(SuspicionFlagRepository.class);
         online = mock(OnlineStatusService.class);
         inspect = mock(InspectService.class);
         webhook = mock(WebhookDispatcher.class);
-        service = new RedscreenService(alertRepo, accountRepo, cheatRepo, online, inspect, webhook,
+        service = new RedscreenService(alertRepo, accountRepo, cheatRepo, suspicionRepo,
+                new ConfidenceService(70, THRESHOLD), online, inspect, webhook,
                 new ObjectMapper(), THRESHOLD, SEVERE, 10);
     }
 
@@ -135,6 +144,25 @@ class RedscreenServiceTest {
         RedscreenAlert alert = service.decideAndHandle("PT42", "killaura", 90, "bedrock", "无账号");
         assertNotNull(alert);
         assertEquals(3L, alert.getBroadcastAck());
+    }
+
+    @Test
+    void lowConfidenceLogsOnlyAndNoRedscreen() {
+        // 69 < medium(70) → LOW：仅日志，不写疑似标记、不红屏
+        assertNull(service.decideAndHandle("PT42", "killaura", 69, "bedrock", "低置信"));
+        verify(suspicionRepo, never()).save(any(SuspicionFlag.class));
+        verify(alertRepo, never()).save(any());
+    }
+
+    @Test
+    void mediumConfidenceRecordsDeepObserveWithoutRedscreen() {
+        // 80 ∈ [70,84) → MEDIUM：记录疑似标记（深度观察/增强采样），不红屏
+        assertNull(service.decideAndHandle("PT42", "killaura", 80, "bedrock", "中置信"));
+        ArgumentCaptor<SuspicionFlag> captor = ArgumentCaptor.forClass(SuspicionFlag.class);
+        verify(suspicionRepo).save(captor.capture());
+        assertEquals(SuspicionFlag.Kind.MEDIUM_CONFIDENCE, captor.getValue().getKind());
+        assertEquals(80, captor.getValue().getWeight());
+        verify(alertRepo, never()).save(any());
     }
 
     private void prepFullFlow() {

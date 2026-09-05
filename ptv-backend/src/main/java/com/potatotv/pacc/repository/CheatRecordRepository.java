@@ -12,7 +12,11 @@ public interface CheatRecordRepository extends JpaRepository<CheatRecord, String
 
     Optional<CheatRecord> findTopByOrderByRecordHashDesc();
 
+    Optional<CheatRecord> findFirstByAlertId(String alertId);
+
     long countByRevokedFalse();
+
+    long countByAlertIdAndRevokedFalse(String alertId);
 
     /** 查端误报：按告警撤销对应作弊记录（保留原始行，仅标记撤销 + 结论）。 */
     @Modifying

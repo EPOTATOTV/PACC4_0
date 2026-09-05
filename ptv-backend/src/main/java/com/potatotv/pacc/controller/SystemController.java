@@ -45,6 +45,12 @@ public class SystemController {
     private boolean feishuEnabled;
     @Value("${pacc.ai.enabled:false}")
     private boolean aiEnabled;
+    @Value("${pacc.countermeasure.input-macro-cv:0.06}")
+    private double inputMacroCv;
+    @Value("${pacc.countermeasure.integrity-suspect:25}")
+    private int integritySuspect;
+    @Value("${pacc.countermeasure.integrity-tampered:60}")
+    private int integrityTampered;
     @Value("${pacc.rules.enabled:true}")
     private boolean rulesEnabled;
     @Value("${pacc.security.super-admin-key:}")
@@ -82,6 +88,10 @@ public class SystemController {
                 "severe_threshold", severeThreshold,
                 "suspicious_low", suspiciousLow,
                 "cooldown_minutes", cooldownMinutes));
+        m.put("countermeasure", Map.of(
+                "input_macro_cv", inputMacroCv,
+                "integrity_suspect", integritySuspect,
+                "integrity_tampered", integrityTampered));
         m.put("rules", Map.of(
                 "enabled", rulesEnabled,
                 "max_bonus", rulesMaxBonus));

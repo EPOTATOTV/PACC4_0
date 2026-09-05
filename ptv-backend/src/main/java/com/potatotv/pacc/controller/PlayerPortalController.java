@@ -6,6 +6,9 @@ import com.potatotv.pacc.domain.SupportTicket;
 import com.potatotv.pacc.repository.AppealRepository;
 import com.potatotv.pacc.repository.CheatRecordRepository;
 import com.potatotv.pacc.repository.SupportTicketRepository;
+import com.potatotv.pacc.service.AppealService;
+import com.potatotv.pacc.service.CounterMeasureRiskService;
+import com.potatotv.pacc.service.IntegrityGuardService.Input;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +38,8 @@ public class PlayerPortalController {
     private final AppealRepository appealRepository;
     private final SupportTicketRepository ticketRepository;
     private final CheatRecordRepository recordRepository;
+    private final AppealService appealService;
+    private final CounterMeasureRiskService counterMeasureRiskService;
 
     private String pteidOf(HttpServletRequest req) {
         Object v = req.getAttribute("pteid");
@@ -61,24 +66,49 @@ public class PlayerPortalController {
                 .toList();
     }
 
-    /** 提交在线申诉（红屏/误报）。 */
+    /** 客户端完整性自检上报（受玩家 JWT 保护）：完整性破坏/可疑按对抗等级落库决策。 */
+    @PostMapping("/countermeasure/integrity")
+    public ResponseEntity<?> reportIntegrity(@RequestBody Map<String, Object> body, HttpServletRequest req) {
+        String pteid = pteidOf(req);
+        if (pteid.isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("error", "需要登录"));
+        }
+        boolean sigValid = bool(body.get("signature_valid"));
+        boolean dseOp = bool(body.get("dse_operating"));
+        boolean tsOn = bool(body.get("testsigning_on"));
+        boolean codeMatch = bool(body.get("code_hash_match"));
+        List<String> hooks = new java.util.ArrayList<>();
+        Object h = body.get("hook_found");
+        if (h instanceof List) for (Object x : (List<?>) h) if (x != null) hooks.add(x.toString());
+
+        CounterMeasureRiskService.CounterMeasureResult r = counterMeasureRiskService.handle(
+                pteid, "", null, null, new Input(sigValid, dseOp, tsOn, codeMatch, hooks));
+        return ResponseEntity.ok(Map.of(
+                "confidence_tier", r.tier().name(),
+                "risk_score", r.riskScore(),
+                "forced_redscreen", r.forcedRedscreen()));
+    }
+
+    private static boolean bool(Object o) {
+        return o != null && Boolean.parseBoolean(o.toString());
+    }
+
+    /** 提交在线申诉（红屏/误报）。经 AppealService 做证据快照 + 自动初筛。 */
     @PostMapping("/appeals")
     public ResponseEntity<?> submitAppeal(@RequestBody Map<String, String> body, HttpServletRequest req) {
         String pteid = pteidOf(req);
         if (pteid.isEmpty()) {
             return ResponseEntity.status(401).body(Map.of("error", "需要登录"));
         }
-        Appeal a = Appeal.builder()
-                .appealId(UUID.randomUUID().toString())
-                .pteid(pteid)
-                .alertId(body.get("alert_id"))
-                .reason(body.getOrDefault("reason", "误报申诉"))
-                .description(body.getOrDefault("description", ""))
-                .status("pending")
-                .createdAt(Instant.now())
-                .build();
-        appealRepository.save(a);
-        return ResponseEntity.ok(Map.of("appeal_id", a.getAppealId(), "status", a.getStatus()));
+        Appeal a = appealService.submit(pteid,
+                body.getOrDefault("reason", "误报申诉"),
+                body.getOrDefault("description", ""),
+                body.get("alert_id"));
+        return ResponseEntity.ok(Map.of(
+                "appeal_id", a.getAppealId(),
+                "status", a.getStatus(),
+                "review_stage", a.getReviewStage(),
+                "prescreen_score", a.getPrescreenScore()));
     }
 
     /** 我的申诉列表。 */

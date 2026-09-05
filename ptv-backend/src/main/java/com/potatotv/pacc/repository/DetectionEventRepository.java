@@ -12,6 +12,8 @@ public interface DetectionEventRepository extends JpaRepository<DetectionEvent, 
 
     long countByOccurredAtBetween(Instant start, Instant end);
 
+    List<DetectionEvent> findByOccurredAtAfter(Instant start);
+
     @Query("select d.eventType, count(d) from DetectionEvent d where d.occurredAt between :start and :end group by d.eventType")
     List<Object[]> countByTypeBetween(@Param("start") Instant start, @Param("end") Instant end);
 

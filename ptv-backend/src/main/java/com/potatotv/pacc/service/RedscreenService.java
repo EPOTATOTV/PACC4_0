@@ -3,10 +3,13 @@ package com.potatotv.pacc.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.CheatRecord;
+import com.potatotv.pacc.domain.ConfidenceTier;
 import com.potatotv.pacc.domain.RedscreenAlert;
+import com.potatotv.pacc.domain.SuspicionFlag;
 import com.potatotv.pacc.repository.AccountRepository;
 import com.potatotv.pacc.repository.CheatRecordRepository;
 import com.potatotv.pacc.repository.RedscreenAlertRepository;
+import com.potatotv.pacc.repository.SuspicionFlagRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,8 @@ public class RedscreenService {
     private final RedscreenAlertRepository alertRepository;
     private final AccountRepository accountRepository;
     private final CheatRecordRepository cheatRecordRepository;
+    private final SuspicionFlagRepository suspicionFlagRepository;
+    private final ConfidenceService confidenceService;
     private final OnlineStatusService onlineStatusService;
     private final InspectService inspectService;
     private final WebhookDispatcher webhookDispatcher;
@@ -43,6 +48,8 @@ public class RedscreenService {
     public RedscreenService(RedscreenAlertRepository alertRepository,
                             AccountRepository accountRepository,
                             CheatRecordRepository cheatRecordRepository,
+                            SuspicionFlagRepository suspicionFlagRepository,
+                            ConfidenceService confidenceService,
                             OnlineStatusService onlineStatusService,
                             InspectService inspectService,
                             WebhookDispatcher webhookDispatcher,
@@ -53,6 +60,8 @@ public class RedscreenService {
         this.alertRepository = alertRepository;
         this.accountRepository = accountRepository;
         this.cheatRecordRepository = cheatRecordRepository;
+        this.suspicionFlagRepository = suspicionFlagRepository;
+        this.confidenceService = confidenceService;
         this.onlineStatusService = onlineStatusService;
         this.inspectService = inspectService;
         this.webhookDispatcher = webhookDispatcher;
@@ -64,12 +73,19 @@ public class RedscreenService {
 
     /**
      * 依据风险评分决策。返回是否触发红屏。
-     * 0-69 记录；70-84 可疑记录；85-94 二级红屏；95+ 三级红屏（优先查端）。
+     * LOW（&lt;70）仅日志；MEDIUM（70-84）记录为疑似 + 深度观察/增强采样、不红屏；
+     * HIGH（85+）触发红屏（85-94 二级，95+ 三级优先查端）。
      */
     @Transactional
     public RedscreenAlert decideAndHandle(String pteid, String cheatType, int riskScore, String edition, String detail) {
-        if (riskScore < redscreenThreshold) {
-            // 记录为可疑（不入红屏库）
+        ConfidenceTier tier = confidenceService.classify(riskScore);
+        if (tier == ConfidenceTier.LOW) {
+            log.debug("检测低置信（仅日志） pteid={} type={} risk={}", pteid, cheatType, riskScore);
+            return null;
+        }
+        if (tier == ConfidenceTier.MEDIUM) {
+            // 记录为疑似 + 深度观察/增强采样标记，不触发红屏
+            recordDeepObserve(pteid, cheatType, riskScore, edition, detail);
             return null;
         }
         // 冷却期去重：同账号同类型 10 分钟内不重复触发
@@ -132,6 +148,22 @@ public class RedscreenService {
         }
 
         return alert;
+    }
+
+    /**
+     * 中置信（70-84）处理：记录一条疑似标记（深度观察 + 增强采样），不红屏。
+     */
+    private void recordDeepObserve(String pteid, String cheatType, int riskScore, String edition, String detail) {
+        SuspicionFlag flag = SuspicionFlag.builder()
+                .flagId("flag_" + Instant.now().toEpochMilli() + "_" + UUID.randomUUID().toString().substring(0, 4))
+                .pteid(pteid)
+                .kind(SuspicionFlag.Kind.MEDIUM_CONFIDENCE)
+                .weight(riskScore)
+                .status(SuspicionFlag.Status.OPEN)
+                .detail(cheatType + " @ " + edition)
+                .evidenceSummary(detail)
+                .build();
+        suspicionFlagRepository.save(flag);
     }
 
     private long broadcast(RedscreenAlert alert, Account cheater) {

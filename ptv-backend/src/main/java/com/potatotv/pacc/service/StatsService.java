@@ -1,5 +1,6 @@
 package com.potatotv.pacc.service;
 
+import com.potatotv.pacc.domain.ConfidenceTier;
 import com.potatotv.pacc.repository.AccountRepository;
 import com.potatotv.pacc.repository.CheatRecordRepository;
 import com.potatotv.pacc.repository.DetectionEventRepository;
@@ -28,6 +29,27 @@ public class StatsService {
     private final CheatRecordRepository cheatRecordRepository;
     private final InspectSessionRepository inspectSessionRepository;
     private final OnlineStatusService onlineStatusService;
+    private final ConfidenceService confidenceService;
+
+    /** 置信度分级统计（近 7 天）：各级事件数量 + 阈值。 */
+    public Map<String, Object> confidence() {
+        Instant start = Instant.now().minus(7, ChronoUnit.DAYS);
+        long low = 0, medium = 0, high = 0;
+        for (com.potatotv.pacc.domain.DetectionEvent e : eventRepository.findByOccurredAtAfter(start)) {
+            switch (confidenceService.classify(e.getClientRiskScore())) {
+                case LOW -> low++;
+                case MEDIUM -> medium++;
+                case HIGH -> high++;
+            }
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("low", low);
+        m.put("medium", medium);
+        m.put("high", high);
+        m.put("medium_threshold", confidenceService.mediumThreshold());
+        m.put("high_threshold", confidenceService.highThreshold());
+        return m;
+    }
 
     public Map<String, Object> summary(String startDate, String endDate) {
         Instant start = startDate == null ? Instant.now().minus(7, ChronoUnit.DAYS) : Instant.parse(startDate);

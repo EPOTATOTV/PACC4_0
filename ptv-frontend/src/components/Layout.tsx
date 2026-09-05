@@ -4,6 +4,7 @@ import { Breadcrumb, Layout, Menu } from 'antd'
 import Brand from './Brand'
 import AdminHeader from './admin/AdminHeader'
 import { findSelectedKey, navGroups } from './admin/nav'
+import { useI18n } from '../i18n'
 import type { ReactNode } from 'react'
 
 const { Sider, Content, Footer } = Layout
@@ -13,26 +14,27 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState('')
+  const { t } = useI18n()
 
-  // 分组菜单：搜索关键词过滤菜单项（客户端过滤，无后端全局搜索）
+  // 分组菜单：搜索关键词过滤菜单项（客户端过滤，无后端全局搜索），标签经 i18n 翻译
   const menuItems = useMemo(() => {
     const kw = search.trim().toLowerCase()
     return navGroups
       .map((g) => ({
         ...g,
-        items: kw ? g.items.filter((i) => i.label.toLowerCase().includes(kw)) : g.items,
+        items: kw ? g.items.filter((i) => i.i18nKey.includes(kw) || i.label.toLowerCase().includes(kw)) : g.items,
       }))
       .filter((g) => g.items.length > 0)
       .map((g) => ({
         type: 'group' as const,
-        label: g.groupLabel,
+        label: t(g.groupI18nKey),
         children: g.items.map((i) => ({
           key: i.key,
-          label: i.label,
+          label: t(i.i18nKey),
           onClick: () => navigate(i.to),
         })),
       }))
-  }, [search, navigate])
+  }, [search, navigate, t])
 
   const selected = findSelectedKey(location.pathname)
 
@@ -62,10 +64,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <Content style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <Breadcrumb
               style={{ padding: '14px 24px 0', fontSize: 13 }}
-              items={[
-                { title: navGroups.find((g) => g.items.some((i) => i.key === selected))?.groupLabel },
-                { title: navGroups.flatMap((g) => g.items).find((i) => i.key === selected)?.label },
-              ].filter((i) => i.title)}
+              items={
+                [navGroups.find((g) => g.items.some((i) => i.key === selected))?.groupI18nKey, navGroups.flatMap((g) => g.items).find((i) => i.key === selected)?.i18nKey]
+                  .filter((k): k is string => !!k)
+                  .map((k) => ({ title: t(k) }))
+              }
             />
             <div style={{ padding: 16, flex: 1, overflow: 'auto' }}>{children}</div>
           </Content>

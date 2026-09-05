@@ -3,12 +3,23 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { ConfigProvider, theme } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
+import zhTW from 'antd/locale/zh_TW'
+import enUS from 'antd/locale/en_US'
 import App from './App'
+import { I18nProvider, useI18n, type LocaleCode } from './i18n'
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+// antd 内置语言包映射，跟随前台切换
+const ANTD_LOCALES: Record<LocaleCode, typeof zhCN> = {
+  'zh-CN': zhCN,
+  'zh-TW': zhTW,
+  en: enUS,
+}
+
+function Root() {
+  const { locale } = useI18n()
+  return (
     <ConfigProvider
-      locale={zhCN}
+      locale={ANTD_LOCALES[locale]}
       theme={{
         algorithm: theme.darkAlgorithm,
         token: {
@@ -29,5 +40,18 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <App />
       </BrowserRouter>
     </ConfigProvider>
-  </React.StrictMode>,
-)
+  )
+}
+
+export default function Main() {
+  return (
+    <React.StrictMode>
+      <I18nProvider>
+        <Root />
+      </I18nProvider>
+    </React.StrictMode>
+  )
+}
+
+const rootEl = document.getElementById('root') as HTMLElement
+ReactDOM.createRoot(rootEl).render(<Main />)
