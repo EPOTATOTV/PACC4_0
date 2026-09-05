@@ -57,6 +57,10 @@ pacc:
     admin-userids: ${PACC_FEISHU_ADMIN_USERIDS:}
   pteid:
     prefix: "PT"
+  otp:
+    # 邮箱/手机验证码有效性窗口与同目标最小重发间隔
+    ttl-minutes: 10
+    resend-seconds: 60
   detection:
     redscreen-threshold: 85        # 综合风险评分触发红屏阈值
     severe-threshold: 95           # 三级红屏阈值

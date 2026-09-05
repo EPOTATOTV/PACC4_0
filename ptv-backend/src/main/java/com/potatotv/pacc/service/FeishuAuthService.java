@@ -1,5 +1,6 @@
 package com.potatotv.pacc.service;
 
+import com.potatotv.pacc.config.PinnedTrustManagerFactory;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -19,6 +20,7 @@ import org.springframework.web.client.RestClient;
  *       仅当用户在 super-admins / admins 白名单内才允许登录（默认拒绝，杜绝任意员工登录管理后台）；</li>
  *   <li>enabled=false 且 code 命中测试码时返回本地演示管理员（仅 local 联调）。</li>
  * </ul>
+ * 出站 TLS 支持可选证书固定（见 {@link PinnedTrustManagerFactory}）。
  */
 @Service
 public class FeishuAuthService {
@@ -29,7 +31,15 @@ public class FeishuAuthService {
 
     private final AtomicReference<String> issuedCode = new AtomicReference<>();
 
-    private final RestClient client = RestClient.builder().baseUrl(FEISHU_OPEN_BASE).build();
+    private RestClient client;
+
+    public FeishuAuthService(PinnedTrustManagerFactory tlsPin) {
+        RestClient.Builder builder = RestClient.builder().baseUrl(FEISHU_OPEN_BASE);
+        if (tlsPin.active()) {
+            builder.requestFactory(tlsPin.requestFactory());
+        }
+        this.client = builder.build();
+    }
 
     @Value("${pacc.feishu.enabled:false}")
     private boolean enabled;

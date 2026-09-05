@@ -117,6 +117,20 @@ export const api = {
         body: JSON.stringify({ token, new_password }),
       })
     },
+    sendCode(body: Record<string, string>) {
+      return fetch('/api/auth/code/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    },
+    verifyCode(body: Record<string, string>) {
+      return fetch('/api/auth/code/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    },
   },
   // ---- 管理后台登录（密钥 / 飞书）与登录日志 ----
   feishu: {

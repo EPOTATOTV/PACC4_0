@@ -1,9 +1,15 @@
 package com.potatotv.paccclient;
 
 import com.potatotv.paccclient.detection.DetectionEngine;
+import com.potatotv.paccclient.inspect.InspectAgent;
+import com.potatotv.paccclient.redscreen.FullScreenRed;
 import com.potatotv.paccclient.redscreen.RedscreenReceiver;
+import com.potatotv.paccclient.store.MachineFingerprint;
+import com.potatotv.paccclient.store.OfflineQueue;
+import com.potatotv.paccclient.store.RedScreenStatePersistence;
 import com.potatotv.paccclient.transport.WssReporter;
 
+import java.nio.file.Path;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -37,10 +43,28 @@ public final class PaccClient {
             }
         }
 
+        // 本地加密存储：口令 = 设备指纹 + PTEID
+        String storePassword = MachineFingerprint.hash() + "|" + pteid;
+        Path storeDir = resolveStoreDir();
+
+        RedScreenStatePersistence redscreenState =
+                new RedScreenStatePersistence(storeDir.resolve("redscreen.enc"), storePassword);
+        redscreenState.loadActive().ifPresent(active -> {
+            System.out.println("[PTV-Client] 检测到未解除红屏，重启恢复 level=" + active.level());
+            FullScreenRed.show(active.level(), active.cheatType(), active.masked(), active.risk());
+        });
+        RedscreenReceiver.init(redscreenState);
+
+        OfflineQueue offlineQueue =
+                new OfflineQueue(storeDir.resolve("outbox.enc"), storePassword, 1000, true);
+
         DetectionEngine engine = new DetectionEngine();
+        // 远程查端代理：收到 inspect_* 信令时回传取证；回调经 WssReporter 签名上报
+        InspectAgent inspectAgent = new InspectAgent();
         WssReporter reporter = new WssReporter(pteid, cfg.edition, cfg.buildConnectUri(token, pteid),
                 cfg.heartbeatSeconds, cfg.signatureVersion, cfg.reconnectDelaySeconds, cfg.autoReconnect,
-                cfg.wssSignSecret, RedscreenReceiver::handle);
+                cfg.wssSignSecret, json -> routeMessage(json, inspectAgent), offlineQueue);
+        inspectAgent.setResponder(reporter::sendPayload);
 
         try {
             reporter.connect();
@@ -69,6 +93,29 @@ public final class PaccClient {
             Thread.currentThread().join();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    /** 依平台解析本地加密存储目录。 */
+    private static Path resolveStoreDir() {
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("win")) {
+            String appdata = System.getenv("APPDATA");
+            String base = (appdata != null && !appdata.isBlank()) ? appdata : System.getProperty("user.home");
+            return Path.of(base, "PACC");
+        }
+        if (os.contains("mac")) {
+            return Path.of(System.getProperty("user.home"), "Library", "Application Support", "PACC");
+        }
+        return Path.of(System.getProperty("user.home"), ".config", "pacc");
+    }
+
+    /** 依消息类型分发给对应处理器：查端信令走 InspectAgent，其余走红屏/缓解处理。 */
+    private static void routeMessage(String json, InspectAgent inspectAgent) {
+        if (json != null && json.contains("inspect_")) {
+            inspectAgent.handle(json);
+        } else {
+            RedscreenReceiver.handle(json);
         }
     }
 

@@ -40,6 +40,7 @@ export default function PlayerRegister() {
         netease_uuid: (v.neteaseUuid ?? '').trim(),
         password: v.password!,
         device_fingerprint: 'web-reg-' + crypto.randomUUID(),
+        code: v.code!,
       })
       const data = (await res.json()) as { error?: string }
       if (!res.ok) {
@@ -55,6 +56,21 @@ export default function PlayerRegister() {
     }
   }
 
+  async function sendCode() {
+    const email = form.getFieldValue('email')
+    if (!email || !pattern.email.test(email)) {
+      setDevLink('请先填写正确的邮箱')
+      return
+    }
+    try {
+      const res = await api.auth.sendCode({ target: email, scene: 'register' })
+      const data = (await res.json()) as { error?: string; message?: string }
+      setDevLink(res.ok ? data.message || '验证码已发送' : data.error || `发送失败 (${res.status})`)
+    } catch {
+      setDevLink('无法连接 PTV 后端，请稍后再试')
+    }
+  }
+
   return (
     <PlayerAuthShell
       width={520}
@@ -62,7 +78,10 @@ export default function PlayerRegister() {
       subtitle="手机号 / MCID / ECID / QQ / 邮箱用于多凭证登录与客服身份核验"
     >
       {devLink && (
-        <Alert type="error" showIcon message={devLink} style={{ marginTop: 16 }} closable />
+        <Alert
+          type={devLink.startsWith('请先填写正确的邮箱') || devLink.startsWith('无法') ? 'error' : 'info'}
+          showIcon message={devLink} style={{ marginTop: 16 }} closable
+        />
       )}
 
         <Form
@@ -125,6 +144,22 @@ export default function PlayerRegister() {
                 ]}
               >
                 <Input prefix={<MailOutlined />} placeholder="you@example.com" autoComplete="email" />
+              </Form.Item>
+            </Col>
+            <Col xs={24}>
+              <Form.Item
+                name="code" label="邮箱验证码"
+                tooltip="点击发送后，验证码将发送至上方邮箱"
+                dependencies={['email']}
+                rules={[
+                  { required: true, message: '请输入邮箱验证码' },
+                ]}
+              >
+                <Input.Search
+                  placeholder="6 位验证码"
+                  enterButton="发送验证码"
+                  onSearch={sendCode}
+                />
               </Form.Item>
             </Col>
             <Col xs={24}>

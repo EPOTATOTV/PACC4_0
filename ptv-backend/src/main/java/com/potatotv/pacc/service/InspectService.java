@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.socket.WebSocketSession;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,6 +25,8 @@ public class InspectService {
     private final com.potatotv.pacc.repository.AccountRepository accountRepository;
     private final com.potatotv.pacc.repository.RedscreenAlertRepository alertRepository;
     private final com.potatotv.pacc.repository.CheatRecordRepository cheatRecordRepository;
+    private final OnlineStatusService onlineStatusService;
+    private final InspectSignalBus inspectSignalBus;
 
     public int enqueue(String pteid, String alertId, int level) {
         InspectSession s = InspectSession.builder()
@@ -54,7 +57,18 @@ public class InspectService {
         s.setOperator(operator);
         s.setStartedAt(Instant.now());
         s.setAuditLog(s.getAuditLog() + timestamp() + " operator=" + operator + " start-inspect\n");
-        return sessionRepository.save(s);
+        sessionRepository.save(s);
+
+        // 建立信令总线玩家腿并下发查端请求（玩家离线则留待管理端腿连接占位）
+        WebSocketSession player = onlineStatusService.firstSession(s.getPteid()).orElse(null);
+        inspectSignalBus.registerPlayer(sessionId, player, s.getPteid());
+        if (player != null) {
+            inspectSignalBus.sendToPlayer(sessionId, signal("inspect_request", s, null));
+            log.info("已下发查端请求 sessionId={} pteid={}", sessionId, s.getPteid());
+        } else {
+            log.info("查端目标玩家离线，等待其上线/管理端连接 sessionId={} pteid={}", sessionId, s.getPteid());
+        }
+        return s;
     }
 
     /**
@@ -94,8 +108,19 @@ public class InspectService {
             account.setStatus(account.getTotalRedscreen() >= 2 ? "high_risk" : "normal");
         }
         accountRepository.save(account);
-        // 远程解除通知（简化：控制台事件即可，生产经 WS 下发 unlock）
+        // 查端结束：通知玩家端解除监管，并释放信令总线腿
+        inspectSignalBus.sendToPlayer(sessionId, signal("inspect_bye", s, conclusion));
+        inspectSignalBus.sendToAdmin(sessionId, signal("inspect_closed", s, conclusion));
         return account;
+    }
+
+    /** 组装一条下发/转发给玩家或管理端的查端信令（B1 文本取证协议）。 */
+    private String signal(String type, InspectSession s, String extra) {
+        StringBuilder sb = new StringBuilder("{\"type\":\"").append(type)
+                .append("\",\"session_id\":\"").append(s.getSessionId())
+                .append("\",\"pteid\":\"").append(s.getPteid()).append('"');
+        if (extra != null) sb.append(",\"extra\":\"").append(extra).append('"');
+        return sb.append('}').toString();
     }
 
     private String timestamp() {

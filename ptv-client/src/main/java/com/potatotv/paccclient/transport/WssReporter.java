@@ -2,6 +2,7 @@ package com.potatotv.paccclient.transport;
 
 import com.potatotv.paccclient.Json;
 import com.potatotv.paccclient.detection.DetectionEvent;
+import com.potatotv.paccclient.store.OfflineQueue;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -18,6 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.List;
 
 /**
  * PTV 长连接上报器：与 PTV 管控服务器建立 WSS（TLS 1.3）通道，
@@ -38,6 +40,7 @@ public final class WssReporter implements AutoCloseable {
     private final boolean autoReconnect;
     private final String wssSignSecret;
     private final Consumer<String> onMessage;
+    private final OfflineQueue offlineQueue;
 
     private static final SecureRandom RAND = new SecureRandom();
     private static final long SIGN_WINDOW_SECONDS = 300;
@@ -57,7 +60,7 @@ public final class WssReporter implements AutoCloseable {
 
     public WssReporter(String pteid, String edition, String wssUri, int heartbeatSeconds,
                        String signatureVersion, int reconnectDelaySeconds, boolean autoReconnect,
-                       String wssSignSecret, Consumer<String> onMessage) {
+                       String wssSignSecret, Consumer<String> onMessage, OfflineQueue offlineQueue) {
         this.pteid = pteid;
         this.edition = edition;
         this.wssUri = wssUri;
@@ -67,6 +70,7 @@ public final class WssReporter implements AutoCloseable {
         this.autoReconnect = autoReconnect;
         this.wssSignSecret = wssSignSecret == null ? "" : wssSignSecret;
         this.onMessage = onMessage;
+        this.offlineQueue = offlineQueue;
     }
 
     /**
@@ -84,6 +88,7 @@ public final class WssReporter implements AutoCloseable {
             }
         }
         if (!running) return;
+        flushOfflineQueue();
         heartbeat.scheduleWithFixedDelay(() -> send(Map.of("type", "ping")),
                 heartbeatSeconds, heartbeatSeconds, TimeUnit.SECONDS);
         System.out.println("[PTV-Client] WSS 已连接: " + wssUri + " (pteid=" + pteid + ", edition=" + edition + ")");
@@ -112,14 +117,58 @@ public final class WssReporter implements AutoCloseable {
         eventSender.submit(() -> send(detectionEventPayload(event)));
     }
 
+    /**
+     * 直接发送一条已带 {@code type} 的信令消息（远程查端 / 本地取证回传）。
+     * 与原 {@code send} 一致会附加 HMAC 签名；断线时按非心跳规则入离线队列。
+     */
+    public void sendPayload(Map<String, Object> payload) {
+        send(payload);
+    }
+
     private void send(Map<String, Object> body) {
+        String payload = Json.encode(sign(body));
         WebSocket s = socket;
-        if (s == null) return; // 通道断开期间静默丢弃，等待自动重连
+        if (s == null) {
+            // 通道断开：非心跳消息入离线队列，等待重连补报
+            if (!"ping".equals(body.get("type"))) enqueueOffline(payload);
+            return;
+        }
         try {
-            s.sendText(Json.encode(sign(body)), true);
+            s.sendText(payload, true);
         } catch (Exception e) {
             System.err.println("[PTV-Client] 发送失败: " + e.getMessage());
+            enqueueOffline(payload);
         }
+    }
+
+    /** 发送失败/断开时写入离线队列（若配置了离线存储）。 */
+    private void enqueueOffline(String payload) {
+        if (offlineQueue != null) {
+            offlineQueue.offer(payload);
+        }
+    }
+
+    /** 通道恢复后取出离线队列并批量补报；逐条失败则重新入队。 */
+    private void flushOfflineQueue() {
+        if (offlineQueue == null) return;
+        List<String> drained = offlineQueue.drain();
+        if (drained.isEmpty()) return;
+        int sent = 0;
+        for (String payload : drained) {
+            WebSocket s = socket;
+            if (s == null) {
+                offlineQueue.offer(payload);
+                break;
+            }
+            try {
+                s.sendText(payload, true);
+                sent++;
+            } catch (Exception e) {
+                offlineQueue.offer(payload);
+                break;
+            }
+        }
+        System.out.println("[PTV-Client] 离线补报完成: 成功 " + sent + "/" + drained.size());
     }
 
     /**
@@ -198,6 +247,7 @@ public final class WssReporter implements AutoCloseable {
         if (!running) return;
         try {
             connectOnce();
+            flushOfflineQueue();
             System.out.println("[PTV-Client] 已自动重连: " + wssUri);
         } catch (Exception e) {
             scheduleReconnect("重连失败: " + rootMessage(e));

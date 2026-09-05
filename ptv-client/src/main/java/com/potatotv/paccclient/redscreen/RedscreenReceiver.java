@@ -1,14 +1,23 @@
 package com.potatotv.paccclient.redscreen;
 
+import com.potatotv.paccclient.store.RedScreenStatePersistence;
+
 /**
  * 红屏指令处理：解析服务端下发的 redscreen_alert / mitigation / unlock 消息，
- * 触发全屏红屏、输入暂停或解除。
+ * 触发全屏红屏、输入暂停或解除，并同步持久化/清除红屏激活状态（供重启恢复）。
  * <p>消息结构对应 PTV 后端广播 Json：{event_type, alert_id, level, cheat_type,
  * pteid_masked, timestamp, risk_score, game_edition}。</p>
  */
 public final class RedscreenReceiver {
 
+    private static RedScreenStatePersistence persistence;
+
     private RedscreenReceiver() {
+    }
+
+    /** 注入红屏状态持久化；未注入则不落盘（纯内存演示模式兼容）。 */
+    public static void init(RedScreenStatePersistence p) {
+        persistence = p;
     }
 
     public static void handle(String json) {
@@ -19,11 +28,13 @@ public final class RedscreenReceiver {
                 String type = stringOf(json, "cheat_type", "unknown");
                 String pteid = stringOf(json, "pteid_masked", "****");
                 String risk = stringOf(json, "risk_score", "0");
+                if (persistence != null) persistence.setActive(level, type, pteid, risk);
                 FullScreenRed.show(level, type, pteid, risk);
             } else if (json.contains("\"type\":\"mitigation\"")) {
                 // 服务端就地防护指令（如 force_close）
                 System.out.println("[PTV-Client] 收到缓解指令: " + json);
             } else if (json.contains("unlock") && !json.contains("redscreen")) {
+                if (persistence != null) persistence.clear();
                 FullScreenRed.dismiss();
             }
         } catch (Exception e) {

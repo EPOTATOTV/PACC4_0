@@ -5,6 +5,8 @@ import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.CompetitionService;
 import com.potatotv.pacc.service.LoginThrottle;
 import com.potatotv.pacc.service.TokenService;
+import com.potatotv.pacc.service.VerifyCodeService;
+import com.potatotv.pacc.service.sms.SmsProvider;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,6 +41,8 @@ public class AuthController {
     private final AccountService accountService;
     private final LoginThrottle throttle;
     private final CompetitionService competitionService;
+    private final VerifyCodeService verifyCodeService;
+    private final SmsProvider smsProvider;
 
     /** 演示级邮件发送 stub：为 true 时在响应返回本地重置链接（生产必须关闭）。 */
     @Value("${pacc.mail.stub-enabled:true}")
@@ -61,6 +65,15 @@ public class AuthController {
     public ResponseEntity<?> register(@RequestBody Map<String, String> body, HttpServletRequest request,
                                       HttpServletResponse response) {
         try {
+            // 注册前必须持有发送到登记邮箱的验证码（校验并消费原码）
+            String email = body.get("email");
+            String code = body.get("code");
+            if (email == null || email.isBlank() || code == null || code.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "请输入邮箱与邮箱验证码"));
+            }
+            if (!verifyCodeService.verify(email, "register", code)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "验证码不正确或已过期，请重新获取"));
+            }
             Account a = accountService.register(body.get("email"), body.get("phone"),
                     body.get("mcid"), body.get("ecid"), body.get("qq"),
                     body.get("netease_uuid"), body.get("password"),
@@ -133,6 +146,81 @@ public class AuthController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /** 发送验证码到邮箱/手机（scene: register / login / reset）。同 IP 与同目标均有限流。 */
+    @PostMapping("/code/send")
+    public ResponseEntity<?> sendCode(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        String target = body.get("target");
+        String scene = body.getOrDefault("scene", "register");
+        if (target == null || target.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "请输入邮箱或手机号"));
+        }
+        String ip = clientIp(request);
+        // 双维度限流：同一来源 IP + 同一目标，防批量轰炸
+        if (!throttle.allowed("code:send:ip:" + ip) || !throttle.allowed("code:send:" + target)) {
+            log.warn("验证码发送被限流 target={} ip={}", maskTarget(target), ip);
+            return ResponseEntity.status(429).body(Map.of("error", "验证码发送过频，请稍后再试"));
+        }
+        String code = verifyCodeService.issue(target, scene);
+        if (code == null) {
+            // 同目标过短间隔内已发，不重复（对调用方保持幂等外观）
+            return ResponseEntity.ok(Map.of("ok", true, "message", "验证码已发送"));
+        }
+        if (target.contains("@")) {
+            if (mailStub) {
+                log.info("[验证码stub] 发往 {} 的验证码={}", target, code);
+            } else if (mailSender != null) {
+                sendOtpMail(target, scene, code);
+            } else {
+                log.warn("SMTP 未配置且未启用 stub，验证码未发送 target={}", target);
+                return ResponseEntity.ok(Map.of("ok", true, "message", "验证码已发送"));
+            }
+        } else {
+            smsProvider.send(target, code);
+        }
+        return ResponseEntity.ok(Map.of("ok", true, "message", "验证码已发送"));
+    }
+
+    /** 校验验证码（一次性，不返回账号存在性等敏感信息）。 */
+    @PostMapping("/code/verify")
+    public ResponseEntity<?> verifyCode(@RequestBody Map<String, String> body) {
+        String target = body.get("target");
+        String scene = body.getOrDefault("scene", "register");
+        String code = body.get("code");
+        if (target == null || target.isBlank() || code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "请输入目标与验证码"));
+        }
+        if (!verifyCodeService.verify(target, scene, code)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "验证码不正确或已过期"));
+        }
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    private void sendOtpMail(String email, String scene, String code) {
+        String sceneLabel = switch (scene) {
+            case "register" -> "注册";
+            case "reset" -> "重置密码";
+            default -> "登录";
+        };
+        try {
+            MimeMessage m = mailSender.createMimeMessage();
+            MimeMessageHelper h = new MimeMessageHelper(m, "UTF-8");
+            String from = (mailSmtpFrom != null && !mailSmtpFrom.isBlank()) ? mailSmtpFrom : mailUsername;
+            h.setFrom(from);
+            h.setSubject("PACC " + sceneLabel + "验证码");
+            h.setText("您好：\n\n您正在" + sceneLabel + "，本次验证码为：\n\n" + code
+                    + "\n\n10 分钟内有效，如非本人操作请忽略。来自 PACC 反作弊系统。", false);
+            mailSender.send(m);
+            log.info("已向 {} 发送{}验证码", email, sceneLabel);
+        } catch (MessagingException e) {
+            log.error("发送{}验证码失败 email={} err={}", sceneLabel, email, e.getMessage());
+        }
+    }
+
+    private static String maskTarget(String target) {
+        if (target == null || target.length() < 4) return "****";
+        return target.substring(0, 2) + "***" + target.substring(target.length() - 2);
     }
 
     @PostMapping("/login")

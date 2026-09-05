@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.DetectionEvent;
 import com.potatotv.pacc.service.AccountService;
+import com.potatotv.pacc.service.InspectSignalBus;
 import com.potatotv.pacc.service.OnlineStatusService;
 import com.potatotv.pacc.service.RedscreenService;
 import com.potatotv.pacc.service.RiskScoringService;
@@ -40,6 +41,7 @@ public class PlayerWebSocketHandler extends TextWebSocketHandler {
     private final RedscreenService redscreenService;
     private final AccountService accountService;
     private final WssMessageGuard messageGuard;
+    private final InspectSignalBus inspectSignalBus;
 
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
@@ -69,6 +71,12 @@ public class PlayerWebSocketHandler extends TextWebSocketHandler {
             switch (type) {
                 case "ping" -> send(session, Map.of("type", "pong", "ts", Instant.now().toString()));
                 case "event" -> handleEvent(pteid, edition, node);
+                // 远程查端信令：玩家端取证的 started/forensics 及 B2 透传的 offer/answer/ice 原样转给管理端
+                case "inspect_started", "inspect_forensics", "inspect_offer",
+                        "inspect_answer", "inspect_ice", "inspect_ready" -> {
+                    boolean forwarded = inspectSignalBus.forwardPlayerToAdmin(session, message.getPayload());
+                    log.info("玩家查端信令 {} pteid={} forwarded={} session={}", type, pteid, forwarded, session.getId());
+                }
                 default -> log.debug("未知消息类型 type={} pteid={}", type, pteid);
             }
         } catch (Exception e) {

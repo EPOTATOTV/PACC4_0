@@ -1,6 +1,7 @@
 package com.potatotv.pacc.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.potatotv.pacc.config.PinnedTrustManagerFactory;
 import com.potatotv.pacc.domain.RedscreenAlert;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +19,8 @@ import java.util.concurrent.Executors;
 
 /**
  * Webhook 推送：红屏警告 / 查端完成事件实时推送第三方系统。
- * 基于 Java 21 虚拟线程实现高并发异步推送。
+ * 基于 Java 21 虚拟线程实现高并发异步推送。出站 TLS 支持可选证书固定
+ * （见 {@link PinnedTrustManagerFactory}）。
  */
 @Slf4j
 @Service
@@ -26,10 +28,18 @@ import java.util.concurrent.Executors;
 public class WebhookDispatcher {
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final RestTemplate restTemplate = new RestTemplate();
+    private RestTemplate restTemplate;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     @Value("${pacc.webhook.retry:3}")
     private int maxRetry;
+
+    public WebhookDispatcher(PinnedTrustManagerFactory tlsPin) {
+        this.restTemplate = new RestTemplate();
+        if (tlsPin.active()) {
+            org.springframework.http.client.ClientHttpRequestFactory f = tlsPin.requestFactory();
+            if (f != null) this.restTemplate.setRequestFactory(f);
+        }
+    }
 
     /** Webhook 目标 URL（演示从系统属性/环境读取，生产走配置中心）。 */
     private String target() {
