@@ -1,2 +1,0 @@
-﻿2026-08-30T09:13:16.345+08:00  INFO 1832 --- [pacc-ptv-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path ''
-2026-08-30T09:13:16.357+08:00  INFO 1832 --- [pacc-ptv-backend] [           main] com.potatotv.pacc.PaccApplication        : Started PaccApplication in 6.889 seconds (process running for 7.532)
