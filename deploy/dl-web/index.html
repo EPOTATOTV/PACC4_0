@@ -3,120 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PACC 反作弊客户端下载 | PotatoTV 官方下载站</title>
-  <meta name="description" content="PACC（Professional Anti-Cheat Client）企业级纯玩家端反作弊系统客户端下载。支持 Windows / Linux / Android / iOS / HarmonyOS / Java 版。" />
+  <title>PACC 客户端下载 | PotatoTV</title>
+  <meta name="description" content="PACC 反作弊客户端官方下载，支持 Windows、Linux、Android、iOS、HarmonyOS 与 Java 版。" />
+  <link rel="icon" href="favicon.ico" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="nav">
     <div class="nav-inner">
-      <a class="brand" href="/">PACC <span>Anti-Cheat</span></a>
+      <a class="brand" href="/">
+        <img src="logo.png" width="26" height="26" alt="PACC logo" class="brand-logo" />
+        <span class="brand-font">PACC</span>
+      </a>
       <nav>
         <a href="#download">客户端下载</a>
-        <a href="#platforms">平台支持</a>
-        <a href="#guide">部署指引</a>
-        <a href="https://admin.potatotv.asia" target="_blank" rel="noopener">管理后台</a>
       </nav>
     </div>
   </header>
 
   <section class="hero">
     <div class="hero-inner">
-      <div class="hero-text">
-        <h1>PACC v4.2 反作弊客户端</h1>
-        <p class="lead">纯玩家端检测 · PTV 云端管控 · 红屏强制警告 · 远程查端取证</p>
-        <p>面向 Minecraft 基岩版与 Java 版双端统一的企业级反作弊系统，
-           仅通过红屏警告、强制键盘暂停、全在线广播、永久记录与管理员远程查端进行威慑与取证，
-           <strong>不具备封禁能力</strong>，与游戏服务器完全解耦。</p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="#download">立即下载</a>
-          <a class="btn btn-ghost" href="#guide">部署指引</a>
-        </div>
-      </div>
-      <div class="hero-img">
-        <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20anti-cheat%20system%20dashboard%20with%20shield%20and%20red%20screen%20alert%2C%20cyber%20security%2C%20dark%20tech%20style%2C%20high%20detail&image_size=landscape_4_3"
-             alt="PACC 反作弊系统" loading="lazy" />
+      <h1 class="brand-font hero-title">PACC</h1>
+      <p class="hero-sub">专业反作弊客户端 · 为纯净的游戏环境而生</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#download">立即下载</a>
       </div>
     </div>
   </section>
 
   <section class="download" id="download">
     <h2>客户端下载 <span class="version">v4.2.0</span></h2>
-    <p class="sub">选择与您设备匹配的客户端，安装后登录 PTEID 反作弊账号即可接入 PTV 云端管控。</p>
+    <p class="sub">选择适合您设备的版本</p>
 
     <div class="grid">
       <div class="card">
-        <div class="card-icon">🖥️</div>
-        <h3>Windows 客户端</h3>
-        <p>Windows 10/11 x64 · 内核驱动（CDP）+ 用户态服务，进程保护与内存扫描。</p>
-        <a class="btn" href="files/pacc-client-windows-x64-v4.2.0.zip">下载 Windows 版</a>
+        <div class="card-badge">WIN</div>
+        <h3>Windows</h3>
+        <p>Windows 10 / 11 · x64</p>
+        <a class="btn" href="files/pacc-client-windows-x64-v4.2.0.zip">下载</a>
       </div>
       <div class="card">
-        <div class="card-icon">🐧</div>
-        <h3>Linux 客户端</h3>
-        <p>Linux x86_64 · 内核模块（Kprobe）+ 用户态守护进程。</p>
-        <a class="btn" href="files/pacc-client-linux-x86_64-v4.2.0.tar.gz">下载 Linux 版</a>
+        <div class="card-badge">LNX</div>
+        <h3>Linux</h3>
+        <p>Linux x86_64</p>
+        <a class="btn" href="files/pacc-client-linux-x86_64-v4.2.0.tar.gz">下载</a>
       </div>
       <div class="card">
-        <div class="card-icon">🤖</div>
-        <h3>Android 客户端</h3>
-        <p>Android 8.0+ · NDK 原生探针，注入 / Root / 调试器检测。</p>
-        <a class="btn" href="files/pacc-client-android-v4.2.0.apk">下载 Android APK</a>
+        <div class="card-badge">APK</div>
+        <h3>Android</h3>
+        <p>Android 8.0 及以上</p>
+        <a class="btn" href="files/pacc-client-android-v4.2.0.apk">下载</a>
       </div>
       <div class="card">
-        <div class="card-icon">🍎</div>
-        <h3>iOS / iPadOS 客户端</h3>
-        <p>iOS 15+ · Swift 探针，越狱 / dylib 注入 / 调试检测。</p>
-        <a class="btn" href="files/pacc-client-ios-v4.2.0.tar.gz">下载 iOS 版</a>
+        <div class="card-badge">iOS</div>
+        <h3>iOS / iPadOS</h3>
+        <p>iOS 15 及以上</p>
+        <a class="btn" href="files/pacc-client-ios-v4.2.0.tar.gz">下载</a>
       </div>
       <div class="card">
-        <div class="card-icon">📱</div>
-        <h3>HarmonyOS 客户端</h3>
-        <p>HarmonyOS NEXT · ArkTS 探针，加速 / Hook / 非授权路径检测。</p>
-        <a class="btn" href="files/pacc-client-harmony-v4.2.0.tar.gz">下载 HarmonyOS 版</a>
+        <div class="card-badge">HMY</div>
+        <h3>HarmonyOS</h3>
+        <p>HarmonyOS NEXT</p>
+        <a class="btn" href="files/pacc-client-harmony-v4.2.0.tar.gz">下载</a>
       </div>
       <div class="card">
-        <div class="card-icon">☕</div>
-        <h3>Java 版探针（JVM Agent）</h3>
-        <p>Java 21+ · 字节码扫描 + 类加载监控，配合 Forge / Fabric 模组检测。</p>
-        <a class="btn" href="files/ptv-agent-4.2.0.jar">下载 ptv-agent.jar</a>
+        <div class="card-badge">JVM</div>
+        <h3>Java 版探针</h3>
+        <p>Java 21 及以上</p>
+        <a class="btn" href="files/ptv-agent-4.2.0.jar">下载</a>
       </div>
     </div>
-
-    <p class="note">说明：安装包构建产物在部署后放置于 <code>deploy/dl-web/files/</code> 目录即自动发布。</p>
-  </section>
-
-  <section class="platforms" id="platforms">
-    <h2>平台支持矩阵</h2>
-    <table>
-      <thead>
-        <tr><th>平台</th><th>检测探针</th><th>保护能力</th><th>版本</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Windows</td><td>内核驱动（CDP）+ JVM 探针</td><td>进程保护 · 内存扫描 · 输入设备监控 · USB 画像</td><td>v4.2.0</td></tr>
-        <tr><td>Linux</td><td>内核模块（Kprobe）+ 用户态守护进程</td><td>系统调用挂钩 · /proc 进程监控 · 事件上报</td><td>v4.2.0</td></tr>
-        <tr><td>Android</td><td>NDK 原生探针</td><td>注入 / Root / 调试器 / ROM 篡改检测</td><td>v4.2.0</td></tr>
-        <tr><td>iOS / iPadOS</td><td>Swift 探针</td><td>越狱 / dylib 注入 / 调试检测</td><td>v4.2.0</td></tr>
-        <tr><td>HarmonyOS</td><td>ArkTS 探针</td><td>应用加速 / Hook 框架 / 非授权路径检测</td><td>v4.2.0</td></tr>
-        <tr><td>Java 版</td><td>JVM Agent</td><td>字节码特征扫描 / 类加载监控 / 作弊客户端特征库</td><td>v4.2.0</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section class="guide" id="guide">
-    <h2>快速部署指引</h2>
-    <ol>
-      <li><strong>注册 PTEID 账号</strong>：客户端内置注册 / 登录接口，账号体系与游戏账号完全解耦。</li>
-      <li><strong>安装客户端</strong>：下载对应平台安装包，默认连接 <code>wss://pacc.potatotv.asia/ws/ptv</code>。</li>
-      <li><strong>自动接入</strong>：客户端登录后建立 TLS 长连接，持续上报本地检测数据。</li>
-      <li><strong>云端管控</strong>：管理员在 <a href="https://admin.potatotv.asia" target="_blank" rel="noopener">admin.potatotv.asia</a> 查看风险评分、红屏告警与远程查端。</li>
-    </ol>
-    <p class="note">PTV 管控端 API 地址：<code>https://api.potatotv.asia</code>；玩家端长连接地址：<code>wss://pacc.potatotv.asia/ws/ptv</code>。</p>
   </section>
 
   <footer class="footer">
-    <p>PACC v4.2 · PotatoTV 反作弊系统 · <a href="https://admin.potatotv.asia" target="_blank" rel="noopener">管理后台</a></p>
-    <p class="small">本系统不具备封禁能力，仅提供红屏警告、强制暂停与远程查端等威慑与取证手段。</p>
+    <div class="footer-brand">
+      <img src="logo.png" width="20" height="20" alt="PACC logo" />
+      <span class="brand-font">PACC</span>
+      <span>PotatoTV 反作弊系统</span>
+    </div>
+    <p class="small">© 2026 POTATOTV</p>
   </footer>
 </body>
 </html>

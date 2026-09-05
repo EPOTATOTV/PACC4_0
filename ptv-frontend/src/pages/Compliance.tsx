@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Col, Descriptions, Empty, List, Modal, Input, Row, Space, Statistic, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Col, Descriptions, Empty, List, Modal, Input, Row, Space, Statistic, Tag, Typography, message, theme } from 'antd'
 import { api } from '../api/client'
+import TicketList from '../components/ticket/TicketList'
+import type { SupportTicket } from '../types'
 
 interface Summary { pending_appeals: number; open_tickets: number; in_progress_tickets: number }
 
@@ -12,11 +14,12 @@ export default function Compliance() {
   const [branding, setBranding] = useState<any>(null)
   const [summary, setSummary] = useState<Summary | null>(null)
   const [sbom, setSbom] = useState<any>(null)
-  const [tickets, setTickets] = useState<any[]>([])
+  const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [appeals, setAppeals] = useState<any[]>([])
   const [err, setErr] = useState('')
   const [reviewing, setReviewing] = useState<{ id: string; status: string } | null>(null)
   const [comment, setComment] = useState('')
+  const { token } = theme.useToken()
 
   async function load() {
     try {
@@ -108,9 +111,11 @@ export default function Compliance() {
       )}
 
       {branding && (
-        <Card title="品牌视觉占位（Logo 预留，未改动）" style={{ marginBottom: 16, borderColor: '#a371f7' }}>
+        <Card title="品牌视觉" style={{ marginBottom: 16, borderColor: '#a371f7' }}>
           <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>{branding.note}</Text>
-          <Text style={{ color: '#a371f7', display: 'block', marginBottom: 8 }}>状态: {branding.status}</Text>
+          <Text style={{ color: '#3fb950', display: 'block', marginBottom: 8 }}>
+            状态: {branding.status} · Logo 已接入全站页头页脚（英文 Russo One / 中文黑体）
+          </Text>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {(branding.placeholder ?? []).map((p: string) => <li key={p}><Text type="secondary" style={{ fontSize: 13 }}>{p}</Text></li>)}
           </ul>
@@ -142,25 +147,24 @@ export default function Compliance() {
         </Col>
         <Col xs={24} lg={12}>
           <Card title="开启工单" styles={{ body: { padding: 0 } }}>
-            {tickets.length === 0 ? <Empty description="无开启工单" style={{ margin: '16px 0' }} /> : (
-              <List
-                dataSource={tickets}
-                renderItem={(t: any) => (
-                  <List.Item style={{ padding: '12px 16px' }} actions={[
-                    <Space size={6} key="ops">
-                      <Button size="small" style={{ background: '#3fb950', borderColor: 'transparent', color: '#0d1117' }} onClick={() => transition(t.ticketId, 'in_progress')}>受理</Button>
-                      <Button size="small" onClick={() => transition(t.ticketId, 'resolved')}>解决</Button>
-                      <Button size="small" onClick={() => transition(t.ticketId, 'closed')}>关闭</Button>
-                    </Space>,
-                  ]}>
-                    <List.Item.Meta
-                      title={<Text>{t.subject} <Text type="secondary" style={{ fontSize: 12 }}>({t.channel})</Text></Text>}
-                      description={<Text type="secondary" style={{ fontSize: 12 }}>{t.pteid} · {t.body}</Text>}
-                    />
-                  </List.Item>
-                )}
-              />
-            )}
+            <TicketList
+              tickets={tickets}
+              emptyText="无开启工单"
+              showPteid
+              renderActions={(t) => (
+                <Space size={6}>
+                  <Button
+                    size="small"
+                    style={{ background: token.colorSuccess, borderColor: 'transparent', color: '#0d1117' }}
+                    onClick={() => transition(t.ticketId, 'in_progress')}
+                  >
+                    受理
+                  </Button>
+                  <Button size="small" onClick={() => transition(t.ticketId, 'resolved')}>解决</Button>
+                  <Button size="small" onClick={() => transition(t.ticketId, 'closed')}>关闭</Button>
+                </Space>
+              )}
+            />
           </Card>
         </Col>
       </Row>

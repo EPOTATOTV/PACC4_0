@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { Alert, Button, Card, Form, Input, Segmented, Typography } from 'antd'
 import { AuditOutlined, LockOutlined, TeamOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
+import Brand from '../components/Brand'
 
-const { Title, Text } = Typography
+const { Text } = Typography
 type Mode = 'key' | 'feishu'
 
 export default function Login() {
@@ -56,14 +57,7 @@ export default function Login() {
       }}
     >
       <Card style={{ width: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} styles={{ body: { padding: 28 } }}>
-        {/* ============ 品牌 LOGO 占位点 ============
-            说明：Logo/企业外观标识本版本不替换。
-            替换时在此插入 <img src="/logo.png" width={120} /> 并放置
-            ptv-frontend/public/logo.png；当前保留文字标题。 */}
-        <Title level={3} style={{ marginTop: 0, marginBottom: 0, color: '#ff3b30' }}>
-          PACC 管控后台
-        </Title>
-        <Text type="secondary">PTV 管控平台 · 管理员登录</Text>
+        <Brand size="md" subtitle="PTV 管控平台 · 管理员登录" />
 
         <Segmented
           block

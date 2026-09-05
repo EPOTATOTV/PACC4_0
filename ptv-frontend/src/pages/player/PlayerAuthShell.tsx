@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react'
-import { Card, Typography } from 'antd'
-
-const { Title, Text } = Typography
+import { Card } from 'antd'
+import Brand from '../../components/Brand'
 
 /**
- * 玩家门户认证页统一外壳：居中卡片布局 + 品牌 LOGO 占位点。
+ * 玩家门户认证页统一外壳：居中卡片布局 + 品牌 logo。
  * 登录 / 注册 / 找回密码公用，保证三页视觉一致，避免各自复制卡片样式。
  */
 export default function PlayerAuthShell({
@@ -30,14 +29,7 @@ export default function PlayerAuthShell({
         style={{ width: width ?? 400, boxShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
         styles={{ body: { padding: 28 } }}
       >
-        {/* ============ 品牌 LOGO 占位点 ============
-            说明：Logo/企业外观标识本版本不替换。
-            替换时在此插入 <img src="/logo.png" width={120} /> 并放置
-            ptv-frontend/public/logo.png；当前保留文字标题。 */}
-        <Title level={3} style={{ marginTop: 0, marginBottom: 0, color: '#ff6b5e' }}>
-          {title}
-        </Title>
-        {subtitle && <Text type="secondary">{subtitle}</Text>}
+        <Brand size="md" title={title} subtitle={subtitle} />
 
         {children}
 

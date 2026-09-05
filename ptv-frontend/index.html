@@ -3,9 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- ============ 品牌占位 ============
-         Logo 本版本不替换。正式品牌需替换：<link rel="icon" href="/favicon.ico" />
-         并将 /public/favicon.ico / logo 资产放入 public/。当前沿用文字标题。 -->
+    <link rel="icon" href="/favicon.ico" />
     <title>PACC PTV 管控后台</title>
     <style>
       :root {
@@ -22,9 +20,21 @@
         --blue: #58a6ff;
       }
       * { box-sizing: border-box; }
+      @font-face {
+        font-family: 'Russo One';
+        src: url('/fonts/RussoOne.ttf') format('truetype');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      .brand-font {
+        font-family: 'Russo One', 'SimHei', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
       body {
         margin: 0;
-        font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        font-family: 'SimHei', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
         background: var(--bg);
         color: var(--text);
       }

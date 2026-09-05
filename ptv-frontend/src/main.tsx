@@ -17,6 +17,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           colorBgContainer: '#161b22',
           colorBorder: '#30363d',
           borderRadius: 6,
+          fontFamily: "'SimHei','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif",
         },
         components: {
           Card: { borderRadiusLG: 10 },
