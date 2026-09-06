@@ -30,6 +30,8 @@ public final class ClientConfig {
     public final String signatureVersion;
     /** WSS 上报签名密钥：与服务器端 PACC_WSS_SIGN_SECRET 保持一致时启用 HMAC 签名 + 防重放。 */
     public final String wssSignSecret;
+    /** 特征库包签名密钥：与服务器端 PACC_SIG_SECRET 保持一致，用于端侧校验热更新包。 */
+    public final String sigSecret;
 
     private ClientConfig(Properties p) {
         this.pteid = get(p, "pacc.client.pteid", "PACC_CLIENT_PTEID", "PT0000000001");
@@ -48,6 +50,7 @@ public final class ClientConfig {
         this.autoReconnect = getBool(p, "pacc.client.reconnect.enabled", "PACC_CLIENT_AUTO_RECONNECT", true);
         this.signatureVersion = get(p, "pacc.client.signature.version", "PACC_CLIENT_SIGNATURE_VERSION", "v4.2.0");
         this.wssSignSecret = get(p, "pacc.client.wss.sign.secret", "PACC_CLIENT_WSS_SECRET", "pacc-dev-wss-sign-key-change-me");
+        this.sigSecret = get(p, "pacc.client.signature.secret", "PACC_CLIENT_SIG_SECRET", "pacc-sig-test-secret");
     }
 
     /** 环境变量优先，其次配置文件，最后内置默认值。 */

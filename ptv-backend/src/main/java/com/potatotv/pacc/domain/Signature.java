@@ -48,4 +48,11 @@ public class Signature {
     private String createdBy;
 
     private Instant createdAt;
+
+    /** 特征版本号，从 1 起每次状态/内容变更自增（v4.7 热更新增量判断依据）。 */
+    @Builder.Default
+    private long version = 1;
+
+    /** 最近一次变更时间（v4.7）。 */
+    private Instant updatedAt;
 }

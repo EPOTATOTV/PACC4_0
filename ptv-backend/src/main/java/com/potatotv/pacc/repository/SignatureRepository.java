@@ -14,11 +14,16 @@ public interface SignatureRepository extends JpaRepository<Signature, String> {
 
     List<Signature> findByEdition(Signature.Edition edition);
 
+    /** 版本大于 givenVersion 的特征（v4.7 增量 diff 依据）。 */
+    List<Signature> findByEditionAndVersionGreaterThan(Signature.Edition edition, long version);
+
     long countByState(String state);
 
     @Modifying
-    @Query("update Signature s set s.state = :toState where s.state = :fromState and s.edition = :edition")
+    @Query("update Signature s set s.state = :toState, s.version = s.version + 1, "
+            + "s.updatedAt = :updatedAt where s.state = :fromState and s.edition = :edition")
     int markState(@Param("fromState") String fromState,
                   @Param("toState") String toState,
-                  @Param("edition") Signature.Edition edition);
+                  @Param("edition") Signature.Edition edition,
+                  @Param("updatedAt") java.time.Instant updatedAt);
 }

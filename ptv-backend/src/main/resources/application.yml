@@ -40,6 +40,8 @@ pacc:
     jwt-secret: ${PACC_SECURITY_JWT_SECRET:}
     # 玩家端 WSS 上报签名密钥：非空时对上报消息做 HMAC 校验收紧（防重放/防篡改）。
     wss-sign-secret: ${PACC_SECURITY_WSS_SIGN_SECRET:}
+    # 特征库热更新内容签名密钥：非 local 缺失时 SigSigner 启动即抛错（fail-closed）。
+    sig-secret: ${PACC_SIG_SECRET:}
     # 管理后台允许的跨域来源（Origin 白名单，逗号分隔）。
     allowed-origins: "https://admin.potatotv.asia,http://admin.potatotv.asia,http://localhost:5173,https://localhost:5173"
   mail:
@@ -143,6 +145,7 @@ pacc:
     super-admin-key: pacc-super-admin-secret-key
     jwt-secret: "PACC-v4-runtime-secret-key-change-me-in-production-0123456789"
     wss-sign-secret: "pacc-dev-wss-sign-key-change-me"
+    sig-secret: "pacc-sig-test-secret"
   mail:
     stub-enabled: true
     # 本地联调：兜底前缀，避免构造重置链接时落到公网地址

@@ -78,6 +78,16 @@ export const navGroups: NavGroup[] = [
       { key: '/system', to: '/system', label: '系统设置', i18nKey: 'nav.system' },
     ],
   },
+  {
+    groupKey: 'ops',
+    groupLabel: '运营自动化',
+    groupI18nKey: 'nav.group.ops',
+    items: [
+      { key: '/ab', to: '/ab', label: 'A/B 实验', i18nKey: 'nav.ab' },
+      { key: '/ops', to: '/ops', label: '运维中心', i18nKey: 'nav.ops' },
+      { key: '/support', to: '/support', label: '客服工单', i18nKey: 'nav.support' },
+    ],
+  },
 ]
 
 /** 路由 → 页面标题 i18n 键 + 所属分组 i18n 键，供面包屑使用 */
@@ -98,6 +108,9 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/login-logs': { titleKey: 'nav.loginLogs', groupKey: 'nav.group.system' },
   '/audit': { titleKey: 'nav.audit', groupKey: 'nav.group.system' },
   '/system': { titleKey: 'nav.system', groupKey: 'nav.group.system' },
+  '/ab': { titleKey: 'nav.ab', groupKey: 'nav.group.ops' },
+  '/ops': { titleKey: 'nav.ops', groupKey: 'nav.group.ops' },
+  '/support': { titleKey: 'nav.support', groupKey: 'nav.group.ops' },
 }
 
 /** 根据当前路径匹配选中的菜单 key */

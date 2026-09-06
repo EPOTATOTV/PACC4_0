@@ -1,6 +1,5 @@
 package com.potatotv.pacc.service;
 
-import com.potatotv.pacc.domain.ConfidenceTier;
 import com.potatotv.pacc.repository.AccountRepository;
 import com.potatotv.pacc.repository.CheatRecordRepository;
 import com.potatotv.pacc.repository.DetectionEventRepository;

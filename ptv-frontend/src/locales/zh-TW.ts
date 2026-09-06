@@ -8,6 +8,7 @@ const zhTW: Record<string, string> = {
   'nav.group.rules': '規則配置',
   'nav.group.event': '賽事風控',
   'nav.group.system': '系統管理',
+  'nav.group.ops': '運營自動化',
   'nav.dashboard': '數據大盤',
   'nav.redscreen': '紅屏管理',
   'nav.inspect': '查端控制台',
@@ -24,6 +25,9 @@ const zhTW: Record<string, string> = {
   'nav.loginLogs': '登入日誌',
   'nav.audit': '稽核日誌',
   'nav.system': '系統設定',
+  'nav.ab': 'A/B 實驗',
+  'nav.ops': '運維中心',
+  'nav.support': '客服工單',
 
   'player.overview': '我的概覽',
   'player.tournament': '賽事中心',

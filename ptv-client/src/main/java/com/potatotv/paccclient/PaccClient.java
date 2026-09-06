@@ -7,12 +7,20 @@ import com.potatotv.paccclient.redscreen.RedscreenReceiver;
 import com.potatotv.paccclient.store.MachineFingerprint;
 import com.potatotv.paccclient.store.OfflineQueue;
 import com.potatotv.paccclient.store.RedScreenStatePersistence;
+import com.potatotv.paccclient.ops.OpsClient;
+import com.potatotv.paccclient.signature.SignatureSync;
 import com.potatotv.paccclient.transport.PaccWireSigner;
 import com.potatotv.paccclient.transport.WssReporter;
 
+import java.lang.management.ManagementFactory;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -93,9 +101,44 @@ public final class PaccClient {
             engine.sample(cfg.clientRisk).ifPresent(reporter::report);
         }, 2, cfg.heartbeatSeconds, TimeUnit.SECONDS);
 
+        // ---- v4.7 运维客户端：远程配置、崩溃上报、性能上报、特征库热更新（尽力而为，失败不阻断）----
+        OpsClient opsClient = new OpsClient(cfg.serverUri, token);
+        SignatureSync signatureSync = new SignatureSync(cfg.sigSecret);
+        ScheduledExecutorService opsScheduler = Executors.newSingleThreadScheduledExecutor(
+                r -> Thread.ofVirtual().name("ptv-ops").unstarted(r));
+
+        // 未捕获异常兜底：上报崩溃堆栈后退出
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            opsClient.reportCrash(cfg.signatureVersion, osName(), archName(), platformName(),
+                    stackOf(e), contextJson(cfg), null);
+            System.err.println("[PTV-Client] 未捕获异常: " + e);
+        });
+
+        // 周期性能上报
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            Runtime rt = Runtime.getRuntime();
+            long usedMb = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
+            opsClient.reportTelemetry(cfg.signatureVersion, osName(), processCpu(), usedMb, null, null);
+        }, 15, Math.max(30, cfg.heartbeatSeconds * 2), TimeUnit.SECONDS);
+
+        // 特征库热更新 + 远程配置拉取
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            syncSignatures(cfg, signatureSync);
+            Map<String, Object> rc = opsClient.fetchRemoteConfig();
+            if (!rc.isEmpty()) {
+                Object scan = rc.get("scan_interval_sec");
+                if (scan instanceof Number n) {
+                    // 远程可调整端侧行为；此处以日志反馈，具体采样周期仍由本机配置主导
+                    System.out.println("[PTV-Client] 远程配置生效 keys=" + rc.keySet()
+                            + " scan_interval_sec=" + n.longValue());
+                }
+            }
+        }, 10, 300, TimeUnit.SECONDS);
+
         // 常驻运行，Ctrl+C 退出
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             scheduler.shutdownNow();
+            opsScheduler.shutdownNow();
             reporter.close();
             System.out.println("[PTV-Client] 玩家端已退出");
         }));
@@ -157,5 +200,60 @@ public final class PaccClient {
     }
 
     private PaccClient() {
+    }
+
+    /** 拉取并热更新特征库：先在线校验摘要与签名，失败保持上一份生效规则。 */
+    private static void syncSignatures(ClientConfig cfg, SignatureSync signatureSync) {
+        try {
+            HttpRequest req = HttpRequest.newBuilder(URI.create(cfg.serverUri
+                            + "/api/player/ops/signatures?edition=" + cfg.edition + "&after_version=0"))
+                    .header("Authorization", "Bearer " + cfg.token)
+                    .GET().timeout(Duration.ofSeconds(6)).build();
+            HttpResponse<String> r = HttpClient.newHttpClient().send(req, HttpResponse.BodyHandlers.ofString());
+            if (r.statusCode() / 100 != 2 || r.body() == null) return;
+            int before = signatureSync.ruleCount();
+            signatureSync.apply(r.body());
+            System.out.println("[PTV-Client] 特征库热更新成功 版本=" + signatureSync.version()
+                    + " 规则数 " + before + "→" + signatureSync.ruleCount() + " digest=" + signatureSync.digest());
+        } catch (Exception e) {
+            System.out.println("[PTV-Client] 特征库同步跳过（不影响现有规则）: " + e.getMessage());
+        }
+    }
+
+    private static String osName() {
+        return System.getProperty("os.name", "unknown");
+    }
+
+    private static String archName() {
+        return System.getProperty("os.arch", "unknown");
+    }
+
+    private static String platformName() {
+        String os = osName().toLowerCase();
+        if (os.contains("win")) return "WINDOWS";
+        if (os.contains("mac")) return "OSX";
+        return "LINUX";
+    }
+
+    /** 以 JVM 进程 CPU 负载近似作为采样值（首次为 -1 时按 0 处理）。 */
+    private static double processCpu() {
+        double load = ManagementFactory.getOperatingSystemMXBean().getProcessCpuLoad();
+        if (load < 0) return 0.0;
+        return Math.max(0, Math.min(100, load * 100));
+    }
+
+    private static String stackOf(Throwable e) {
+        StringBuilder sb = new StringBuilder();
+        for (StackTraceElement el : e.getStackTrace()) sb.append(el.toString()).append('\n');
+        return sb.toString();
+    }
+
+    private static String contextJson(ClientConfig cfg) {
+        StringBuilder sb = new StringBuilder("{");
+        sb.append("\"os\":\"").append(Json.encode(osName())).append("\"");
+        sb.append(",\"arch\":\"").append(Json.encode(archName())).append("\"");
+        sb.append(",\"edition\":\"").append(Json.encode(cfg.edition)).append("\"");
+        sb.append(",\"client_risk\":").append(cfg.clientRisk);
+        return sb.append('}').toString();
     }
 }

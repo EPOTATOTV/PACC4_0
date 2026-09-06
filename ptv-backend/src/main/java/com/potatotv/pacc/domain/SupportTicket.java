@@ -1,7 +1,9 @@
 package com.potatotv.pacc.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,7 +13,8 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 /**
- * v4.1 多渠道客服工单（工单/邮件/QQ/Discord/管理员专属通道）。
+ * v4.7 客服工单：分类（申诉/技术/账号/功能/商务/举报）、优先级（P0~P3）、SLA 首响跟踪、状态流转。
+ * <p>状态：OPEN -> RESPONDED -> RESOLVED -> CLOSED；优先级：P0(最高)~P3(普通)。</p>
  */
 @Data
 @Builder
@@ -22,26 +25,35 @@ import java.time.Instant;
 public class SupportTicket {
 
     @Id
-    private String ticketId;
+    private String id;
 
+    /** 关联玩家 PTEID，可空（匿名/渠道工单）。 */
     private String pteid;
 
-    /** email / qq / discord / ticket / admin */
-    private String channel;
+    /** APPEAL | TECHNICAL | ACCOUNT | FEATURE | BUSINESS | REPORT */
+    private String category;
 
-    private String subject;
+    private String title;
 
-    private String body;
+    @Lob
+    private String description;
 
-    /** open / in_progress / resolved / closed */
+    /** OPEN | RESPONDED | RESOLVED | CLOSED */
     @Builder.Default
-    private String status = "open";
+    private String status = "OPEN";
 
-    /** 分配到的客服/admin。 */
+    /** P0 | P1 | P2 | P3 */
+    @Builder.Default
+    private String priority = "P3";
+
+    /** 分配给的处理人。 */
     private String assignee;
 
-    private String resolution;
+    private Instant firstReplyAt;
 
+    private Instant resolvedAt;
+
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
     private Instant updatedAt;

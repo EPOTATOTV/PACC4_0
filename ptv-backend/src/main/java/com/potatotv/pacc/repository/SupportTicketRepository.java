@@ -9,7 +9,13 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, St
 
     List<SupportTicket> findByPteidOrderByCreatedAtDesc(String pteid);
 
-    List<SupportTicket> findByStatusOrderByCreatedAtAsc(String status);
+    List<SupportTicket> findAllByOrderByCreatedAtDesc();
+
+    List<SupportTicket> findByCategoryOrderByCreatedAtDesc(String category);
+
+    List<SupportTicket> findByStatusOrderByCreatedAtDesc(String status);
+
+    List<SupportTicket> findByCategoryAndStatusOrderByCreatedAtDesc(String category, String status);
 
     long countByStatus(String status);
 }

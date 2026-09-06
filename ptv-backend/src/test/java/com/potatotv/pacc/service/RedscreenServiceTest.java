@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.CheatRecord;
-import com.potatotv.pacc.domain.ConfidenceTier;
 import com.potatotv.pacc.domain.RedscreenAlert;
 import com.potatotv.pacc.domain.SuspicionFlag;
 import com.potatotv.pacc.repository.AccountRepository;

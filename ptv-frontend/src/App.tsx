@@ -20,6 +20,9 @@ import AdminLoginLogs from './pages/AdminLoginLogs'
 import System from './pages/System'
 import Admins from './pages/Admins'
 import Audit from './pages/Audit'
+import AbExperiment from './pages/AbExperiment'
+import OpsCenter from './pages/OpsCenter'
+import SupportCenter from './pages/SupportCenter'
 import PlayerPortal from './pages/player/PlayerPortal'
 import PlayerScreenShare from './pages/player/PlayerScreenShare'
 
@@ -82,6 +85,9 @@ export default function App() {
         <Route path="/audit" element={<Audit />} />
         <Route path="/admins" element={<Admins />} />
         <Route path="/system" element={<System />} />
+        <Route path="/ab" element={<AbExperiment />} />
+        <Route path="/ops" element={<OpsCenter />} />
+        <Route path="/support" element={<SupportCenter />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

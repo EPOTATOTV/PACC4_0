@@ -177,22 +177,21 @@ public class PlayerPortalController {
         if (pteid.isEmpty()) {
             return ResponseEntity.status(401).body(Map.of("error", "需要登录"));
         }
-        String channel = body.getOrDefault("channel", "ticket");
-        if (!List.of("ticket", "email", "qq", "discord", "admin").contains(channel)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "未知渠道: " + channel));
-        }
+        String category = body.getOrDefault("category", "TECHNICAL");
         SupportTicket t = SupportTicket.builder()
-                .ticketId(UUID.randomUUID().toString())
+                .id(UUID.randomUUID().toString())
                 .pteid(pteid)
-                .channel(channel)
-                .subject(body.getOrDefault("subject", "问题反馈"))
-                .body(body.getOrDefault("body", ""))
-                .status("open")
+                .category(category)
+                .title(body.getOrDefault("subject", "问题反馈"))
+                .description(body.getOrDefault("body", ""))
+                .status("OPEN")
+                .priority("P3")
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
+                .assignee(null)
                 .build();
         ticketRepository.save(t);
-        return ResponseEntity.ok(Map.of("ticket_id", t.getTicketId(), "status", t.getStatus()));
+        return ResponseEntity.ok(Map.of("ticket_id", t.getId(), "status", t.getStatus()));
     }
 
     /** 我的工单列表。 */

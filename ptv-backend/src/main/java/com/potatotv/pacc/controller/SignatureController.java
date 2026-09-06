@@ -53,6 +53,26 @@ public class SignatureController {
         }
     }
 
+    @GetMapping("/diff")
+    public Map<String, Object> diff(@RequestParam(defaultValue = "BEDROCK") String edition,
+                                    @RequestParam(required = false) Long afterVersion,
+                                    @RequestParam(defaultValue = "false") boolean signed) {
+        return service.diff(Signature.Edition.valueOf(edition.toUpperCase()), afterVersion, signed);
+    }
+
+    @PostMapping("/auto-rollback")
+    public ResponseEntity<?> autoRollback(@RequestBody Map<String, String> body) {
+        try {
+            Signature.Edition edition = Signature.Edition.valueOf(body.get("edition").toUpperCase());
+            double fpr = Double.parseDouble(body.get("false_positive_rate"));
+            // 超阈值（误报>0.5%）时回滚到上一稳定，否则保持现状
+            int n = service.autoRollback(edition, fpr, body.get("operator"));
+            return ResponseEntity.ok(Map.of("ok", true, "rolled_back", n));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/rollback")
     public ResponseEntity<?> rollback(@RequestBody Map<String, String> body) {
         try {

@@ -282,6 +282,53 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ edition, operator: 'admin' }),
       }),
+    diff: (edition: string, afterVersion = 0) =>
+      request<any>(`/signatures/diff?edition=${edition}&afterVersion=${afterVersion}&signed=true`),
+    autoRollback: (falsePositiveRate: number) =>
+      request<{ ok: boolean; rolled_back: number }>('/signatures/auto-rollback', {
+        method: 'POST',
+        body: JSON.stringify({ false_positive_rate: falsePositiveRate, edition: 'BEDROCK', operator: 'admin' }),
+      }),
+  },
+
+  // ---- v4.7 检测算法 A/B 测试 ----
+  ab: {
+    list: () => request<any[]>('/ab'),
+    create: (body: Record<string, string | number>) =>
+      request<any>('/ab', { method: 'POST', body: JSON.stringify(body) }),
+    significance: (id: string) => request<any>(`/ab/${id}/significance`),
+    breakdown: (id: string, body: Record<string, unknown>) =>
+      request<any>(`/ab/${id}/breakdown`, { method: 'POST', body: JSON.stringify(body) }),
+    finish: (id: string) => request<any>(`/ab/finish/${id}`, { method: 'POST' }),
+    publish: (id: string) => request<any>(`/ab/publish/${id}`, { method: 'POST' }),
+  },
+
+  // ---- v4.7 自动化运维 ----
+  ops: {
+    health: () => request<any>('/ops/health'),
+    crashes: (limit = 50) => request<any[]>(`/ops/crashes?limit=${limit}`),
+    telemetry: (limit = 50) => request<any[]>(`/ops/telemetry?limit=${limit}`),
+    overview: () => request<any>('/ops/overview'),
+    config: () => request<any[]>('/ops/config'),
+    saveConfig: (key: string, body: Record<string, unknown>) =>
+      request<any>(`/ops/config/${key}`, { method: 'PUT', body: JSON.stringify(body) }),
+  },
+
+  // ---- v4.7 客服工单 ----
+  support: {
+    tickets: (category?: string, status?: string) =>
+      request<any[]>(`/support/tickets${category ? `?category=${category}` : ''}${status ? `&status=${status}` : ''}`),
+    createTicket: (body: Record<string, string>) =>
+      request<any>('/support/tickets', { method: 'POST', body: JSON.stringify(body) }),
+    replyTicket: (id: string, reply: string, responder = 'admin') =>
+      request<any>(`/support/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply, responder }) }),
+    resolveTicket: (id: string) =>
+      request<any>(`/support/tickets/${id}/resolve`, { method: 'POST', body: JSON.stringify({}) }),
+    smartHitRate: () => request<any>('/support/smart/hit-rate'),
+    dashboard: () => request<any>('/support/dashboard'),
+    faqList: () => request<any[]>('/support/faq'),
+    addFaq: (body: Record<string, string>) => request<any>('/support/faq', { method: 'POST', body: JSON.stringify(body) }),
+    deleteFaq: (id: string) => request<any>(`/support/faq/${id}`, { method: 'DELETE' }),
   },
 
   accounts: {

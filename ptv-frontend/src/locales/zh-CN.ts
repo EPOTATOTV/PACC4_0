@@ -9,6 +9,7 @@ const zhCN = {
   'nav.group.rules': '规则配置',
   'nav.group.event': '赛事风控',
   'nav.group.system': '系统管理',
+  'nav.group.ops': '运营自动化',
   // 管理端导航项
   'nav.dashboard': '数据大盘',
   'nav.redscreen': '红屏管理',
@@ -26,6 +27,9 @@ const zhCN = {
   'nav.loginLogs': '登录日志',
   'nav.audit': '审计日志',
   'nav.system': '系统设置',
+  'nav.ab': 'A/B 实验',
+  'nav.ops': '运维中心',
+  'nav.support': '客服工单',
 
   // 玩家门户导航
   'player.overview': '我的概览',

@@ -18,16 +18,17 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
  * v4.1 客服 / 申诉处理接口（受 X-Admin-Key 保护）：
- * 申诉审批、工单流转（open -> in_progress -> resolved -> closed）、待办统计。
+ * 申诉审批与待办统计。工单创建/列表/流转见 v4.7 {@link SupportController}。
  */
 @RestController
 @RequestMapping("/api/admin/support")
 @RequiredArgsConstructor
-@SuppressWarnings("null") // 存储层泛型 null 分析误报（本地定性安全）
+@SuppressWarnings("null")
 public class SupportAdminController {
 
     private final AppealRepository appealRepository;
@@ -74,34 +75,28 @@ public class SupportAdminController {
                 "review_stage", a.getReviewStage()));
     }
 
-    /** 工单列表（按状态）。 */
-    @GetMapping("/tickets")
-    public List<SupportTicket> tickets(@RequestParam(defaultValue = "open") String status) {
-        return ticketRepository.findByStatusOrderByCreatedAtAsc(status);
-    }
-
-    /** 工单流转。 */
-    @PostMapping("/tickets/{id}/transition")
-    public ResponseEntity<?> transition(@PathVariable String id, @RequestBody Map<String, String> body) {
-        return ticketRepository.findById(id)
-                .map(t -> {
-                    t.setStatus(body.getOrDefault("status", "open"));
-                    t.setAssignee(body.getOrDefault("assignee", "support"));
-                    t.setResolution(body.getOrDefault("resolution", t.getResolution()));
-                    t.setUpdatedAt(Instant.now());
-                    ticketRepository.save(t);
-                    return ResponseEntity.ok(Map.of("ticket_id", t.getTicketId(), "status", t.getStatus()));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
-    }
-
     /** 客服待办统计（大屏）。 */
     @GetMapping("/summary")
     public Map<String, Object> summary() {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("pending_appeals", appealRepository.countByStatus("pending"));
-        out.put("open_tickets", ticketRepository.countByStatus("open"));
-        out.put("in_progress_tickets", ticketRepository.countByStatus("in_progress"));
+        out.put("open_tickets", ticketRepository.countByStatus("OPEN"));
+        out.put("in_progress_tickets", ticketRepository.countByStatus("RESPONDED"));
         return out;
+    }
+
+    /** 工单流转（兼容 v4.1 调用，映射到新状态枚举）。 */
+    @PostMapping("/tickets/{id}/transition")
+    public ResponseEntity<?> transition(@PathVariable String id, @RequestBody Map<String, String> body) {
+        return ticketRepository.findById(id)
+                .map(t -> {
+                    String status = body.getOrDefault("status", t.getStatus()).toUpperCase(Locale.ROOT);
+                    t.setStatus(status);
+                    t.setAssignee(body.getOrDefault("assignee", t.getAssignee()));
+                    t.setUpdatedAt(Instant.now());
+                    ticketRepository.save(t);
+                    return ResponseEntity.ok(Map.of("ticket_id", t.getId(), "status", t.getStatus()));
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

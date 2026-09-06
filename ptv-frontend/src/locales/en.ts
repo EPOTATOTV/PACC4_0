@@ -8,6 +8,7 @@ const en: Record<string, string> = {
   'nav.group.rules': 'Rules',
   'nav.group.event': 'Tournaments',
   'nav.group.system': 'System',
+  'nav.group.ops': 'Operations',
   'nav.dashboard': 'Dashboard',
   'nav.redscreen': 'Red Screen',
   'nav.inspect': 'Inspect Console',
@@ -24,6 +25,9 @@ const en: Record<string, string> = {
   'nav.loginLogs': 'Login Logs',
   'nav.audit': 'Audit Logs',
   'nav.system': 'Settings',
+  'nav.ab': 'A/B Experiments',
+  'nav.ops': 'Ops Center',
+  'nav.support': 'Support Ticketing',
 
   'player.overview': 'My Overview',
   'player.tournament': 'Tournament Center',
