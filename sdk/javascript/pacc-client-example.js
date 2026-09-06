@@ -11,8 +11,10 @@
 const crypto = require('crypto');
 
 function sign(method, path, timestampSecondsMs, body) {
+  // 重要：canonical 的 path 必须不含查询串（服务端用 request.getRequestURI() 校验）
+  const pathname = path.split('?')[0];
   const bodySha = crypto.createHash('sha256').update(body, 'utf8').digest('hex');
-  const canonical = `${method}\n${path}\n${timestampSecondsMs}\n${bodySha}`;
+  const canonical = `${method}\n${pathname}\n${timestampSecondsMs}\n${bodySha}`;
   return crypto.createHmac('sha256', process.env.PACC_API_SECRET).update(canonical, 'utf8').digest('hex');
 }
 

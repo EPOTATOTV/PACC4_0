@@ -42,10 +42,12 @@ public final class PaccClientExample {
     }
 
     private String send(String method, String path, String body) throws Exception {
+        String pathname = path.contains("?") ? path.substring(0, path.indexOf('?')) : path;
         String timestamp = String.valueOf(System.currentTimeMillis());
         String nonce = UUID.randomUUID().toString();
         String bodySha = sha256Hex(body);
-        String canonical = method + "\n" + path + "\n" + timestamp + "\n" + bodySha;
+        // 重要：canonical 的 path 必须不含查询串（服务端用 request.getRequestURI() 校验）
+        String canonical = method + "\n" + pathname + "\n" + timestamp + "\n" + bodySha;
         String signature = hmacHex(secret, canonical);
 
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(baseUrl + path))

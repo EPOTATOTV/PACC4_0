@@ -167,13 +167,13 @@ public class BiController {
 
     /** 更新自定义仪表盘。 */
     @PutMapping("/dashboards/{id}")
-    public Object updateDashboard(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public Object updateDashboard(@PathVariable("id") Long id, @RequestBody Map<String, String> body) {
         return dashboards.update(id, body.get("name"), body.get("widgets"), body.get("layout"));
     }
 
     /** 删除自定义仪表盘。 */
     @DeleteMapping("/dashboards/{id}")
-    public Map<String, Object> deleteDashboard(@PathVariable Long id) {
+    public Map<String, Object> deleteDashboard(@PathVariable("id") Long id) {
         dashboards.delete(id);
         return Map.of("deleted", id);
     }

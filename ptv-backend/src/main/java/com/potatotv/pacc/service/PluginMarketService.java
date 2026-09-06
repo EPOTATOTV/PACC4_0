@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -57,7 +58,8 @@ public class PluginMarketService {
         return pluginRepo.save(p);
     }
 
-    /** 平台审核：批准上架 / 打回 / 下架。回调发布/下架钩子由调用方处理。 */
+    /** 平台审核：批准上架 / 打回 / 下架。缓存刷新由调用方处理。 */
+    @Transactional
     public Plugin review(String pluginId, String reviewer, String action, String comment) {
         Plugin p = pluginRepo.findById(pluginId)
                 .orElseThrow(() -> new IllegalArgumentException("plugin not found: " + pluginId));
@@ -77,6 +79,7 @@ public class PluginMarketService {
     }
 
     /** 上架插件下载计数。 */
+    @Transactional
     public Map<String, Object> recordDownload(String pluginId) {
         pluginRepo.bumpDownloads(pluginId, 1, Instant.now());
         Map<String, Object> m = new LinkedHashMap<>();

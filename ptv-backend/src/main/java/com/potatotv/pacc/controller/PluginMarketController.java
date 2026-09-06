@@ -58,7 +58,7 @@ public class PluginMarketController {
 
     /** 已上架插件下载计数。 */
     @PostMapping("/{pluginId}/download")
-    public Map<String, Object> download(@PathVariable String pluginId) {
+    public Map<String, Object> download(@PathVariable("pluginId") String pluginId) {
         return market.recordDownload(pluginId);
     }
 
@@ -78,7 +78,7 @@ public class PluginMarketController {
 
     /** 插件评论列表。 */
     @GetMapping("/{pluginId}/comments")
-    public Map<String, Object> comments(@PathVariable String pluginId,
+    public Map<String, Object> comments(@PathVariable("pluginId") String pluginId,
                                         @RequestParam(defaultValue = "0") int page,
                                         @RequestParam(defaultValue = "20") int size) {
         var src = market.comments(pluginId, page, size);
@@ -87,7 +87,7 @@ public class PluginMarketController {
 
     /** 插件审核留痕。 */
     @GetMapping("/{pluginId}/reviews")
-    public Object reviews(@PathVariable String pluginId) {
+    public Object reviews(@PathVariable("pluginId") String pluginId) {
         return market.reviews(pluginId);
     }
 

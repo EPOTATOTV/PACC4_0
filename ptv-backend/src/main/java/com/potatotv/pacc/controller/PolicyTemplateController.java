@@ -38,13 +38,13 @@ public class PolicyTemplateController {
 
     /** 一键应用：将模板动作写入 DeterPolicy。 */
     @PostMapping("/{id}/apply")
-    public Object apply(@PathVariable String id, @RequestBody(required = false) Map<String, String> body) {
+    public Object apply(@PathVariable("id") String id, @RequestBody(required = false) Map<String, String> body) {
         String operator = body == null ? "system" : body.getOrDefault("operator", "system");
         return templates.apply(id, operator);
     }
 
     @DeleteMapping("/{id}")
-    public Map<String, Object> delete(@PathVariable String id) {
+    public Map<String, Object> delete(@PathVariable("id") String id) {
         templates.delete(id);
         return Map.of("deleted", id);
     }

@@ -30,6 +30,7 @@ class BiReportServiceTest {
     private AccountRepository accountRepository;
     private AppealRepository appealRepository;
     private AdminLoginLogRepository adminLoginLogRepository;
+    private OnlineStatusService onlineStatusService;
     private BiReportService bi;
 
     @BeforeEach
@@ -40,8 +41,9 @@ class BiReportServiceTest {
         accountRepository = mock(AccountRepository.class);
         appealRepository = mock(AppealRepository.class);
         adminLoginLogRepository = mock(AdminLoginLogRepository.class);
+        onlineStatusService = mock(OnlineStatusService.class);
         bi = new BiReportService(eventRepository, alertRepository, cheatRecordRepository,
-                accountRepository, appealRepository, adminLoginLogRepository);
+                accountRepository, appealRepository, adminLoginLogRepository, onlineStatusService);
     }
 
     @Test
