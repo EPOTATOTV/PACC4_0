@@ -118,6 +118,22 @@ management:
     mail:
       enabled: false
 
+springdoc:
+  # OpenAPI 3.0 / Swagger UI 在线调试。默认关闭（安全加固），仅 local 开启；
+  # 生产环境中如确需在线调试，设 PACC_SPRINGDOC_ENABLED=true 一并开启 api-docs 与 UI。
+  api-docs:
+    enabled: ${PACC_SPRINGDOC_ENABLED:false}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${PACC_SPRINGDOC_ENABLED:false}
+    path: /swagger-ui.html
+  info:
+    title: PACC PTV 管控后端 API
+    version: 4.2.0
+    description: PACC 管理后台 / 玩家门户 / 开放 API 接口文档（仅功能描述，不含内部检测逻辑）
+  # 仅扫描控制器包，避免把内部组件卷入文档
+  packages-to-scan: com.potatotv.pacc.controller
+
 ---
 # 本地开发 profile：允许 H2 + 演示默认密钥 + 邮件/飞书 stub，便于无外网联调。
 # 启动示例：mvn spring-boot:run -Dspring-boot.run.profiles=local
@@ -152,6 +168,12 @@ pacc:
     reset-base-url: http://localhost:5173
   feishu:
     enabled: false
+springdoc:
+  # 本地联调开启 Swagger / OpenAPI 在线调试
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
 logging:
   level:
     com.potatotv.pacc: DEBUG

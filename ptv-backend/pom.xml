@@ -54,6 +54,13 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Swagger / OpenAPI 3.0（在线调试；默认仅 local 开启，生产经 PACC_SPRINGDOC_ENABLED 显式开启） -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.5.0</version>
+        </dependency>
+
         <!-- 邮件（密码找回真实发送；对公上线必须配置真实 SMTP） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
