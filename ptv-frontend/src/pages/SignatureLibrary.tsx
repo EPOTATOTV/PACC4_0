@@ -77,6 +77,16 @@ export default function SignatureLibrary() {
           onChange={(v) => setEdition(v as 'BEDROCK' | 'JAVA')}
           options={['BEDROCK', 'JAVA']}
         />
+        <Segmented
+          value={state}
+          onChange={(v) => setState(String(v))}
+          options={[
+            { label: '全部', value: 'ALL' },
+            { label: '已发布', value: 'PUBLISHED' },
+            { label: '灰度', value: 'GRAY' },
+            { label: '草稿', value: 'DRAFT' },
+          ]}
+        />
         <Button onClick={() => gray(10)}>灰度 10%</Button>
         <Button onClick={() => gray(50)}>灰度 50%</Button>
         <Button onClick={() => gray(100)}>全量发布</Button>
@@ -99,7 +109,7 @@ export default function SignatureLibrary() {
           dataSource={list}
           pagination={{ pageSize: 15, hideOnSinglePage: true }}
           scroll={{ x: 640 }}
-          locale={{ emptyText: '暂无已发布特征（草稿需通过灰度发布）' }}
+          locale={{ emptyText: '当前筛选下暂无特征码（草稿需经灰度发布后生效）' }}
         />
       </Card>
 
