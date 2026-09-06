@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 /**
@@ -125,6 +126,18 @@ public class V46AdminController {
         if (recent.isEmpty()) return ResponseEntity.ok(Map.of("analyzed", 0, "clusters", Map.of()));
         Map<String, Object> summary = analystService.cluster(recent, k);
         return ResponseEntity.ok(summary);
+    }
+
+    /** 将已确认的威胁情报样本提升为正式特征库（DRAFT），供运营灰度发布。 */
+    @PostMapping("/threat/{id}/promote")
+    public ResponseEntity<?> promoteThreat(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            return ResponseEntity.ok(activeLearningService.promoteThreat(id, str(body == null ? null : body.get("operator")).isBlank() ? "admin" : str(body.get("operator"))));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     /** 家族聚类分布 + 已赋族样本。 */

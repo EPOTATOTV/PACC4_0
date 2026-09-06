@@ -44,6 +44,14 @@ public class SignatureLibraryService {
         return repo.findByEditionAndState(edition, "PUBLISHED");
     }
 
+    /** 按状态列出特征码；state 为空或 ALL 时返回全部（含 DRAFT/GRAY，供发布闭环展示）。 */
+    public List<Signature> listByEdition(Signature.Edition edition, String state) {
+        if (state == null || state.isBlank() || "ALL".equalsIgnoreCase(state)) {
+            return repo.findByEdition(edition);
+        }
+        return repo.findByEditionAndState(edition, state);
+    }
+
     /** 灰度发布：按比例标记。简化实现直接标记 GRAY/PUBLISHED。 */
     @Transactional
     public void grayRelease(Signature.Edition edition, int percent, String operator) {

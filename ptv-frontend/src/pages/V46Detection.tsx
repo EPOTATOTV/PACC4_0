@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Col, Input, Row, Statistic, Table, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Col, Drawer, Input, Row, Statistic, Table, Tag, Typography, message } from 'antd'
 import { api } from '../api/client'
 
 const { Title, Text } = Typography
@@ -35,9 +35,16 @@ export default function V46Detection() {
   const [assess, setAssess] = useState<any | null>(null)
   const [threatForm, setThreatForm] = useState('{"md5":"demo-md5-001","sha1":"demo-sha1-001","static_dims":{"java_ghost_client":"com.x.Ghost","java_killaura":"net.y.Kill"}}')
   const [threatOut, setThreatOut] = useState<any | null>(null)
+  const [clusters, setClusters] = useState<any | null>(null)
+  const [clusterBusy, setClusterBusy] = useState(false)
+  const [detail, setDetail] = useState<any | null>(null)
 
   const load = () => {
     api.v46.overview().then(setOverview).catch((e) => setErr((e as Error).message))
+    api.v46
+      .threatClusters()
+      .then(setClusters)
+      .catch(() => setClusters(null))
   }
   useEffect(() => {
     load()
@@ -66,6 +73,41 @@ export default function V46Detection() {
       .then((r) => {
         setThreatOut(r)
         message.success('威胁情报样本已录入并归族')
+        load()
+      })
+      .catch((e) => message.error((e as Error).message))
+  }
+
+  function analyzeThreatSample(id: string) {
+    api.v46
+      .analyzeThreat(id)
+      .then(() => {
+        message.success('自动分析完成')
+        load()
+      })
+      .catch((e) => message.error((e as Error).message))
+  }
+
+  function runCluster(cfg: { k?: number } = {}) {
+    setClusterBusy(true)
+    api.v46
+      .clusterThreat(cfg.k)
+      .then((r) => {
+        setClusterBusy(false)
+        message.success(`AI 家族聚类完成：${r.analyzed} 个样本归入 ${Object.keys(r.clusters ?? {}).length} 个家族`)
+        load()
+      })
+      .catch((e) => {
+        setClusterBusy(false)
+        message.error((e as Error).message)
+      })
+  }
+
+  function promoteThreatSample(id: string) {
+    api.v46
+      .promoteThreat(id)
+      .then((r) => {
+        message.success(`已提升为特征码 ${r.name}（${r.state}），可至特征库灰度发布`)
         load()
       })
       .catch((e) => message.error((e as Error).message))
@@ -117,12 +159,53 @@ export default function V46Detection() {
   const tColumns = [
     { title: '时间', key: 'createdAt', width: 150, render: (_: unknown, r: any) => fmtTime(str(pick(r, 'createdAt'))) },
     { title: 'PTEID', key: 'pteid', render: (_: unknown, r: any) => str(pick(r, 'pteid')) },
-    { title: '家族', key: 'family', render: (_: unknown, r: any) => <Tag>{str(pick(r, 'family'))}</Tag> },
+    { title: '家族', key: 'family', render: (_: unknown, r: any) => <Tag>{str(pick(r, 'family')) || '-'}</Tag> },
+    {
+      title: 'AI 家族', key: 'familyLabel', width: 150,
+      render: (_: unknown, r: any) => {
+        const l = str(pick(r, 'familyLabel'))
+        return l ? <Tag color="purple">{l}</Tag> : <Text type="secondary">未聚类</Text>
+      },
+    },
+    {
+      title: '分析', key: 'analysis', ellipsis: true,
+      render: (_: unknown, r: any) => {
+        const a = str(pick(r, 'autoAnalysis'))
+        if (!a) return <span style={{ fontSize: 12 }}>-</span>
+        try {
+          const p = JSON.parse(a)
+          return (
+            <span style={{ fontSize: 12 }}>
+              {p.tier && <Tag color={(tierColor[p.tier] ?? 'default') as string}>{p.severity}</Tag>}
+              <span style={{ marginLeft: 6 }}>{p.type ?? ''}</span>
+            </span>
+          )
+        } catch {
+          return <span style={{ fontSize: 12 }}>{a.slice(0, 40)}</span>
+        }
+      },
+    },
     {
       title: '规则', key: 'rule', ellipsis: true,
       render: (_: unknown, r: any) => <span style={{ fontSize: 12 }}>{str(pick(r, 'generatedRule')) || '-'}</span>,
     },
     { title: '状态', key: 'status', width: 90, render: (_: unknown, r: any) => str(pick(r, 'status')) },
+    {
+      title: '操作', key: 'actions', width: 240,
+      render: (_: unknown, r: any) => (
+        <span style={{ display: 'flex', gap: 6 }}>
+          <Button size="small" onClick={() => setDetail(r)}>详情</Button>
+          <Button size="small" onClick={() => analyzeThreatSample(str(pick(r, 'id')))}>自动分析</Button>
+          <Button
+            size="small"
+            disabled={!str(pick(r, 'generatedRule')) || `${pick(r, 'confirmed')}` !== 'true'}
+            onClick={() => promoteThreatSample(str(pick(r, 'id')))}
+          >
+            晋升特征库
+          </Button>
+        </span>
+      ),
+    },
   ]
 
   const seedColumns = [
@@ -193,6 +276,32 @@ export default function V46Detection() {
         <Table rowKey={(r) => str(pick(r, 'id'))} columns={tColumns} dataSource={threatRecent} size="small" pagination={{ pageSize: 8 }} style={{ marginTop: 12 }} />
       </Card>
 
+      <Card title="AI 家族聚类（威胁情报样本指纹）" style={{ marginBottom: 16, border: '1px solid #30363d' }}>
+        <div style={{ fontSize: 13, marginBottom: 10 }}>
+          <Button type="primary" loading={clusterBusy} onClick={() => runCluster()}>执行聚类（k=3）</Button>
+          <Button style={{ marginLeft: 8 }} loading={clusterBusy} onClick={() => runCluster({ k: 5 })}>执行聚类（k=5）</Button>
+        </div>
+        {clusters && (
+          <div style={{ fontSize: 13, lineHeight: 1.9 }}>
+            {(() => {
+              const dist = (clusters.distribution ?? {}) as Record<string, number>
+              const entries = Object.entries(dist)
+              if (entries.length === 0) return <Text type="secondary">暂无已聚类样本，先录入或执行聚类</Text>
+              return (
+                <div>
+                  {entries.map(([name, count]) => (
+                    <div key={name} style={{ marginBottom: 4 }}>
+                      <Tag color="purple">{name}</Tag>
+                      <span style={{ marginLeft: 6 }}>{count} 个样本</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+        )}
+      </Card>
+
       <Card title="特征库扩充（基岩 / Java）" style={{ border: '1px solid #30363d' }}>
         <Table rowKey={(r) => str(pick(r, 'name'))} columns={seedColumns} dataSource={seeds} size="small" pagination={{ pageSize: 8 }} />
       </Card>
@@ -202,6 +311,89 @@ export default function V46Detection() {
           最近 {zeroDayRecent.length} 条零日发现已记录（置信 LOW 亦参与主动学习队列）
         </Text>
       )}
+
+      <Drawer
+        title="威胁情报样本详情"
+        width={560}
+        open={detail != null}
+        onClose={() => setDetail(null)}
+      >
+        {detail && (() => {
+          const dp = pick(detail, 'autoAnalysis')
+          let report: any = null
+          try { report = dp ? JSON.parse(String(dp)) : null } catch { report = null }
+          const confirmed = str(pick(detail, 'confirmed'))
+          return (
+            <div style={{ fontSize: 13, lineHeight: 2 }}>
+              <Row gutter={[8, 4]}>
+                <Col span={8}><Text type="secondary">PTEID</Text></Col>
+                <Col span={16}>{str(pick(detail, 'pteid')) || '-'}</Col>
+                <Col span={8}><Text type="secondary">聚类族</Text></Col>
+                <Col span={16}><Tag>{str(pick(detail, 'family')) || '-'}</Tag></Col>
+                <Col span={8}><Text type="secondary">AI 家族</Text></Col>
+                <Col span={16}>
+                  {str(pick(detail, 'familyLabel'))
+                    ? <Tag color="purple">{str(pick(detail, 'familyLabel'))}</Tag>
+                    : <Text type="secondary">未聚类</Text>}
+                </Col>
+                <Col span={8}><Text type="secondary">MD5</Text></Col>
+                <Col span={16} style={{ wordBreak: 'break-all', fontSize: 12 }}>{str(pick(detail, 'md5')) || '-'}</Col>
+                <Col span={8}><Text type="secondary">SHA1</Text></Col>
+                <Col span={16} style={{ wordBreak: 'break-all', fontSize: 12 }}>{str(pick(detail, 'sha1')) || '-'}</Col>
+                <Col span={8}><Text type="secondary">版本</Text></Col>
+                <Col span={16}>{str(pick(detail, 'edition')) || '-'}</Col>
+                <Col span={8}><Text type="secondary">状态</Text></Col>
+                <Col span={16}>{str(pick(detail, 'status'))}</Col>
+                <Col span={8}><Text type="secondary">复核</Text></Col>
+                <Col span={16}>{confirmed === 'true' ? <Tag color="success">确认真样本</Tag> : confirmed === 'false' ? <Tag color="default">确认误报</Tag> : <Text type="secondary">待复核</Text>}</Col>
+              </Row>
+
+              <div style={{ borderBottom: '1px solid #30363d', marginTop: 14, paddingBottom: 6, fontWeight: 600 }}>
+                自动分析报告
+              </div>
+              {report ? (
+                <>
+                  <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
+                    <Col span={12}>
+                      <div>严重度 <Tag color={(tierColor[report.tier] ?? 'default') as string}>{report.severity}</Tag></div>
+                    </Col>
+                    <Col span={12}><div>类型 <Tag>{report.type ?? '-'}</Tag></div></Col>
+                  </Row>
+                  <div style={{ marginTop: 8 }}>
+                    <Text type="secondary">摘要</Text>
+                    <div style={{ color: '#c9d1d9' }}>{report.summary ?? '-'}</div>
+                  </div>
+                  {report.matched_seeds && Array.isArray(report.matched_seeds) && report.matched_seeds.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <Text type="secondary">命中特征库</Text>
+                      <div>{(report.matched_seeds as any[]).map((s) => <Tag key={s} style={{ marginBottom: 4 }}>{s}</Tag>)}</div>
+                    </div>
+                  )}
+                  {report.indicators && Array.isArray(report.indicators) && report.indicators.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <Text type="secondary">提取指标</Text>
+                      <div>{(report.indicators as any[]).map((i) => <Tag key={i} color="processing" style={{ marginBottom: 4 }}>{i}</Tag>)}</div>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 8 }}>
+                    <Text type="secondary">建议</Text>
+                    <div><Tag color={report.suggestion === 'NORMAL' ? 'success' : 'warning'}>{report.suggestion ?? '-'}</Tag></div>
+                  </div>
+                </>
+              ) : (
+                <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>尚未执行自动分析</Text>
+              )}
+
+              <div style={{ borderBottom: '1px solid #30363d', marginTop: 14, paddingBottom: 6, fontWeight: 600 }}>
+                检测规则（晋升用）
+              </div>
+              <pre style={{ fontSize: 12, color: '#8b949e', whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginTop: 8 }}>
+                {str(pick(detail, 'generatedRule')) || '无'}
+              </pre>
+            </div>
+          )
+        })()}
+      </Drawer>
     </div>
   )
 }

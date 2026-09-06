@@ -9,6 +9,7 @@ const { Title, Text } = Typography
 
 export default function SignatureLibrary() {
   const [edition, setEdition] = useState<'BEDROCK' | 'JAVA'>('BEDROCK')
+  const [state, setState] = useState<string>('ALL')
   const [list, setList] = useState<Signature[]>([])
   const [err, setErr] = useState('')
 
@@ -16,9 +17,9 @@ export default function SignatureLibrary() {
   const [pattern, setPattern] = useState('')
   const [risk, setRisk] = useState('3')
 
-  async function load(ed = edition) {
+  async function load(ed = edition, st = state) {
     try {
-      setList(await api.signatures.list(ed))
+      setList(await api.signatures.list(ed, st))
       setErr('')
     } catch (e) {
       setErr((e as Error).message)
@@ -27,7 +28,7 @@ export default function SignatureLibrary() {
 
   useEffect(() => {
     load()
-  }, [edition])
+  }, [edition, state])
 
   async function add() {
     if (!name || !pattern) return setErr('名称与特征码必填')

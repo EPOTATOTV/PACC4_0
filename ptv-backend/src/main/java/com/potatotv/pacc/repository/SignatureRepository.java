@@ -12,6 +12,8 @@ public interface SignatureRepository extends JpaRepository<Signature, String> {
 
     List<Signature> findByEditionAndState(Signature.Edition edition, String state);
 
+    List<Signature> findByEdition(Signature.Edition edition);
+
     long countByState(String state);
 
     @Modifying

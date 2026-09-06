@@ -25,8 +25,9 @@ public class SignatureController {
     private final SignatureLibraryService service;
 
     @GetMapping
-    public List<Signature> list(@RequestParam(defaultValue = "BEDROCK") String edition) {
-        return service.listByEdition(Signature.Edition.valueOf(edition.toUpperCase()));
+    public List<Signature> list(@RequestParam(defaultValue = "BEDROCK") String edition,
+                                @RequestParam(required = false) String state) {
+        return service.listByEdition(Signature.Edition.valueOf(edition.toUpperCase()), state);
     }
 
     @PostMapping

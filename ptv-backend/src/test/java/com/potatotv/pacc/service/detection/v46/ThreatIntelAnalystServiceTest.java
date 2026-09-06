@@ -34,7 +34,7 @@ class ThreatIntelAnalystServiceTest {
         assertTrue(out.getAutoAnalysis().contains("GHOST_CLIENT"));
         assertTrue(out.getAutoAnalysis().contains("java-ghost-client"));
         assertTrue(out.getAutoAnalysis().contains("\"severity\""));
-        assertEquals("java-ghost-client", out.getFamilyLabel());
+        assertEquals("java-ghost-client-class", out.getFamilyLabel());
     }
 
     @Test

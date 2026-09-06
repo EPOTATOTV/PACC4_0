@@ -268,8 +268,8 @@ export const api = {
   },
 
   signatures: {
-    list: (edition: string) =>
-      request<Signature[]>(`/signatures?edition=${edition}`),
+    list: (edition: string, state?: string) =>
+      request<Signature[]>(`/signatures?edition=${edition}${state ? `&state=${state}` : ''}`),
     add: (data: Record<string, string>) =>
       request<Signature>('/signatures', { method: 'POST', body: JSON.stringify(data) }),
     grayRelease: (edition: string, percent: number) =>
@@ -333,6 +333,13 @@ export const api = {
       request<any>('/v46/threat/ingest', { method: 'POST', body: JSON.stringify(body) }),
     reviewThreat: (id: string, body: Record<string, unknown>) =>
       request<any>(`/v46/threat/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
+    analyzeThreat: (id: string) =>
+      request<any>(`/v46/threat/analyze/${id}`, { method: 'POST' }),
+    clusterThreat: (k?: number) =>
+      request<any>('/v46/threat/cluster', { method: 'POST', body: JSON.stringify({ k: k ?? 3 }) }),
+    threatClusters: () => request<any>('/v46/threat/clusters'),
+    promoteThreat: (id: string) =>
+      request<any>(`/v46/threat/${id}/promote`, { method: 'POST', body: JSON.stringify({ operator: 'admin' }) }),
     signatures: () => request<any>('/v46/signatures'),
   },
 }
