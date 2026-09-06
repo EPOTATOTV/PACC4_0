@@ -23,11 +23,13 @@ coverage/
 .idea/
 *.iml
 .vscode/
-# 保留 .settings/org.eclipse.jdt.core.prefs（随工程交付，统一编译器空值分析行为）
-.settings/*
-!.settings/org.eclipse.jdt.core.prefs
 .project
 .classpath
+
+# --- 本地专用配置（仅本机保留，不入库、不上传）---
+/.trae/
+/.github/
+**/.settings/
 
 # --- OS ---
 Thumbs.db
