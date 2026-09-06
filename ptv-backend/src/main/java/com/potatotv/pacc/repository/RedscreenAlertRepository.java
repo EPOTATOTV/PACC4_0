@@ -13,6 +13,11 @@ public interface RedscreenAlertRepository extends JpaRepository<RedscreenAlert, 
 
     List<RedscreenAlert> findByStateOrderByOccurredAtDesc(String state);
 
+    /** BI 实时大屏：时间窗内红屏事件数与最近红屏明细。 */
+    long countByOccurredAtBetween(java.time.Instant start, java.time.Instant end);
+
+    List<RedscreenAlert> findTop50ByOrderByOccurredAtDesc();
+
     long countByOccurredAtBetweenAndStateIn(
             java.time.Instant start, java.time.Instant end, java.util.Collection<String> states);
 

@@ -30,4 +30,7 @@ public interface DetectionEventRepository extends JpaRepository<DetectionEvent, 
     long countByEdition(DetectionEvent.Edition edition);
 
     long countByEditionAndOccurredAtBetween(DetectionEvent.Edition edition, Instant start, Instant end);
+
+    /** BI 数据下钻：按时间倒序取最近检出明细。 */
+    List<DetectionEvent> findTop50ByOccurredAtAfterOrderByOccurredAtDesc(Instant start);
 }

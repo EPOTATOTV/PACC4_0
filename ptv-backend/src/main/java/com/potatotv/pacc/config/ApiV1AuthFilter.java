@@ -54,7 +54,9 @@ public class ApiV1AuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        return !request.getRequestURI().startsWith("/api/v1/");
+        String uri = request.getRequestURI();
+        // 开放数据 API 与开发者自助门户共用同一套 API Key + HMAC 鉴权
+        return !(uri.startsWith("/api/v1/") || uri.startsWith("/api/dev/"));
     }
 
     @Override

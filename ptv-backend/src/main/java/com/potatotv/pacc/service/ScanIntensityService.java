@@ -1,11 +1,13 @@
 package com.potatotv.pacc.service;
 
 import com.potatotv.pacc.domain.ConfidenceTier;
+import org.springframework.stereotype.Service;
 
 /**
  * v4.4 扫描强度自适应：按置信度等级、近期红屏状态与游戏场景动态调整扫描档位。
  * <p>目标：非战斗/低置信场景低频轻量扫描（省CPU），战斗/高置信场景高频深度扫描。</p>
  */
+@Service
 public class ScanIntensityService {
 
     /** 游戏场景（影响扫描频率与深度）。 */

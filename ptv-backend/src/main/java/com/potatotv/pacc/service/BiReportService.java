@@ -1,6 +1,7 @@
 package com.potatotv.pacc.service;
 
 import com.potatotv.pacc.domain.DetectionEvent;
+import com.potatotv.pacc.domain.RedscreenAlert;
 import com.potatotv.pacc.repository.AccountRepository;
 import com.potatotv.pacc.repository.AdminLoginLogRepository;
 import com.potatotv.pacc.repository.AppealRepository;
@@ -33,6 +34,7 @@ public class BiReportService {
     private final AccountRepository accountRepository;
     private final AppealRepository appealRepository;
     private final AdminLoginLogRepository adminLoginLogRepository;
+    private final com.potatotv.pacc.service.OnlineStatusService onlineStatusService;
 
     private static final ZoneId ZONE = ZoneId.systemDefault();
 
@@ -151,6 +153,131 @@ public class BiReportService {
             else fail.put(d, ((Number) row[2]).longValue());
         }
         return Map.of("days", keys(ok), "success", values(ok), "fail", values(fail));
+    }
+
+    // ---------- v4.8 BI 补全：导出 / 实时大屏 / 数据下钻 ----------
+
+    /** 报表 CSV 导出。支持 detection-trend / redscreen-trend / login-audit / cheat-types。 */
+    @SuppressWarnings("unchecked")
+    public String exportCsv(String report, int days, String startDate, String endDate) {
+        StringBuilder sb = new StringBuilder();
+        switch (report == null ? "" : report) {
+            case "detection-trend" -> {
+                Map<String, Object> m = detectionTrend(days, startDate, endDate);
+                appendTrendCsv(sb, (List<String>) m.get("days"), (List<Object>) m.get("counts"));
+            }
+            case "redscreen-trend" -> {
+                Map<String, Object> m = redscreenTrend(days, startDate, endDate);
+                appendTrendCsv(sb, (List<String>) m.get("days"), (List<Object>) m.get("counts"));
+            }
+            case "login-audit" -> {
+                Map<String, Object> m = loginAudit(days, startDate, endDate);
+                sb.append("date,success,fail\n");
+                List<String> d = (List<String>) m.get("days");
+                List<Object> ok = (List<Object>) m.get("success");
+                List<Object> fail = (List<Object>) m.get("fail");
+                for (int i = 0; i < d.size(); i++) {
+                    sb.append(csvCell(d.get(i))).append(',')
+                            .append(csvCell(String.valueOf(ok.get(i)))).append(',')
+                            .append(csvCell(String.valueOf(fail.get(i)))).append('\n');
+                }
+            }
+            case "cheat-types" -> {
+                Instant cs = startDate != null && !startDate.isBlank() ? Instant.parse(startDate)
+                        : Instant.now().minus(30, ChronoUnit.DAYS);
+                Map<String, Object> m = cheatTypes(cs, endOf(endDate));
+                sb.append("cheat_type,count\n");
+                for (Map<String, Object> row : (List<Map<String, Object>>) m.get("items")) {
+                    sb.append(csvCell(String.valueOf(row.get("cheat_type")))).append(',')
+                            .append(csvCell(String.valueOf(row.get("count")))).append('\n');
+                }
+            }
+            default -> throw new IllegalArgumentException("unsupported report: " + report);
+        }
+        return sb.toString();
+    }
+
+    private void appendTrendCsv(StringBuilder sb, List<String> dates, List<Object> counts) {
+        sb.append("date,count\n");
+        for (int i = 0; i < dates.size(); i++) {
+            sb.append(csvCell(dates.get(i))).append(',')
+                    .append(csvCell(String.valueOf(counts.get(i)))).append('\n');
+        }
+    }
+
+    /** sanitize CSV 单元格，规避公式注入（= + - @ 前缀加引号）。 */
+    private String csvCell(String v) {
+        if (v == null) return "";
+        if (!v.isEmpty() && (v.charAt(0) == '=' || v.charAt(0) == '+' || v.charAt(0) == '-' || v.charAt(0) == '@')) {
+            return "'" + v;
+        }
+        return '"' + v.replace("\"", "\"\"") + '"';
+    }
+
+    /** 实时大屏快照：在线数、时段内检测/红屏量、最新红屏事件流。 */
+    public Map<String, Object> realtime() {
+        Instant now = Instant.now();
+        Instant hourStart = now.minus(1, ChronoUnit.HOURS);
+        Instant dayStart = now.minus(1, ChronoUnit.DAYS);
+        List<Map<String, Object>> recent = new ArrayList<>();
+        for (RedscreenAlert a : alertRepository.findTop50ByOrderByOccurredAtDesc()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("alertId", a.getAlertId());
+            row.put("cheatType", a.getCheatType());
+            row.put("level", a.getLevel());
+            row.put("state", a.getState());
+            row.put("occurredAt", a.getOccurredAt());
+            recent.add(row);
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("online", onlineStatusService.onlineCount());
+        m.put("detection_last_hour", eventRepository.countByOccurredAtBetween(hourStart, now));
+        m.put("detection_last_24h", eventRepository.countByOccurredAtBetween(dayStart, now));
+        m.put("redscreen_last_hour", alertRepository.countByOccurredAtBetween(hourStart, now));
+        m.put("redscreen_last_24h", alertRepository.countByOccurredAtBetween(dayStart, now));
+        m.put("pending_inspect", alertRepository.countByState("PENDING_INSPECT"));
+        m.put("recent_redscreens", recent);
+        return m;
+    }
+
+    /** 检测明细下钻（按时间倒序，最近 50 条）。 */
+    public List<Map<String, Object>> detectionDrilldown(int days, String startDate) {
+        Instant start = window(reduceDays(days, startDate));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (DetectionEvent e : eventRepository.findTop50ByOccurredAtAfterOrderByOccurredAtDesc(start)) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", e.getId());
+            row.put("pteid", e.getPteid());
+            row.put("eventType", e.getEventType());
+            row.put("severity", e.getSeverity());
+            row.put("edition", e.getEdition());
+            row.put("clientRiskScore", e.getClientRiskScore());
+            row.put("clientVersion", e.getClientVersion());
+            row.put("occurredAt", e.getOccurredAt());
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /** 红屏明细下钻（按时间倒序，最近 50 条；pteid 脱敏展示）。 */
+    public List<Map<String, Object>> redscreenDrilldown(int days, String startDate) {
+        Instant start = window(reduceDays(days, startDate));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (RedscreenAlert a : alertRepository.findTop50ByOrderByOccurredAtDesc()) {
+            String occurred = a.getOccurredAt() == null ? null : a.getOccurredAt().toString();
+            if (occurred == null || Instant.parse(occurred).isBefore(start)) break;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("alertId", a.getAlertId());
+            row.put("pteid", a.getPteidMasked());
+            row.put("cheatType", a.getCheatType());
+            row.put("level", a.getLevel());
+            row.put("riskScore", a.getRiskScore());
+            row.put("state", a.getState());
+            row.put("edition", a.getEdition());
+            row.put("occurredAt", a.getOccurredAt());
+            rows.add(row);
+        }
+        return rows;
     }
 
     // ---------- 工具 ----------
