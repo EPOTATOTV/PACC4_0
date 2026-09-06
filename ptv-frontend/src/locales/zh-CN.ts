@@ -16,6 +16,7 @@ const zhCN = {
   'nav.inspect': '查端控制台',
   'nav.detection41': 'v4.1 检测引擎',
   'nav.v46': '检测深化',
+  'nav.v47': '情报运营中台',
   'nav.countermeasure': '对抗巡检',
   'nav.records': '作弊记录',
   'nav.accounts': 'PTEID 账号',

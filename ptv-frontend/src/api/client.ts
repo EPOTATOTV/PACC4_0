@@ -468,4 +468,27 @@ export const api = {
       request<any>(`/v46/threat/${id}/promote`, { method: 'POST', body: JSON.stringify({ operator: 'admin' }) }),
     signatures: () => request<any>('/v46/signatures'),
   },
+
+  // ---- v4.7 威胁情报运营中台：家族谱系 / 主动威慑 / IOC 中心化 ----
+  v47: {
+    familyOverview: () => request<any>('/v47/family/overview'),
+    familyGraph: () => request<any>('/v47/family/graph'),
+    deterOverview: () => request<any>('/v47/deter/overview'),
+    setDeter: (body: Record<string, unknown>) =>
+      request<any>('/v47/deter/set', { method: 'POST', body: JSON.stringify(body) }),
+    toggleDeter: (id: number, enabled: boolean) =>
+      request<any>(`/v47/deter/${id}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+    resolveDeter: (family: string) =>
+      request<any>('/v47/deter/resolve', { method: 'POST', body: JSON.stringify({ family }) }),
+    iocOverview: () => request<any>('/v47/ioc/overview'),
+    iocList: (params: Record<string, string | number> = {}) => {
+      const p = new URLSearchParams(params as Record<string, string>)
+      return request<any>(`/v47/ioc/list?${p.toString()}`)
+    },
+    importIoc: (sampleId: string) =>
+      request<any>('/v47/ioc/import', { method: 'POST', body: JSON.stringify({ sampleId }) }),
+    subscribeIoc: (id: number) => request<any>(`/v47/ioc/${id}/subscribe`, { method: 'POST' }),
+    disarmIoc: (id: number) => request<any>(`/v47/ioc/${id}/disarm`, { method: 'POST' }),
+    hitIoc: (id: number) => request<any>(`/v47/ioc/${id}/hit`, { method: 'POST' }),
+  },
 }

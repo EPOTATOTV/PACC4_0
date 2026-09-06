@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -128,7 +129,7 @@ public static class ConfigCrypt
         int bodyStart = BASE + 8 + saltLen + ivLen;
         if (blob.Length < bodyStart + TagLen) return false;
 
-        salt = blob[BASE + 8 .. (BASE + 8 + saltLen)];
+        salt = blob[(BASE + 8) .. (BASE + 8 + saltLen)];
         nonce = blob[(BASE + 8 + saltLen) .. bodyStart];
         cipher = blob[bodyStart..];
         return true;

@@ -15,6 +15,7 @@ const zhTW: Record<string, string> = {
   'nav.detection41': 'v4.1 檢測引擎',
   'nav.countermeasure': '對抗巡檢',
   'nav.v46': '偵測深化',
+  'nav.v47': '情報營運中台',
   'nav.records': '作弊記錄',
   'nav.accounts': 'PTEID 帳號',
   'nav.admins': '管理員管理',

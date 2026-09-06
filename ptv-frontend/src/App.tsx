@@ -12,6 +12,7 @@ import Accounts from './pages/Accounts'
 import Detection41 from './pages/Detection41'
 import Countermeasure from './pages/Countermeasure'
 import V46Detection from './pages/V46Detection'
+import V47ThreatIntel from './pages/V47ThreatIntel'
 import Compliance from './pages/Compliance'
 import CheatRecords from './pages/CheatRecords'
 import Competition from './pages/Competition'
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/detection41" element={<Detection41 />} />
         <Route path="/countermeasure" element={<Countermeasure />} />
         <Route path="/v46" element={<V46Detection />} />
+        <Route path="/v47" element={<V47ThreatIntel />} />
         <Route path="/compliance" element={<Compliance />} />
         <Route path="/login-logs" element={<AdminLoginLogs />} />
         <Route path="/audit" element={<Audit />} />

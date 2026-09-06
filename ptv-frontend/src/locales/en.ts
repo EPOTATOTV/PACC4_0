@@ -15,6 +15,7 @@ const en: Record<string, string> = {
   'nav.detection41': 'v4.1 Detection Engine',
   'nav.countermeasure': 'Countermeasure Patrol',
   'nav.v46': 'Detection Deep-Dive',
+  'nav.v47': 'Intel Ops Center',
   'nav.records': 'Cheat Records',
   'nav.accounts': 'PTEID Accounts',
   'nav.admins': 'Admins',
