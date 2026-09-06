@@ -15,6 +15,7 @@ export default function PlayerLogin() {
   const navigate = useNavigate()
 
   async function onFinish(v: Values) {
+    if (busy) return // 防止 Enter 重复提交触发后端限流
     setBusy(true)
     setErr('')
     try {
@@ -25,9 +26,9 @@ export default function PlayerLogin() {
         return
       }
       // 会话由后端写入 HttpOnly cookie，JS 不再持有令牌；跳转后由 /api/player/me 探测登录态
-      navigate('/portal')
-    } catch {
-      setErr('无法连接 PTV 后端，请稍后再试')
+      navigate('/portal', { replace: true })
+    } catch (e) {
+      setErr((e as Error)?.name === 'AbortError' ? '登录请求超时，请检查网络后重试' : '无法连接 PTV 后端，请稍后再试')
     } finally {
       setBusy(false)
     }

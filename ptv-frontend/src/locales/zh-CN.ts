@@ -60,6 +60,7 @@ const zhCN = {
   'login.errKey': '管理密钥错误或权限不足',
   'login.errFeishu': '飞书登录暂不可用，请使用授权密钥登录',
   'login.errNetwork': '无法连接 PTV 后端，请确认服务已启动',
+  'login.errTimeout': '请求超时，请检查网络后重试',
 
   // 共享外壳
   'common.searchMenu': '搜索菜单页面',

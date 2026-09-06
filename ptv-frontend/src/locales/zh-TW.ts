@@ -56,6 +56,7 @@ const zhTW: Record<string, string> = {
   'login.errKey': '管理金鑰錯誤或權限不足',
   'login.errFeishu': '飛書登入暫不可用，請使用授權金鑰登入',
   'login.errNetwork': '無法連接 PTV 後端，請確認服務已啟動',
+  'login.errTimeout': '請求逾時，請檢查網路後重試',
 
   'common.searchMenu': '搜尋選單頁面',
   'common.expandNav': '展開導覽',

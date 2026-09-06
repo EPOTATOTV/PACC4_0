@@ -17,6 +17,7 @@ export default function Login() {
   const [err, setErr] = useState('')
 
   async function submit(v: { key: string }) {
+    if (busy) return // 防止 Enter 重复提交触发登录限流
     setBusy(true)
     setErr('')
     try {
@@ -27,14 +28,15 @@ export default function Login() {
         return
       }
       setErr(res.status === 429 ? t('login.errRateLimited') : t('login.errKey'))
-    } catch {
-      setErr(t('login.errNetwork'))
+    } catch (e) {
+      setErr((e as Error)?.name === 'AbortError' ? t('login.errTimeout') : t('login.errNetwork'))
     } finally {
       setBusy(false)
     }
   }
 
   async function feishuLogin() {
+    if (busy) return
     setBusy(true)
     setErr('')
     try {
@@ -46,8 +48,8 @@ export default function Login() {
         return
       }
       setErr(t('login.errFeishu'))
-    } catch {
-      setErr(t('login.errNetwork'))
+    } catch (e) {
+      setErr((e as Error)?.name === 'AbortError' ? t('login.errTimeout') : t('login.errNetwork'))
     } finally {
       setBusy(false)
     }
@@ -59,7 +61,7 @@ export default function Login() {
         minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 12px',
       }}
     >
-      <Card style={{ width: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} styles={{ body: { padding: 28 } }}>
+      <Card style={{ width: '100%', maxWidth: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} styles={{ body: { padding: 28 } }}>
         <Brand size="md" subtitle={t('login.title')} />
 
         <Segmented

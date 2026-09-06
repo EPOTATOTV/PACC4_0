@@ -26,7 +26,7 @@ export default function PlayerAuthShell({
       }}
     >
       <Card
-        style={{ width: width ?? 400, boxShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+        style={{ width: '100%', maxWidth: width ?? 400, boxShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
         styles={{ body: { padding: 28 } }}
       >
         <Brand size="md" title={title} subtitle={subtitle} />

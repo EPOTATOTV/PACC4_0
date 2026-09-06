@@ -71,9 +71,22 @@ async function playerRequest<T>(path: string, init: RequestInit = {}): Promise<T
   return res.json() as Promise<T>
 }
 
+/** 登录等关键交互请求的超时守卫：防止请求挂起时按钮永久停留在 loading 状态。 */
+const LOGIN_TIMEOUT_MS = 15_000
+
+async function timedFetch(input: RequestInfo | URL, init: RequestInit = {}, ms = LOGIN_TIMEOUT_MS): Promise<Response> {
+  const ctl = new AbortController()
+  const timer = setTimeout(() => ctl.abort(), ms)
+  try {
+    return await fetch(input, { ...init, signal: ctl.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export const api = {
   login(adminApiKey: string) {
-    return fetch('/api/admin/login', {
+    return timedFetch('/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
@@ -81,58 +94,59 @@ export const api = {
     })
   },
 
-  // 管理后台会话：HttpOnly cookie 承载，/me 探测登录态，/logout 清理 cookie
+  // 管理后台会话：HttpOnly cookie 承载，/me 探测登录态，/logout 清理 cookie。
+  // 登录态探测同样走超时守卫，避免后端无响应时加载页永久停留。
   adminSession: {
     me(): Promise<{ ok: boolean; role: string }> {
-      return fetch('/api/admin/me', { credentials: 'same-origin' }).then((r) => {
+      return timedFetch('/api/admin/me', { credentials: 'same-origin' }).then((r) => {
         if (!r.ok) { const e = new Error('未登录') as Error & { status?: number }; e.status = r.status; throw e }
         return r.json()
       })
     },
     logout(): Promise<{ ok: boolean }> {
-      return fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' }).then((r) => r.json())
+      return timedFetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' }).then((r) => r.json())
     },
   },
 
-  // ---- 玩家账号 / 门户 ----
+  // ---- 玩家账号 / 门户：所有认证 / 注册 / 找回流程统一加超时守卫 ----
   auth: {
     login(identity: string, password: string, remember = false) {
-      return fetch('/api/auth/login', {
+      return timedFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identity, password, remember }),
       })
     },
     register(body: Record<string, string>) {
-      return fetch('/api/auth/register', {
+      return timedFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
     },
     forget(email: string) {
-      return fetch('/api/auth/forget', {
+      return timedFetch('/api/auth/forget', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
     },
     reset(token: string, new_password: string) {
-      return fetch('/api/auth/reset', {
+      return timedFetch('/api/auth/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, new_password }),
       })
     },
     sendCode(body: Record<string, string>) {
-      return fetch('/api/auth/code/send', {
+      return timedFetch('/api/auth/code/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
     },
     verifyCode(body: Record<string, string>) {
-      return fetch('/api/auth/code/verify', {
+      return timedFetch('/api/auth/code/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -141,9 +155,9 @@ export const api = {
   },
   // ---- 管理后台登录（密钥 / 飞书）与登录日志 ----
   feishu: {
-    url: () => fetch('/api/admin/feishu/oauth/url'),
+    url: () => timedFetch('/api/admin/feishu/oauth/url'),
     callback: (code: string) =>
-      fetch('/api/admin/feishu/oauth/callback', {
+      timedFetch('/api/admin/feishu/oauth/callback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',

@@ -56,6 +56,7 @@ const en: Record<string, string> = {
   'login.errKey': 'Invalid key or insufficient permission',
   'login.errFeishu': 'Feishu login unavailable, use an access key instead',
   'login.errNetwork': 'Cannot reach the PTV backend, is it running?',
+  'login.errTimeout': 'Request timed out, check your network and retry',
 
   'common.searchMenu': 'Search pages',
   'common.expandNav': 'Expand navigation',
