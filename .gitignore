@@ -80,3 +80,19 @@ deploy/gateway/certs/*.pem
 # --- 本地实施规划（本机保留，不入库）---
 /.trae/documents/
 /.trae/work/
+# --- 内部运维/部署教程（含服务器、域、账号流程等机密，本机保留，不入库）---
+/宝塔面板部署教程.md
+/部署教程-零基础手把手版.md
+/部署说明-零基础版.md
+# --- 部署基础设施清单（含部署拓扑/域名/端口，本机保留，不入库）---
+/deploy/helm/
+/deploy/k8s/
+# --- 通用密钥/证书/凭据安全网（含未来可能新增）---
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.p8
+*service-account*.json
+*credentials*.json

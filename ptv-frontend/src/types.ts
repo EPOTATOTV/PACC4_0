@@ -326,3 +326,26 @@ export interface SystemAdmins {
   recent_login_events: number
   note: string
 }
+
+// ---- v4.5 二期 DMA/IOMMU 环境巡检 ----
+export interface DmaRiskEvent {
+  id: string
+  pteid: string
+  iommuEnabled: boolean
+  acpiDmacIntegrity: boolean
+  kernelDebuggerDetected: boolean
+  pcieSuspicious: boolean
+  memoryReadAlert: boolean
+  antidebugFindings?: string
+  score: number
+  level: 'LOW' | 'MEDIUM' | 'HIGH'
+  findings?: string
+  createdAt: string
+}
+
+export interface CounterMeasureEnvOverview {
+  thresholds: { environment_suspect: number; environment_high: number }
+  recent: DmaRiskEvent[]
+  high_risk_accounts: { pteid: string; count: number; high_count: number; max_score: number }[]
+  by_pteid: { pteid: string; count: number; high_count: number; max_score: number }[]
+}

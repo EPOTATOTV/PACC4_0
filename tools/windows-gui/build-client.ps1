@@ -1,4 +1,4 @@
-# PACC v4.2 Windows 客户端一键打包脚本
+﻿# PACC v4.2 Windows 客户端一键打包脚本
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/build-client.ps1
 # 职责：构建 WPF 单文件 EXE -> 构建 Java 探针 jar -> 写入客户端配置（自动读取根目录 .env 的 WSS 密钥）

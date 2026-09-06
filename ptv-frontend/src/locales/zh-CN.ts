@@ -14,6 +14,8 @@ const zhCN = {
   'nav.redscreen': '红屏管理',
   'nav.inspect': '查端控制台',
   'nav.detection41': 'v4.1 检测引擎',
+  'nav.v46': '检测深化',
+  'nav.countermeasure': '对抗巡检',
   'nav.records': '作弊记录',
   'nav.accounts': 'PTEID 账号',
   'nav.admins': '管理员管理',

@@ -12,6 +12,8 @@ const zhTW: Record<string, string> = {
   'nav.redscreen': '紅屏管理',
   'nav.inspect': '查端控制台',
   'nav.detection41': 'v4.1 檢測引擎',
+  'nav.countermeasure': '對抗巡檢',
+  'nav.v46': '偵測深化',
   'nav.records': '作弊記錄',
   'nav.accounts': 'PTEID 帳號',
   'nav.admins': '管理員管理',

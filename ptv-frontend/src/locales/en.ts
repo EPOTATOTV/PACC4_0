@@ -12,6 +12,8 @@ const en: Record<string, string> = {
   'nav.redscreen': 'Red Screen',
   'nav.inspect': 'Inspect Console',
   'nav.detection41': 'v4.1 Detection Engine',
+  'nav.countermeasure': 'Countermeasure Patrol',
+  'nav.v46': 'Detection Deep-Dive',
   'nav.records': 'Cheat Records',
   'nav.accounts': 'PTEID Accounts',
   'nav.admins': 'Admins',

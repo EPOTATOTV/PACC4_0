@@ -5,6 +5,7 @@ import type {
   CheatRecord,
   CheatTypeCount,
   CompetitionOverview,
+  CounterMeasureEnvOverview,
   DeviceRecord,
   Enrollment,
   EnrollmentStats,
@@ -314,5 +315,24 @@ export const api = {
     info: () => request<SystemInfo>('/system/info'),
     config: () => request<SystemConfig>('/system/config'),
     admins: () => request<SystemAdmins>('/system/admins'),
+  },
+
+  // ---- v4.5 二期 DMA/IOMMU 环境巡检 ----
+  countermeasure: {
+    environment: () => request<CounterMeasureEnvOverview>('/countermeasure/environment'),
+  },
+
+  // ---- v4.6 检测能力深化：零日 / 威胁情报 / 特征库扩充 / 主动学习 ----
+  v46: {
+    overview: () => request<any>('/v46/overview'),
+    assessZeroDay: (body: Record<string, unknown>) =>
+      request<any>('/v46/zero-day/assess', { method: 'POST', body: JSON.stringify(body) }),
+    reviewZeroDay: (id: string, body: Record<string, unknown>) =>
+      request<any>(`/v46/zero-day/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
+    ingestThreat: (body: Record<string, unknown>) =>
+      request<any>('/v46/threat/ingest', { method: 'POST', body: JSON.stringify(body) }),
+    reviewThreat: (id: string, body: Record<string, unknown>) =>
+      request<any>(`/v46/threat/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
+    signatures: () => request<any>('/v46/signatures'),
   },
 }

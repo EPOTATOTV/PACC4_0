@@ -72,6 +72,15 @@ pacc:
     hardware-match-score: 70       # 命中高危硬件指纹的最低风险分
     integrity-suspect: 25          # 完整性轻微可疑（深观察）阈值
     integrity-tampered: 60         # 完整性严重破坏（直接红屏）阈值
+    environment-suspect: 30        # DMA/IOMMU/调试环境轻微可疑（深观察）阈值
+    environment-high: 60           # DMA/调试环境高危（加固+告警）阈值
+  zero-day:
+    # v4.6 零日外挂检测（无先验签名）：三路异常信号融合权重与尺度
+    iso-weight: 0.5                # 孤立森林独离分数权重
+    recon-weight: 0.3              # 线性自编码重构误差权重
+    baseline-weight: 0.2           # 个人行为基线偏离权重
+    recon-scale: 1.2               # 重构误差映射到 (0,1] 的尺度（越小对偏离越敏感）
+    baseline-scale: 3.0            # 基线 z-score 偏离映射尺度
   websocket:
     endpoint: /ws                # 玩家端 WebSocket 长连接端点
   webhook:

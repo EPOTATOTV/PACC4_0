@@ -2,11 +2,15 @@ package com.potatotv.pacc.controller;
 
 import com.potatotv.pacc.domain.Appeal;
 import com.potatotv.pacc.domain.CheatRecord;
+import com.potatotv.pacc.domain.DmaRiskEvent;
 import com.potatotv.pacc.domain.SupportTicket;
 import com.potatotv.pacc.repository.AppealRepository;
 import com.potatotv.pacc.repository.CheatRecordRepository;
+import com.potatotv.pacc.repository.DmaRiskEventRepository;
 import com.potatotv.pacc.repository.SupportTicketRepository;
 import com.potatotv.pacc.service.AppealService;
+import com.potatotv.pacc.service.CounterMeasureEnvironmentService;
+import com.potatotv.pacc.service.CounterMeasureEnvironmentService.Assessment;
 import com.potatotv.pacc.service.CounterMeasureRiskService;
 import com.potatotv.pacc.service.IntegrityGuardService.Input;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,6 +44,8 @@ public class PlayerPortalController {
     private final CheatRecordRepository recordRepository;
     private final AppealService appealService;
     private final CounterMeasureRiskService counterMeasureRiskService;
+    private final CounterMeasureEnvironmentService environmentService;
+    private final DmaRiskEventRepository dmaEventRepository;
 
     private String pteidOf(HttpServletRequest req) {
         Object v = req.getAttribute("pteid");
@@ -87,6 +93,52 @@ public class PlayerPortalController {
                 "confidence_tier", r.tier().name(),
                 "risk_score", r.riskScore(),
                 "forced_redscreen", r.forcedRedscreen()));
+    }
+
+    /** DMA/IOMMU 环境与反调试状态上报（受玩家 JWT 保护）：评分后按 PTEID 落库供管理端看板。 */
+    @PostMapping("/countermeasure/environment")
+    public ResponseEntity<?> reportEnvironment(@RequestBody Map<String, Object> body, HttpServletRequest req) {
+        String pteid = pteidOf(req);
+        if (pteid.isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("error", "需要登录"));
+        }
+        boolean iommu = bool(body.get("iommu_enabled"), true);
+        boolean acpi = bool(body.get("acpi_dmac_integrity"), true);
+        boolean kdbg = bool(body.get("kernel_debugger_detected"), false);
+        boolean pcie = bool(body.get("pcie_suspicious"), false);
+        boolean memRead = bool(body.get("memory_read_alert"), false);
+
+        List<String> antidebug = CounterMeasureEnvironmentService.splitFindings(str(body.get("antidebug_findings")));
+        Assessment a = environmentService.assess(iommu, acpi, kdbg, pcie, memRead, antidebug);
+
+        DmaRiskEvent ev = DmaRiskEvent.builder()
+                .id(UUID.randomUUID().toString())
+                .pteid(pteid)
+                .iommuEnabled(iommu)
+                .acpiDmacIntegrity(acpi)
+                .kernelDebuggerDetected(kdbg)
+                .pcieSuspicious(pcie)
+                .memoryReadAlert(memRead)
+                .antidebugFindings(String.join(",", antidebug))
+                .score(a.score())
+                .level(DmaRiskEvent.Level.valueOf(a.level().name()))
+                .findings(String.join(",", a.findings()))
+                .createdAt(Instant.now())
+                .build();
+        dmaEventRepository.save(ev);
+
+        return ResponseEntity.ok(Map.of(
+                "environment_score", a.score(),
+                "environment_level", a.level().name(),
+                "findings", a.findings()));
+    }
+
+    private static boolean bool(Object o, boolean def) {
+        return o == null ? def : Boolean.parseBoolean(o.toString());
+    }
+
+    private static String str(Object o) {
+        return o == null ? "" : o.toString();
     }
 
     private static boolean bool(Object o) {

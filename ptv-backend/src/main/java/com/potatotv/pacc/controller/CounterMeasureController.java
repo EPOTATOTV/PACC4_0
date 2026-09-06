@@ -3,6 +3,9 @@ package com.potatotv.pacc.controller;
 import com.potatotv.pacc.domain.CheatHardwareProfile;
 import com.potatotv.pacc.domain.CheatHardwareProfile.CheatFlag;
 import com.potatotv.pacc.domain.CheatHardwareProfile.DeviceClass;
+import com.potatotv.pacc.domain.DmaRiskEvent;
+import com.potatotv.pacc.repository.DmaRiskEventRepository;
+import com.potatotv.pacc.service.CounterMeasureEnvironmentService;
 import com.potatotv.pacc.service.CounterMeasureRiskService;
 import com.potatotv.pacc.service.CounterMeasureRiskService.CounterMeasureResult;
 import com.potatotv.pacc.service.HardwareFingerprintService.HardwareReport;
@@ -35,6 +38,8 @@ public class CounterMeasureController {
 
     private final CounterMeasureRiskService riskService;
     private final CheatHardwareProfileRepository profileRepository;
+    private final CounterMeasureEnvironmentService environmentService;
+    private final DmaRiskEventRepository dmaEventRepository;
 
     /** 对抗风险融合分析：硬件指纹 + 输入时序宏 + 完整性自检 → 综合风险与置信度。 */
     @PostMapping("/analyze")
@@ -79,6 +84,33 @@ public class CounterMeasureController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /** DMA/IOMMU 环境巡检看板数据：近期事件 + 按 PTEID 聚合 + 阈值。 */
+    @GetMapping("/environment")
+    public Map<String, Object> environmentOverview() {
+        List<DmaRiskEvent> recent = dmaEventRepository.findTop50ByOrderByCreatedAtDesc();
+        Map<String, Map<String, Object>> byPteid = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> high = new LinkedHashMap<>();
+        for (DmaRiskEvent e : recent) {
+            Map<String, Object> agg = byPteid.computeIfAbsent(e.getPteid(), k -> new LinkedHashMap<>());
+            agg.put("pteid", e.getPteid());
+            agg.put("count", ((Number) agg.getOrDefault("count", 0)).longValue() + 1);
+            int curHigh = ((Number) agg.getOrDefault("high_count", 0)).intValue();
+            agg.put("high_count", e.getLevel() == DmaRiskEvent.Level.HIGH ? curHigh + 1 : curHigh);
+            agg.put("max_score", Math.max(((Number) agg.getOrDefault("max_score", 0)).intValue(), e.getScore()));
+            if (e.getLevel() == DmaRiskEvent.Level.HIGH) high.put(e.getPteid(), agg);
+        }
+        List<Map<String, Object>> aggList = new ArrayList<>(byPteid.values());
+        aggList.sort((a, b) -> Integer.compare(
+                ((Number) b.getOrDefault("max_score", 0)).intValue(),
+                ((Number) a.getOrDefault("max_score", 0)).intValue()));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("thresholds", environmentService.configView());
+        out.put("recent", recent);
+        out.put("high_risk_accounts", new ArrayList<>(high.values()));
+        out.put("by_pteid", aggList);
+        return out;
     }
 
     private static Map<String, Object> toMap(CounterMeasureResult r) {
