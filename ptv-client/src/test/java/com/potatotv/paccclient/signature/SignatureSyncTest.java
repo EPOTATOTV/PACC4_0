@@ -33,7 +33,7 @@ class SignatureSyncTest {
     void rejectsTamperedContentDigest() {
         String json = bundle("v4.3.1", SECRET);
         // 篡改规则内容，digest 不再匹配
-        String tampered = json.replace("killaura-pat", "KILLAURA-PAT");
+        String tampered = json.replace("\"pattern\":\"killa-aura\"", "\"pattern\":\"KILLA-AURA\"");
         SignatureSync sync = new SignatureSync(SECRET);
         assertThrows(IllegalStateException.class, () -> sync.apply(tampered));
         assertEquals(0, sync.ruleCount(), "校验失败必须保留原规则");
@@ -79,8 +79,8 @@ class SignatureSyncTest {
         root.put("library_version", libraryVersion);
 
         List<Object> changes = new ArrayList<>();
-        changes.add(mapOf("b", sig( "sig2", "ghost detector", "ghost-client-1.2.3", 5, 2)));
-        changes.add(mapOf( "a", sig("sig1", "killaura v3", "killa-aura", 3, 1)));
+        changes.add(sig("sig1", "killaura v3", "killa-aura", 3, 1));
+        changes.add(sig("sig2", "ghost detector", "ghost-client-1.2.3", 5, 2));
         root.put("changes", changes);
         root.put("digest", digest);
         root.put("signature", signature);
@@ -103,13 +103,6 @@ class SignatureSyncTest {
     }
 
     // 辅助：用键序保证 changes 内字段顺序稳定
-    private static Map<String, Object> mapOf(String pad, Object v) {
-        // 忽略 pad，仅用于占位保持签名稳定
-        return (Map<String, Object>) v;
-    }
-
-    private static Object[] sigFieldOrder = new Object[0];
-
     private static Map<String, Object> sig(String id, String name, String pattern, int risk, long version) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", id);

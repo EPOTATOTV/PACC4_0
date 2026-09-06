@@ -53,7 +53,7 @@ public partial class MainWindow : Window
 
         string appDir = InstallDir ?? AppContext.BaseDirectory;
         string binDir = System.IO.Path.Combine(appDir, "bin");
-        string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-4.0.0.jar");
+        string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-4.2.0.jar");
         string versionFile = System.IO.Path.Combine(binDir, "probe.version");
 
         // 已有同版本探针则不重复下载
@@ -128,12 +128,14 @@ public partial class MainWindow : Window
         {
             _config.Load();
             // 补齐默认值，确保安装后即可运行
-            _config.Set("pacc.client.endpoint", _config.Get("pacc.client.endpoint") ?? "wss://pacc.potatotv.asia/ws/ptv");
-            _config.Set("pacc.client.api-base", _config.Get("pacc.client.api-base") ?? "https://api.potatotv.asia");
+            _config.Set("pacc.client.wss.uri", _config.Get("pacc.client.wss.uri") ?? "wss://pacc.potatotv.asia/ws/ptv");
+            _config.Set("pacc.client.server.uri", _config.Get("pacc.client.server.uri") ?? "https://api.potatotv.asia");
             _config.Set("pacc.detection.redscreen-threshold", _config.Get("pacc.detection.redscreen-threshold") ?? "85");
             _config.Set("pacc.detection.sample-rate", _config.Get("pacc.detection.sample-rate") ?? "1.0");
             _config.Set("pacc.log.level", _config.Get("pacc.log.level") ?? "INFO");
             _config.Save();
+            // 首次运行将敏感键（wss/sig 密钥、token）原地加密，非 "enc:" 则幂等跳过
+            _config.EncryptSensitiveInPlace();
 
             // TODO: 在此调用底层安装器（内核驱动 / 服务注册）。
             // 由 tools/windows-gui/deploy/installer.ps1 实现真实安装逻辑。

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
-import { LineChart, PieChart } from 'echarts/charts'
+import { BarChart, LineChart, PieChart } from 'echarts/charts'
 import {
   GridComponent,
   TooltipComponent,
@@ -9,9 +9,10 @@ import {
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
 
-// 按需注册：折线图 / 饼图 + 必要组件（体积优化）
+// 按需注册：折线图 / 柱状图 / 饼图 + 必要组件（体积优化）
 echarts.use([
   LineChart,
+  BarChart,
   PieChart,
   GridComponent,
   TooltipComponent,

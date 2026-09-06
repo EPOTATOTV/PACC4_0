@@ -349,3 +349,60 @@ export interface CounterMeasureEnvOverview {
   high_risk_accounts: { pteid: string; count: number; high_count: number; max_score: number }[]
   by_pteid: { pteid: string; count: number; high_count: number; max_score: number }[]
 }
+
+// ---- v4.8 数据平台与 BI 报表 ----
+export interface BiTrend {
+  days: string[]
+  counts: number[]
+  total: number
+}
+
+export interface BiCheatTypeRow {
+  cheat_type: string
+  count: number
+}
+
+export interface BiRedscreenHealth {
+  pending: number
+  confirmed: number
+  false_positive: number
+  total: number
+  false_positive_rate: number
+}
+
+export interface BiCheatRecordHealth {
+  persisted: number
+  revoked: number
+  total: number
+}
+
+export interface BiPlayerProfile {
+  total: number
+  reputation: Record<string, number>
+  status: Record<string, number>
+}
+
+export interface BiAppealFunnel {
+  by_stage: Record<string, Record<string, number>>
+  total: number
+  approved: number
+  rejected: number
+}
+
+export interface BiLoginAudit {
+  days: string[]
+  success: number[]
+  fail: number[]
+}
+
+export interface BiOverview {
+  detection_trend: BiTrend
+  redscreen_trend: BiTrend
+  cheat_types: { items: BiCheatTypeRow[] }
+  redscreen_health: BiRedscreenHealth
+  cheat_record_health: BiCheatRecordHealth
+  player_profile: BiPlayerProfile
+  edition_split: { bedrock: number; java: number }
+  appeal_funnel: BiAppealFunnel
+  login_audit: BiLoginAudit
+}

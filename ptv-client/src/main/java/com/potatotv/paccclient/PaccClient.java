@@ -235,11 +235,17 @@ public final class PaccClient {
         return "LINUX";
     }
 
-    /** 以 JVM 进程 CPU 负载近似作为采样值（首次为 -1 时按 0 处理）。 */
+    /** 以 JVM 进程 CPU 负载近似作为采样值（不可用或首次为负时按 0 处理）。 */
     private static double processCpu() {
-        double load = ManagementFactory.getOperatingSystemMXBean().getProcessCpuLoad();
-        if (load < 0) return 0.0;
-        return Math.max(0, Math.min(100, load * 100));
+        try {
+            com.sun.management.OperatingSystemMXBean os =
+                    (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+            double load = os.getProcessCpuLoad();
+            if (load < 0) return 0.0;
+            return Math.max(0, Math.min(100, load * 100));
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
 
     private static String stackOf(Throwable e) {

@@ -2,6 +2,12 @@ import type {
   Account,
   AdminLoginLog,
   Appeal,
+  BiCheatTypeRow,
+  BiLoginAudit,
+  BiOverview,
+  BiPlayerProfile,
+  BiRedscreenHealth,
+  BiTrend,
   CheatRecord,
   CheatTypeCount,
   CompetitionOverview,
@@ -249,6 +255,22 @@ export const api = {
     trend: (days = 7) => request<TrendPoint[]>(`/stats/redscreen-trend?days=${days}`),
   },
 
+  // ---- v4.8 数据平台与 BI 报表 ----
+  bi: {
+    overview: (days = 30, startDate?: string, endDate?: string) => {
+      const p = new URLSearchParams({ days: String(days) })
+      if (startDate) p.set('startDate', startDate)
+      if (endDate) p.set('endDate', endDate)
+      return request<BiOverview>(`/bi/overview?${p.toString()}`)
+    },
+    detectionTrend: (days = 30) => request<BiTrend>(`/bi/detection-trend?days=${days}`),
+    redscreenTrend: (days = 30) => request<BiTrend>(`/bi/redscreen-trend?days=${days}`),
+    cheatTypes: () => request<{ items: BiCheatTypeRow[] }>('/bi/cheat-types'),
+    redscreenHealth: () => request<BiRedscreenHealth>('/bi/redscreen-health'),
+    playerProfile: () => request<BiPlayerProfile>('/bi/player-profile'),
+    loginAudit: (days = 30) => request<BiLoginAudit>(`/bi/login-audit?days=${days}`),
+  },
+
   redscreens: {
     list: (state = 'PENDING_INSPECT') =>
       request<RedscreenAlert[]>(`/redscreens?state=${state}`),
@@ -329,6 +351,61 @@ export const api = {
     faqList: () => request<any[]>('/support/faq'),
     addFaq: (body: Record<string, string>) => request<any>('/support/faq', { method: 'POST', body: JSON.stringify(body) }),
     deleteFaq: (id: string) => request<any>(`/support/faq/${id}`, { method: 'DELETE' }),
+  },
+
+  // ---- v4.8 开放 API 平台：API 密钥管理 + 调用审计 ----
+  openApi: {
+    keys: (tenant = 'platform') => request<any[]>(`/api/keys?tenant=${tenant}`),
+    createKey: (body: Record<string, string | number>) =>
+      request<{ keyId: string; secret: string }>('/api/keys', { method: 'POST', body: JSON.stringify(body) }),
+    rotateKey: (id: string) =>
+      request<any>(`/api/keys/${id}/rotate`, { method: 'POST' }),
+    toggleKey: (id: string, enabled: boolean) =>
+      request<{ enabled: boolean }>(`/api/keys/${id}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+    deleteKey: (id: string) =>
+      request<{ deleted: boolean }>(`/api/keys/${id}`, { method: 'DELETE' }),
+    setWebhook: (id: string, url: string, secret: string) =>
+      request<{ updated: boolean }>(`/api/keys/${id}/webhook`, {
+        method: 'POST',
+        body: JSON.stringify({ url, secret }),
+      }),
+    audit: (keyId?: string, page = 0, size = 20) =>
+      request<any>(`/api/audit?page=${page}&size=${size}${keyId ? `&keyId=${encodeURIComponent(keyId)}` : ''}`),
+  },
+
+  // ---- v4.8 合规审计强化：管理员操作审计 ----
+  audit: {
+    operations: (params: Record<string, string> = {}) => {
+      const p = new URLSearchParams(params)
+      return request<any>(`/audit/operations?${p.toString()}`)
+    },
+    trend: (days = 30) => request<any>(`/audit/trend?days=${days}`),
+    overview: (days = 30) => request<any>(`/audit/overview?days=${days}`),
+  },
+
+  // ---- v4.8 多租户架构：租户管理 ----
+  tenant: {
+    list: (params: Record<string, string> = {}) => {
+      const p = new URLSearchParams(params)
+      return request<any>(`/tenant/list?${p.toString()}`)
+    },
+    get: (id: string) => request<any>(`/tenant/${id}`),
+    create: (body: Record<string, unknown>) =>
+      request<any>('/tenant', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string, body: Record<string, unknown>) =>
+      request<any>(`/tenant/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    remove: (id: string) =>
+      request<any>(`/tenant/${id}`, { method: 'DELETE' }),
+    admins: (id: string) => request<any[]>(`/tenant/${id}/admins`),
+    addAdmin: (id: string, identity: string, role: string) =>
+      request<any>(`/tenant/${id}/admins`, { method: 'POST', body: JSON.stringify({ identity, role }) }),
+    removeAdmin: (id: string, identity: string) =>
+      request<any>(`/tenant/${id}/admins/${encodeURIComponent(identity)}`, { method: 'DELETE' }),
+    setAdminEnabled: (id: string, identity: string, enabled: boolean) =>
+      request<any>(`/tenant/${id}/admins/${encodeURIComponent(identity)}/enabled`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled }),
+      }),
   },
 
   accounts: {

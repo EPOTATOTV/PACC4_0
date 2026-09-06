@@ -75,7 +75,10 @@ export const navGroups: NavGroup[] = [
     items: [
       { key: '/login-logs', to: '/login-logs', label: '登录日志', i18nKey: 'nav.loginLogs' },
       { key: '/audit', to: '/audit', label: '审计日志', i18nKey: 'nav.audit' },
+      { key: '/tenant', to: '/tenant', label: '租户管理', i18nKey: 'nav.tenant' },
+      { key: '/bi', to: '/bi', label: 'BI 报表', i18nKey: 'nav.bi' },
       { key: '/system', to: '/system', label: '系统设置', i18nKey: 'nav.system' },
+      { key: '/openapi', to: '/openapi', label: '开放 API', i18nKey: 'nav.openapi' },
     ],
   },
   {
@@ -107,7 +110,10 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/tournament': { titleKey: 'nav.tournament', groupKey: 'nav.group.event' },
   '/login-logs': { titleKey: 'nav.loginLogs', groupKey: 'nav.group.system' },
   '/audit': { titleKey: 'nav.audit', groupKey: 'nav.group.system' },
+  '/tenant': { titleKey: 'nav.tenant', groupKey: 'nav.group.system' },
+  '/bi': { titleKey: 'nav.bi', groupKey: 'nav.group.system' },
   '/system': { titleKey: 'nav.system', groupKey: 'nav.group.system' },
+  '/openapi': { titleKey: 'nav.openapi', groupKey: 'nav.group.system' },
   '/ab': { titleKey: 'nav.ab', groupKey: 'nav.group.ops' },
   '/ops': { titleKey: 'nav.ops', groupKey: 'nav.group.ops' },
   '/support': { titleKey: 'nav.support', groupKey: 'nav.group.ops' },

@@ -1,4 +1,4 @@
-﻿# PACC v4.2 Windows 客户端一键打包脚本
+# PACC v4.2 Windows 客户端一键打包脚本
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/build-client.ps1
 # 职责：构建 WPF 单文件 EXE -> 构建 Java 探针 jar -> 写入客户端配置（自动读取根目录 .env 的 WSS 密钥）
@@ -25,10 +25,40 @@ foreach ($c in @('dotnet','mvn','java')) {
 Write-Host "`n[1/4] 构建 WPF 单文件 EXE ..." -ForegroundColor Green
 # 清理旧输出，保证产物干净（EXE 可能被残留进程/杀软锁定，失败只告警不中止）
 Remove-Item $exeOut -Recurse -Force -ErrorAction SilentlyContinue
+# 多文件自包含发布：托管 PaccManager.dll 独立成文件，便于后续 Obfuscar 混淆
 dotnet publish "$root/tools/windows-gui/PaccManager.csproj" -c Release -r win-x64 `
-  --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true -o $exeOut
+  --self-contained true -p:PublishSingleFile=false -o $exeOut
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish 失败 (exit=$LASTEXITCODE)" }
 if (-not (Test-Path $exeOut)) { throw "publish 未产出目录 $exeOut" }
+
+# ---------- 1b. Obfuscar 混淆 PaccManager.dll ----------
+Write-Host "`n[1b] Obfuscar 混淆 ..." -ForegroundColor Green
+$cacheDir = "$root/tools/obfuscar-cache"
+$haveObfuscator = $false
+if (Test-Path $cacheDir) {
+  $haveObfuscator = [bool](Get-ChildItem "$cacheDir/Obfuscar*/tools/Obfuscar.Console.exe" -ErrorAction SilentlyContinue | Select-Object -First 1)
+}
+if (-not $haveObfuscator) {
+  if (-not (Get-Command nuget -ErrorAction SilentlyContinue)) {
+    throw "缺少 nuget 命令，请先安装 NuGet CLI 以安装 Obfuscar"
+  }
+  nuget install Obfuscar -Version 2.2.14 -OutputDirectory $cacheDir | Out-Null
+}
+$obfuscator = (Get-ChildItem "$cacheDir/Obfuscar*/tools/Obfuscar.Console.exe" |
+               Sort-Object FullName -Descending | Select-Object -First 1).FullName
+if (-not $obfuscator) { throw "找不到 Obfuscar.Console.exe" }
+$obfConfig = Join-Path $env:TEMP ("obfuscar-" + [guid]::NewGuid() + ".xml")
+(Get-Content "$root/tools/windows-gui/obfuscar.xml" -Raw).Replace('PATH_FILLED_BY_SCRIPT', $exeOut) |
+  Set-Content $obfConfig -Encoding utf8
+& $obfuscator $obfConfig 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Obfuscar 混淆失败 (exit=$LASTEXITCODE)" }
+# 混淆输出在 $exeOut-obf：替换回 $exeOut，保留 apphost/运行时 dll 原样透传
+$obfOut = "$exeOut-obf"
+if (-not (Test-Path (Join-Path $obfOut 'PaccManager.dll'))) { throw "混淆未产出 PaccManager.dll" }
+Remove-Item $exeOut -Recurse -Force -ErrorAction SilentlyContinue
+Move-Item $obfOut $exeOut
+Remove-Item $obfConfig -Force -ErrorAction SilentlyContinue
+Write-Host ("  已混淆: {0}" -f (Join-Path $exeOut 'PaccManager.dll'))
 
 # ---------- 2. 构建 Java 探针 jar ----------
 Write-Host "`n[2/4] 构建 Java 探针 jar ..." -ForegroundColor Green

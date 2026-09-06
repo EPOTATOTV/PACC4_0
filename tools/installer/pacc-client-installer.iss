@@ -35,12 +35,11 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 
 ; ---------- 文件 ----------
 [Files]
-; 单文件自包含 EXE（含 .NET 运行时，目标机无需预装 .NET）
-Source: "{#DistDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; Java 探针（客户端运行时需要）——发布名与 version.json 的 probe 一致
+; 多文件自包含发布整目录（apphost PaccManager.exe + 混淆后托管 PaccManager.dll
+; + .NET 运行时各 dll + deps/runtimeconfig + pacc-client.properties），整目录拷贝保证运行时可用。
+Source: "{#DistDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Java 探针独立发布件（客户端运行时需要）——发布名与 version.json 的 probe 一致，可单独更新
 Source: "{#DistDir}\ptv-agent-4.2.0.jar"; DestDir: "{app}\bin"; Flags: ignoreversion
-; 客户端默认配置
-Source: "{#DistDir}\pacc-client.properties"; DestDir: "{app}"; Flags: ignoreversion
 ; 安装编排脚本（供手动调用，安装驱动时）
 Source: "..\windows-gui\deploy\installer.ps1"; DestDir: "{app}"; Flags: ignoreversion
 

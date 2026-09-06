@@ -24,6 +24,7 @@ const zhTW: Record<string, string> = {
   'nav.tournament': '賽事進程',
   'nav.loginLogs': '登入日誌',
   'nav.audit': '稽核日誌',
+  'nav.tenant': '租戶管理',
   'nav.system': '系統設定',
   'nav.ab': 'A/B 實驗',
   'nav.ops': '運維中心',

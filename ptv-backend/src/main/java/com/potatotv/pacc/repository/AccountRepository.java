@@ -26,7 +26,7 @@ public interface AccountRepository extends JpaRepository<Account, String> {
 
     long countByStatus(String status);
 
-    @Modifying
+    long countByReputationBetween(int lo, int hi);
     @Query("update Account a set a.failedLogins = a.failedLogins + 1 where a.pteid = :pteid")
     void incrementFailedLogins(@Param("pteid") String pteid);
 

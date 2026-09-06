@@ -1,6 +1,9 @@
 package com.potatotv.pacc.config;
 
+import com.potatotv.pacc.repository.ApiKeyRepository;
+import com.potatotv.pacc.repository.ApiUsageLogRepository;
 import com.potatotv.pacc.service.AdminTokenService;
+import com.potatotv.pacc.service.ApiKeyService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,10 +34,22 @@ public class SecurityConfig {
     @Value("${pacc.security.allowed-origins}")
     private String allowedOrigins;
 
-    private final AdminTokenService adminTokenService;
+    @Value("${pacc.security.api-master-secret:pacc-dev-api-master-key-change-me}")
+    private String apiMasterSecret;
 
-    public SecurityConfig(AdminTokenService adminTokenService) {
+    private final AdminTokenService adminTokenService;
+    private final ApiKeyRepository apiKeyRepository;
+    private final ApiUsageLogRepository apiUsageLogRepository;
+    private final ApiKeyService apiKeyService;
+
+    public SecurityConfig(AdminTokenService adminTokenService,
+                          ApiKeyRepository apiKeyRepository,
+                          ApiUsageLogRepository apiUsageLogRepository,
+                          ApiKeyService apiKeyService) {
         this.adminTokenService = adminTokenService;
+        this.apiKeyRepository = apiKeyRepository;
+        this.apiUsageLogRepository = apiUsageLogRepository;
+        this.apiKeyService = apiKeyService;
     }
 
     @Bean
@@ -54,6 +69,7 @@ public class SecurityConfig {
         http.addFilterBefore(new AccessLogFilter(), ChannelProcessingFilter.class);
         http.addFilterBefore(new AdminKeyFilter(adminApiKey, adminTokenService, allowedOrigins), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(new JwtAuthFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(new ApiV1AuthFilter(apiKeyRepository, apiUsageLogRepository, apiKeyService, apiMasterSecret), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

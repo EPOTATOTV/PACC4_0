@@ -1,5 +1,8 @@
 package com.potatotv.paccclient;
 
+import com.potatotv.paccclient.store.LocalSecureStore;
+import com.potatotv.paccclient.store.MachineFingerprint;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -33,9 +36,12 @@ public final class ClientConfig {
     /** 特征库包签名密钥：与服务器端 PACC_SIG_SECRET 保持一致，用于端侧校验热更新包。 */
     public final String sigSecret;
 
+    /** 敏感值解密口令：仅用设备指纹（不绑 pteid，保持 wss/sig/token 设备全局可解）。 */
+    private final String secretPassword = MachineFingerprint.hash();
+
     private ClientConfig(Properties p) {
         this.pteid = get(p, "pacc.client.pteid", "PACC_CLIENT_PTEID", "PT0000000001");
-        this.token = get(p, "pacc.client.token", "PACC_CLIENT_TOKEN", "demo-access-token");
+        this.token = getSecret(p, "pacc.client.token", null, "PACC_CLIENT_TOKEN", "demo-access-token");
         this.edition = get(p, "pacc.client.edition", "PACC_CLIENT_EDITION", "JAVA");
         this.wssUri = get(p, "pacc.client.wss.uri", "PACC_CLIENT_WSS_URI", "ws://localhost:8080/ws/ptv");
         this.serverUri = get(p, "pacc.client.server.uri", "PACC_CLIENT_SERVER_URI", "http://localhost:8080");
@@ -49,14 +55,37 @@ public final class ClientConfig {
         this.reconnectDelaySeconds = getInt(p, "pacc.client.reconnect.delay.seconds", "PACC_CLIENT_RECONNECT_DELAY_SECONDS", 5);
         this.autoReconnect = getBool(p, "pacc.client.reconnect.enabled", "PACC_CLIENT_AUTO_RECONNECT", true);
         this.signatureVersion = get(p, "pacc.client.signature.version", "PACC_CLIENT_SIGNATURE_VERSION", "v4.2.0");
-        this.wssSignSecret = get(p, "pacc.client.wss.sign.secret", "PACC_CLIENT_WSS_SECRET", "pacc-dev-wss-sign-key-change-me");
-        this.sigSecret = get(p, "pacc.client.signature.secret", "PACC_CLIENT_SIG_SECRET", "pacc-sig-test-secret");
+        this.wssSignSecret = getSecret(p, "pacc.client.wss.sign.secret", "pacc.client.wss-secret",
+                "PACC_CLIENT_WSS_SECRET", "pacc-dev-wss-sign-key-change-me");
+        this.sigSecret = getSecret(p, "pacc.client.signature.secret", null,
+                "PACC_CLIENT_SIG_SECRET", "pacc-sig-test-secret");
     }
 
     /** 环境变量优先，其次配置文件，最后内置默认值。 */
     private static String get(Properties p, String key, String env, String def) {
         String v = System.getenv(env);
         return (v != null && !v.isBlank()) ? v : p.getProperty(key, def);
+    }
+
+    /**
+     * 读取敏感键：支持遗留 key 回退、环境变量优先，并对 "enc:" 前缀做本机指纹解密。
+     * 解密失败（机器变化/被篡改）回退默认值，避免启动崩溃。
+     */
+    private String getSecret(Properties p, String key, String legacyKey, String env, String def) {
+        String v = p.getProperty(key);
+        if ((v == null || v.isBlank()) && legacyKey != null)
+            v = p.getProperty(legacyKey);
+        String envv = System.getenv(env);
+        if (envv != null && !envv.isBlank()) v = envv;
+        if (v == null || v.isBlank()) v = def;
+        if (v.startsWith(LocalSecureStore.PREFIX)) {
+            try {
+                v = LocalSecureStore.decryptString(v, secretPassword);
+            } catch (IOException | RuntimeException e) {
+                v = def; // 解密失败：回退默认，不抛
+            }
+        }
+        return v;
     }
 
     private static int getInt(Properties p, String key, String env, int def) {

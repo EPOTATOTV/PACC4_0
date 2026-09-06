@@ -24,6 +24,7 @@ const en: Record<string, string> = {
   'nav.tournament': 'Tournament Progress',
   'nav.loginLogs': 'Login Logs',
   'nav.audit': 'Audit Logs',
+  'nav.tenant': 'Tenants',
   'nav.system': 'Settings',
   'nav.ab': 'A/B Experiments',
   'nav.ops': 'Ops Center',

@@ -1,0 +1,17 @@
+<?xml version='1.0'?>
+<!-- PACC PaccManager 混淆模板：InPath/OutPath/module file 由 build-client.ps1 用实际 publish 目录填充。
+     WPF 关键：仅跳过承载 BAML 的 App/MainWindow（x:Class + 事件处理器 + x:Name 控件全在其中），
+     并关闭属性/事件重命名以保护 JSON 反序列化与事件绑定。 -->
+<Obfuscator>
+  <Var name="InPath" value="PATH_FILLED_BY_SCRIPT" />
+  <Var name="OutPath" value="PATH_FILLED_BY_SCRIPT-obf" />
+  <Var name="KeepPublicApi" value="false" />
+  <Var name="HidePrivateApi" value="true" />
+  <Var name="RenameProperties" value="false" />
+  <Var name="RenameEvents" value="false" />
+  <Var name="UseUnicodeNames" value="false" />
+  <Module file="PATH_FILLED_BY_SCRIPT\PaccManager.dll">
+    <SkipTypeName>PaccManager.App</SkipTypeName>
+    <SkipTypeName>PaccManager.MainWindow</SkipTypeName>
+  </Module>
+</Obfuscator>

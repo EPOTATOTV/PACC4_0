@@ -21,14 +21,24 @@ public sealed class ConfigManager
 
     private static readonly string[] KnownKeys =
     {
-        "pacc.client.endpoint",      // 玩家长连接 / API 入口（pacc.potatotv.asia）
-        "pacc.client.api-base",      // REST API 基址（api.potatotv.asia）
-        "pacc.client.pteid",         // 自动登录 PTEID
-        "pacc.client.token",         // 自动登录临时 token（不落盘明文，需勾选才写入）
+        "pacc.client.wss.uri",           // 玩家长连接 WSS 端点（pacc.potatotv.asia/ws/ptv）
+        "pacc.client.server.uri",        // REST API 基址（api.potatotv.asia）
+        "pacc.client.pteid",             // 自动登录 PTEID（明文保留，WSS 握手使用）
+        "pacc.client.token",             // 自动登录临时 token（敏感，加密落盘）
+        "pacc.client.wss.sign.secret",   // WSS 上报签名密钥（敏感，加密落盘）
+        "pacc.client.signature.secret",  // 特征库包签名密钥（敏感，加密落盘）
         "pacc.detection.redscreen-threshold", // 红屏触发风险阈值（0-100）
         "pacc.detection.sample-rate",         // 检测上报采样率（0-1）
         "pacc.log.level",                     // TRACE/DEBUG/INFO/WARN/ERROR
         "pacc.log.max-size-mb",
+    };
+
+    /// <summary>须加密落盘的敏感键；pteid 不在其中（本就在 WSS URI 公开，且为关键派生因子）。</summary>
+    public static readonly string[] SensitiveKeys =
+    {
+        "pacc.client.wss.sign.secret",
+        "pacc.client.signature.secret",
+        "pacc.client.token",
     };
 
     public ConfigManager() : this(Path.Combine(BaseDir(), DefaultFileName)) { }
@@ -67,6 +77,39 @@ public sealed class ConfigManager
     public string? Get(string key) => _values.TryGetValue(key, out var v) ? v : null;
 
     public void Set(string key, string value) => _values[key] = value;
+
+    /// <summary>
+    /// 读取配置值并解密密文：存值带 "enc:" 前缀时用本机指纹解密；否则原样返回（兼容明文/未加密）。
+    /// 解密失败（机器变化/被篡改）返回 null，不抛异常。
+    /// </summary>
+    public string? GetDecrypted(string key)
+    {
+        var v = Get(key);
+        if (string.IsNullOrEmpty(v)) return null;
+        if (!v.StartsWith(ConfigCrypt.Prefix, StringComparison.Ordinal))
+            return v;
+        return ConfigCrypt.TryDecrypt(v, ConfigCrypt.MachineFingerprint()) ?? null;
+    }
+
+    /// <summary>
+    /// 把非空的敏感键（wss/sig 密钥、token）原地加密落盘。幂等：已是 "enc:" 的跳过。
+    /// 返回是否有变动；调用方需在 Load() 之后、Save() 前后按需调用。
+    /// </summary>
+    public bool EncryptSensitiveInPlace()
+    {
+        bool changed = false;
+        var password = ConfigCrypt.MachineFingerprint();
+        foreach (var key in SensitiveKeys)
+        {
+            var v = Get(key);
+            if (string.IsNullOrEmpty(v) || v.StartsWith(ConfigCrypt.Prefix, StringComparison.Ordinal))
+                continue;
+            Set(key, ConfigCrypt.Encrypt(v, password));
+            changed = true;
+        }
+        if (changed) Save();
+        return changed;
+    }
 
     /// <summary>以稳定的 key 顺序回写文件（含已知键注释头）。</summary>
     public void Save()

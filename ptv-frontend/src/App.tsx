@@ -17,9 +17,12 @@ import CheatRecords from './pages/CheatRecords'
 import Competition from './pages/Competition'
 import Tournament from './pages/Tournament'
 import AdminLoginLogs from './pages/AdminLoginLogs'
+import BiReport from './pages/bi/BiReport'
+import OpenApi from './pages/openapi/OpenApi'
 import System from './pages/System'
 import Admins from './pages/Admins'
 import Audit from './pages/Audit'
+import Tenant from './pages/Tenant'
 import AbExperiment from './pages/AbExperiment'
 import OpsCenter from './pages/OpsCenter'
 import SupportCenter from './pages/SupportCenter'
@@ -83,8 +86,11 @@ export default function App() {
         <Route path="/compliance" element={<Compliance />} />
         <Route path="/login-logs" element={<AdminLoginLogs />} />
         <Route path="/audit" element={<Audit />} />
+        <Route path="/tenant" element={<Tenant />} />
         <Route path="/admins" element={<Admins />} />
         <Route path="/system" element={<System />} />
+        <Route path="/bi" element={<BiReport />} />
+        <Route path="/openapi" element={<OpenApi />} />
         <Route path="/ab" element={<AbExperiment />} />
         <Route path="/ops" element={<OpsCenter />} />
         <Route path="/support" element={<SupportCenter />} />

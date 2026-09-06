@@ -58,6 +58,12 @@ public class AdminTokenService {
         return c == null ? null : c.get("role", String.class);
     }
 
+    /** 返回令牌主体（管理员身份）；非法返回 null。 */
+    public String identityOf(String token) {
+        Claims c = parse(token);
+        return c == null ? null : c.getSubject();
+    }
+
     /**
      * 校验令牌并核对来源指纹。指纹不匹配（令牌被拿到其它设备上使用）时视为无效。
      * 兼容旧令牌：未带指纹 claim 的令牌视为可接受（仅对新令牌强制绑定）。

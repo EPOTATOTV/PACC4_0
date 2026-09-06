@@ -26,6 +26,7 @@ const zhCN = {
   'nav.tournament': '赛事进程',
   'nav.loginLogs': '登录日志',
   'nav.audit': '审计日志',
+  'nav.tenant': '租户管理',
   'nav.system': '系统设置',
   'nav.ab': 'A/B 实验',
   'nav.ops': '运维中心',

@@ -74,12 +74,26 @@ public class AdminKeyFilter extends OncePerRequestFilter {
                 sha256(provided).getBytes(StandardCharsets.UTF_8));
         // 浏览器管理后台凭 HttpOnly cookie 会话（JS 不可读），桌面工具可走 X-Admin-Key 带同一 JWT
         String session = provided != null ? provided : cookieValue(request, ADMIN_COOKIE);
-        boolean validSession = session != null
-                && adminTokenService.parseRoleWithFingerprint(session, fingerprint(request)) != null;
+        String sessionRole = session == null ? null
+                : adminTokenService.parseRoleWithFingerprint(session, fingerprint(request));
+        boolean validSession = sessionRole != null;
         if (!validKey && !validSession) {
             respond(response, HttpServletResponse.SC_UNAUTHORIZED, "{\"error\":\"管理后台认证失败\"}");
             return;
         }
+        // 透出操作人身份与角色，供审计切面/拦截器读取：
+        // 会话令牌 subject 即管理员身份；静态 Key 路径以密钥指纹作为操作人
+        String actor;
+        String role;
+        if (validSession) {
+            actor = adminTokenService.identityOf(session);
+            role = sessionRole;
+        } else {
+            actor = sha256(provided).substring(0, 8);
+            role = "api-key";
+        }
+        request.setAttribute("adminActor", actor);
+        request.setAttribute("adminRole", role);
         chain.doFilter(request, response);
     }
 

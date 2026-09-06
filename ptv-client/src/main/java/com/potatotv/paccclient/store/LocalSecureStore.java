@@ -13,6 +13,7 @@ import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -30,6 +31,9 @@ public final class LocalSecureStore {
     private static final int IV_LEN = 12;
     private static final int GCM_TAG_BITS = 128;
 
+    /** 配置敏感值落盘前缀：该值为加密容器。 */
+    public static final String PREFIX = "enc:";
+
     private static final SecureRandom RAND = new SecureRandom();
 
     private LocalSecureStore() {
@@ -37,33 +41,20 @@ public final class LocalSecureStore {
 
     /** 加密写盘：生成新盐 + 新 IV，含 magic/version 头。 */
     public static void save(Path file, String password, byte[] plaintext) throws IOException {
-        byte[] salt = randomBytes(SALT_LEN);
-        byte[] iv = randomBytes(IV_LEN);
-        byte[] cipher = encrypt(KeyDeriver.derive(password, salt), iv, plaintext);
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        out.writeBytes(MAGIC);
-        out.write(VERSION);
-        writeInt(out, salt.length);
-        writeInt(out, iv.length);
-        out.writeBytes(salt);
-        out.writeBytes(iv);
-        out.writeBytes(cipher);
-
+        byte[] blob = encryptBytes(plaintext, password);
         Path parent = file.toAbsolutePath().getParent();
         if (parent != null) Files.createDirectories(parent);
-        Files.write(file, out.toByteArray());
+        Files.write(file, blob);
     }
 
     /** 解密读盘；任何解析或认证失败抛出 IOException（视为损坏/被篡改）。 */
     public static byte[] load(Path file, String password) throws IOException {
-        byte[] blob;
-        try {
-            blob = Files.readAllBytes(file);
-        } catch (IOException e) {
-            throw e;
-        }
-        if (blob.length < 4 + 1 + 4 + 4 + 12 + 16) {
+        return loadBytes(Files.readAllBytes(file), password);
+    }
+
+    /** 内存解密核心：解析 magic/version/长度并认证解密；解析或认证失败抛 IOException。 */
+    public static byte[] loadBytes(byte[] blob, String password) throws IOException {
+        if (blob.length < 4 + 1 + 4 + 4 + IV_LEN + 16) {
             throw new IOException("本地数据长度非法");
         }
 
@@ -86,6 +77,38 @@ public final class LocalSecureStore {
         byte[] cipher = new byte[bb.remaining()];
         bb.get(cipher);
         return decrypt(KeyDeriver.derive(password, salt), iv, cipher);
+    }
+
+    /** 将明文加密封装为 "enc:" + base64 容器，供配置敏感值使用。 */
+    public static String encryptString(String plain, String password) throws IOException {
+        byte[] blob = encryptBytes(plain.getBytes(StandardCharsets.UTF_8), password);
+        return PREFIX + Base64.getEncoder().encodeToString(blob);
+    }
+
+    /** 解密 "enc:" 值；非 "enc:" 前缀原样返回（兼容明文）。解析/认证失败抛 IOException。 */
+    public static String decryptString(String value, String password) throws IOException {
+        if (!value.startsWith(PREFIX)) return value;
+        byte[] blob = Base64.getDecoder().decode(value.substring(PREFIX.length()));
+        return new String(loadBytes(blob, password), StandardCharsets.UTF_8);
+    }
+
+    private static byte[] encryptBytes(byte[] plain, String password) throws IOException {
+        byte[] salt = randomBytes(SALT_LEN);
+        byte[] iv = randomBytes(IV_LEN);
+        byte[] cipher = encrypt(KeyDeriver.derive(password, salt), iv, plain);
+        return compose(salt, iv, cipher);
+    }
+
+    private static byte[] compose(byte[] salt, byte[] iv, byte[] cipher) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.writeBytes(MAGIC);
+        out.write(VERSION);
+        writeInt(out, salt.length);
+        writeInt(out, iv.length);
+        out.writeBytes(salt);
+        out.writeBytes(iv);
+        out.writeBytes(cipher);
+        return out.toByteArray();
     }
 
     /** 编码字符串列表（长度前缀），供队列/状态持久化使用。 */
