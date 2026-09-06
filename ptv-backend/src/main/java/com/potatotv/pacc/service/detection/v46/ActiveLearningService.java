@@ -12,7 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
@@ -28,6 +30,7 @@ public class ActiveLearningService {
     private final ThreatIntelSampleRepository threatIntelSamples;
     private final SignatureRepository signatures;
     private final ObjectMapper objectMapper;
+    private final ThreatIntelService threatIntelService;
 
     private static final String LIBRARY_VERSION = "4.6.0";
 
@@ -50,6 +53,36 @@ public class ActiveLearningService {
         f.setReviewedAt(Instant.now());
         f.setReviewComment(comment);
         return zeroDayFindings.save(f);
+    }
+
+    /**
+     * 将零日发现确认为真样本并回流为威胁情报样本（检测 → 情报闭环）。
+     * 特征摘要自动转为静态维度，哈希派生 md5/sha1，复用威胁情报入库链路（归族 + 规则生成）。
+     *
+     * @return {finding_id, sample_id?, family?, generated_rule?}；无特征摘要时仅返回 finding_id
+     */
+    public Map<String, Object> reflowFinding(String findingId, String reviewer) {
+        ZeroDayFinding f = zeroDayFindings.findById(findingId)
+                .orElseThrow(() -> new NoSuchElementException("finding not found: " + findingId));
+        f.setStatus(ZeroDayFinding.Status.REVIEWED);
+        f.setConfirmed(Boolean.TRUE);
+        f.setReviewer(reviewer);
+        f.setReviewedAt(Instant.now());
+        zeroDayFindings.save(f);
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("finding_id", f.getId());
+        if (f.getFeaturesJson() == null || f.getFeaturesJson().isBlank()) {
+            return out;
+        }
+        Map<String, String> dims = parseFeatureJson(f.getFeaturesJson());
+        String md5 = ThreatIntelService.checksum(f.getId()).substring(0, 32);
+        String sha1 = ThreatIntelService.checksum(f.getFeaturesJson());
+        ThreatIntelSample s = threatIntelService.ingest(f.getPteid(), f.getEdition(), md5, sha1, dims);
+        out.put("sample_id", s.getId());
+        out.put("family", s.getFamily());
+        out.put("generated_rule", s.getGeneratedRule());
+        return out;
     }
 
     /** 审核一条威胁情报样本。 */
@@ -117,6 +150,19 @@ public class ActiveLearningService {
         } catch (IllegalArgumentException e) {
             return Signature.Edition.GENERIC;
         }
+    }
+
+    /** 将零日发现的特征摘要 JSON 转为静态维度 Map（数值一律字符串化）。 */
+    private Map<String, String> parseFeatureJson(String json) {
+        Map<String, String> out = new LinkedHashMap<>();
+        try {
+            JsonNode node = objectMapper.readTree(json);
+            node.fields().forEachRemaining(e ->
+                    out.put(e.getKey(), e.getValue() == null ? "" : e.getValue().asText()));
+        } catch (Exception ignored) {
+            // 解析失败视为无可解析维度
+        }
+        return out;
     }
 
     /** 从 generatedRule JSON 提取首个特征维度键作为特征码 pattern。 */

@@ -83,6 +83,17 @@ public class V46AdminController {
         return ResponseEntity.ok(f);
     }
 
+    /** 零日发现确认为真样本并回流为威胁情报样本（检测 → 情报闭环）。 */
+    @PostMapping("/zero-day/{id}/reflow")
+    public ResponseEntity<?> reflowZeroDay(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            return ResponseEntity.ok(activeLearningService.reflowFinding(id,
+                    str(body == null ? null : body.get("reviewer")).isBlank() ? "admin" : str(body.get("reviewer"))));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     /** 录入威胁情报样本（哈希聚类 + 规则生成）。 */
     @PostMapping("/threat/ingest")
     public ResponseEntity<?> ingestThreat(@RequestBody Map<String, Object> body) {

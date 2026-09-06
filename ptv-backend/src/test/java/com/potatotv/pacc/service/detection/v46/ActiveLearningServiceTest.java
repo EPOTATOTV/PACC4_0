@@ -16,6 +16,7 @@ import com.potatotv.pacc.repository.SignatureRepository;
 import com.potatotv.pacc.repository.ThreatIntelSampleRepository;
 import com.potatotv.pacc.repository.ZeroDayFindingRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -27,8 +28,9 @@ class ActiveLearningServiceTest {
     private final ZeroDayFindingRepository zRepo = mock(ZeroDayFindingRepository.class);
     private final ThreatIntelSampleRepository tRepo = mock(ThreatIntelSampleRepository.class);
     private final SignatureRepository sRepo = mock(SignatureRepository.class);
-    private final ActiveLearningService service =
-            new ActiveLearningService(zRepo, tRepo, sRepo, new ObjectMapper());
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ActiveLearningService service = new ActiveLearningService(
+            zRepo, tRepo, sRepo, objectMapper, new ThreatIntelService(tRepo));
 
     @Test
     void zeroDayQueueListsOpenFindings() {
@@ -104,5 +106,37 @@ class ActiveLearningServiceTest {
         when(tRepo.findById("t1")).thenReturn(Optional.of(s));
 
         assertThrows(IllegalStateException.class, () -> service.promoteThreat("t1", "op@tv"));
+    }
+
+    @Test
+    void reflowConfirmedFindingCreatesThreatSample() {
+        ZeroDayFinding f = ZeroDayFinding.builder()
+                .id("z9").pteid("PT9").edition("JAVA")
+                .featuresJson("{\"feature_killaura_angle_speed\":62,\"feature_speed_ratio\":1.9}")
+                .build();
+        when(zRepo.findById("z9")).thenReturn(Optional.of(f));
+        when(zRepo.save(any(ZeroDayFinding.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(tRepo.save(any(ThreatIntelSample.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Map<String, Object> out = service.reflowFinding("z9", "op@tv");
+
+        assertEquals("z9", out.get("finding_id"));
+        assertTrue(out.get("sample_id") != null && !String.valueOf(out.get("sample_id")).isBlank());
+        assertTrue(String.valueOf(out.get("family")).startsWith("FAM_"));
+        assertEquals(Boolean.TRUE, f.getConfirmed());
+        assertEquals(ZeroDayFinding.Status.REVIEWED, f.getStatus());
+        assertTrue(String.valueOf(out.get("generated_rule")).contains("feature_killaura_angle_speed"));
+    }
+
+    @Test
+    void reflowFindingWithoutFeaturesReturnsOnlyFindingId() {
+        ZeroDayFinding f = ZeroDayFinding.builder().id("z10").pteid("PT9").edition("JAVA").build();
+        when(zRepo.findById("z10")).thenReturn(Optional.of(f));
+        when(zRepo.save(any(ZeroDayFinding.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Map<String, Object> out = service.reflowFinding("z10", "op@tv");
+
+        assertEquals("z10", out.get("finding_id"));
+        assertTrue(out.get("sample_id") == null);
     }
 }

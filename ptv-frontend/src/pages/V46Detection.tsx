@@ -113,6 +113,16 @@ export default function V46Detection() {
       .catch((e) => message.error((e as Error).message))
   }
 
+  function reflowFinding(id: string) {
+    api.v46
+      .reflowZeroDay(id)
+      .then((r) => {
+        message.success(`已确认真样本并回流入威胁情报样本库` + (r.sample_id ? `（${r.family}）` : ''))
+        load()
+      })
+      .catch((e) => message.error((e as Error).message))
+  }
+
   const zeroDayRecent = (overview?.zero_day?.recent ?? []) as any[]
   const zQueue = (overview?.active_learning?.zero_day_queue ?? []) as any[]
   const threatRecent = (overview?.threat_intel?.recent ?? []) as any[]
@@ -141,7 +151,7 @@ export default function V46Detection() {
       render: (_: unknown, r: any) => str(pick(r, 'status')),
     },
     {
-      title: '复核', key: 'review', width: 150,
+      title: '复核', key: 'review', width: 220,
       render: (_: unknown, r: any) => {
         const status = str(pick(r, 'status'))
         if (status === 'REVIEWED') return <Text type="secondary">已复核</Text>
@@ -150,6 +160,7 @@ export default function V46Detection() {
           <span style={{ display: 'flex', gap: 6 }}>
             <Button size="small" onClick={() => reviewFinding(id, true)}>真样本</Button>
             <Button size="small" onClick={() => reviewFinding(id, false)}>误报</Button>
+            <Button size="small" type="primary" ghost onClick={() => reflowFinding(id)}>确认真样本并回流</Button>
           </span>
         )
       },

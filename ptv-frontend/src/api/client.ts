@@ -329,6 +329,8 @@ export const api = {
       request<any>('/v46/zero-day/assess', { method: 'POST', body: JSON.stringify(body) }),
     reviewZeroDay: (id: string, body: Record<string, unknown>) =>
       request<any>(`/v46/zero-day/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
+    reflowZeroDay: (id: string, reviewer?: string) =>
+      request<any>(`/v46/zero-day/${id}/reflow`, { method: 'POST', body: JSON.stringify({ reviewer: reviewer ?? 'admin' }) }),
     ingestThreat: (body: Record<string, unknown>) =>
       request<any>('/v46/threat/ingest', { method: 'POST', body: JSON.stringify(body) }),
     reviewThreat: (id: string, body: Record<string, unknown>) =>
