@@ -143,15 +143,15 @@ export default function OpenApi() {
         <span style={{ fontWeight: 600 }}>API 密钥</span>
         <Button type="primary" size="small" onClick={() => setCreating(true)}>新建密钥</Button>
       </div>
-      <Card size="small" style={{ border: '1px solid #30363d', boxShadow: 'none', marginBottom: 20 }} styles={{ body: { padding: 0 } }}>
+      <Card size="small" style={{ border: '1px solid var(--border-strong)', boxShadow: 'none', marginBottom: 20 }} styles={{ body: { padding: 0 } }}>
         <Table rowKey="keyId" size="small" loading={loading} dataSource={keys} columns={columns as any}
           pagination={false} locale={{ emptyText: '暂无 API 密钥，点击右上角新建' }} />
       </Card>
 
-      <div style={{ borderBottom: '1px solid #30363d', marginBottom: 12, paddingBottom: 6 }}>
+      <div style={{ borderBottom: '1px solid var(--border-strong)', marginBottom: 12, paddingBottom: 6 }}>
         <span style={{ fontWeight: 600 }}>最近调用（审计）</span>
       </div>
-      <Card size="small" style={{ border: '1px solid #30363d', boxShadow: 'none' }} styles={{ body: { padding: 0 } }}>
+      <Card size="small" style={{ border: '1px solid var(--border-strong)', boxShadow: 'none' }} styles={{ body: { padding: 0 } }}>
         <Table
           rowKey="id" size="small" dataSource={audit?.rows ?? []}
           pagination={{ pageSize: 8, total: audit?.total ?? 0, showSizeChanger: false }}

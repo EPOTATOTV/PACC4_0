@@ -5,19 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.ico" />
     <title>PACC PTV 管控后台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --bg: #0d1117;
-        --panel: #161b22;
-        --panel-2: #1c2128;
-        --border: #30363d;
-        --text: #e6edf3;
-        --muted: #8b949e;
+        --bg: #050608;
+        --bg-wash: #0a0d12;
+        --panel: #101319;
+        --panel-2: #161a22;
+        --panel-3: #1c212c;
+        --border: rgba(255, 255, 255, .08);
+        --border-strong: rgba(255, 255, 255, .16);
+        --text: #eef0f4;
+        --muted: #98a0ae;
+        --dim: #626b7a;
         --red: #ff3b30;
         --red-2: #ff6b5e;
+        --red-soft: rgba(255, 77, 61, .10);
         --green: #3fb950;
-        --amber: #d29922;
-        --blue: #58a6ff;
+        --amber: #e3a437;
+        --blue: #5da9ff;
+        --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
       }
       * { box-sizing: border-box; }
       @font-face {
@@ -32,19 +41,22 @@
         text-transform: uppercase;
         letter-spacing: 0.04em;
       }
+      html, body, #root { height: 100%; }
       body {
         margin: 0;
         font-family: 'SimHei', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
         background: var(--bg);
         color: var(--text);
+        -webkit-font-smoothing: antialiased;
       }
+      ::selection { background: rgba(255, 77, 61, .30); }
       a { color: var(--blue); text-decoration: none; }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 18px;
-      }
+      /* 数字/代码统一用 JetBrains Mono，界面统计更有质感 */
+      .mono { font-family: var(--mono); font-variant-ligatures: none; }
+      /* antd 深色表格表头、滚动条深色化 */
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 99px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); }
     </style>
   </head>
   <body>

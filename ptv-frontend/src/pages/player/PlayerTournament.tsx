@@ -128,7 +128,7 @@ export default function PlayerTournament() {
         </div>
 
         {enrolled && (
-          <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 8, border: '1px solid #21262d', background: '#161b22' }}>
+          <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel)' }}>
             <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>我的报名状态</Text>
             {enrollment?.teamName ? (
               <Space align="center" style={{ marginBottom: 8 }} size={12}>
@@ -169,12 +169,12 @@ export default function PlayerTournament() {
               return (
                 <div key={s.stageId} style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0',
-                  borderBottom: '1px solid #21262d',
+                  borderBottom: '1px solid var(--border)',
                 }}>
                   <div
                     style={{
                       width: 6, height: 40, borderRadius: 4, alignSelf: 'stretch',
-                      background: isDone ? '#3fb950' : isActive ? '#d29922' : '#30363d',
+                      background: isDone ? '#3fb950' : isActive ? '#d29922' : '#ff6b5e',
                     }}
                   />
                   <Tag>{kindNames[s.kind] ?? s.kind}</Tag>
@@ -194,7 +194,7 @@ export default function PlayerTournament() {
           </div>
         )}
         {active && (
-          <div style={{ fontSize: 13, color: '#d29922', padding: '12px 16px', borderTop: '1px solid #21262d' }}>
+          <div style={{ fontSize: 13, color: '#d29922', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
             当前正处于「{active.title}」，请使用已许可设备、凭对局令牌入场。
           </div>
         )}
@@ -206,7 +206,7 @@ export default function PlayerTournament() {
           <Empty description="暂无公告。" style={{ margin: '8px 0' }} />
         ) : (
           notices.map((n) => (
-            <div key={n.noticeId} style={{ padding: '14px 20px', borderBottom: '1px solid #21262d' }}>
+            <div key={n.noticeId} style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {n.pinned && <Tag color="purple">置顶</Tag>}
                 <Text strong>{n.title}</Text>

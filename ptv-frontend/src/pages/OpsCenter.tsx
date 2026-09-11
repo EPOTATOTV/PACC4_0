@@ -309,7 +309,7 @@ export default function OpsCenter() {
       <Card
         title="远程配置"
         extra={<Button type="primary" size="small" onClick={openNew}>新增</Button>}
-        style={{ border: '1px solid #30363d' }}
+        style={{ border: '1px solid var(--border-strong)' }}
       >
         <Table<ConfigRow>
           rowKey="id"

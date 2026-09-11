@@ -57,10 +57,14 @@ export default function AdminHeader({
   return (
     <Header
       style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 20,
         height: 56,
         lineHeight: '56px',
-        background: '#0d1117',
-        borderBottom: '1px solid #30363d',
+        background: 'rgba(5,6,8,.55)',
+        backdropFilter: 'blur(14px) saturate(140%)',
+        borderBottom: '1px solid var(--border)',
         padding: '0 16px',
         display: 'flex',
         alignItems: 'center',

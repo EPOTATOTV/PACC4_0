@@ -91,7 +91,7 @@ export default function BiReport() {
           type: 'pie',
           radius: ['42%', '66%'],
           center: ['50%', '44%'],
-          itemStyle: { borderRadius: 4, borderColor: '#161b22', borderWidth: 2 },
+          itemStyle: { borderRadius: 4, borderColor: '#101319', borderWidth: 2 },
           label: { color: '#8b949e' },
           data: items.map((c, i) => ({
             name: c.cheat_type,

@@ -289,7 +289,7 @@ export default function SupportCenter() {
             key: 'tickets',
             label: '工单',
             children: (
-              <Card size="small" style={{ border: '1px solid #30363d', boxShadow: 'none' }} styles={{ body: { padding: 12 } }}>
+              <Card size="small" style={{ border: '1px solid var(--border-strong)', boxShadow: 'none' }} styles={{ body: { padding: 12 } }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <span style={{ fontWeight: 600 }}>工单列表</span>
                   <Badge count={tickets.length} offset={[6, 0]} />
@@ -304,7 +304,7 @@ export default function SupportCenter() {
             label: 'FAQ 知识库',
             children: (
               <div>
-                <Card size="small" title="新增 FAQ" style={{ border: '1px solid #30363d', boxShadow: 'none', marginBottom: 16 }}>
+                <Card size="small" title="新增 FAQ" style={{ border: '1px solid var(--border-strong)', boxShadow: 'none', marginBottom: 16 }}>
                   <Form form={faqForm} layout="inline" onFinish={onAddFaq}>
                     <Form.Item name="question" rules={[{ required: true, message: '请输入问题' }]} style={{ width: 240 }}>
                       <Input placeholder="问题" />
@@ -320,7 +320,7 @@ export default function SupportCenter() {
                     </Form.Item>
                   </Form>
                 </Card>
-                <Card size="small" style={{ border: '1px solid #30363d', boxShadow: 'none' }} styles={{ body: { padding: 0 } }}>
+                <Card size="small" style={{ border: '1px solid var(--border-strong)', boxShadow: 'none' }} styles={{ body: { padding: 0 } }}>
                   <Table rowKey="id" size="small" dataSource={faqs} columns={faqColumns} pagination={{ pageSize: 10, showSizeChanger: false }} />
                 </Card>
               </div>

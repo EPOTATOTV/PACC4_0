@@ -4,10 +4,14 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use serde_json::{json, Value};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_autostart::ManagerExt;
+
+mod local_client;
+use local_client::ControlClient;
 
 /// 持有 Java 客户端（ptv-client）子进程句柄，用于崩溃重启与生命周期管理。
 #[derive(Default)]
@@ -152,6 +156,103 @@ fn screen_share_credentials() -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "pteid": pteid, "token": token }))
 }
 
+/// ---- 检测控制桥（React → Rust → Java 本地控制服务） ----
+
+#[tauri::command]
+fn detection_status(app: AppHandle) -> Result<Value, String> {
+    app.state::<ControlClient>().get("/status")
+}
+
+#[tauri::command]
+fn detection_start(app: AppHandle) -> Result<Value, String> {
+    app.state::<ControlClient>().post("/start")
+}
+
+#[tauri::command]
+fn detection_stop(app: AppHandle) -> Result<Value, String> {
+    app.state::<ControlClient>().post("/stop")
+}
+
+#[tauri::command]
+fn get_detections(app: AppHandle, limit: Option<u32>) -> Result<Value, String> {
+    let n = limit.unwrap_or(20);
+    app.state::<ControlClient>().get(&format!("/detections?limit={n}"))
+}
+
+#[tauri::command]
+fn get_detection_config(app: AppHandle) -> Result<Value, String> {
+    app.state::<ControlClient>().get("/config")
+}
+
+#[tauri::command]
+fn update_detection_config(app: AppHandle, cfg: Value) -> Result<Value, String> {
+    app.state::<ControlClient>().post_json("/config", cfg)
+}
+
+#[tauri::command]
+fn pteid_info(app: AppHandle) -> Result<Value, String> {
+    app.state::<ControlClient>().get("/pteid")
+}
+
+#[tauri::command]
+fn open_logs() -> Result<(), String> {
+    let _ = std::fs::create_dir_all(LOG_DIR);
+    if cfg!(target_os = "windows") {
+        Command::new("explorer")
+            .arg(LOG_DIR)
+            .spawn()
+            .map_err(|e| e.to_string())
+            .map(|_| ())
+    } else {
+        Command::new("xdg-open")
+            .arg(LOG_DIR)
+            .spawn()
+            .map_err(|e| e.to_string())
+            .map(|_| ())
+    }
+}
+
+#[tauri::command]
+fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    if enabled {
+        app.autolaunch().enable().map_err(|e| e.to_string())
+    } else {
+        app.autolaunch().disable().map_err(|e| e.to_string())
+    }
+}
+
+/// 后台轮询 Java 侧状态，向 WebView 推送状态/告警/红屏事件（事件名见设计文档 5.1.2）。
+fn poll_and_emit(app: AppHandle) {
+    let ctl = app.state::<ControlClient>();
+    let _ = ctl.refresh();
+    let mut prev_event = String::new();
+    let mut prev_rs = false;
+    loop {
+        std::thread::sleep(Duration::from_secs(10));
+        if let Ok(st) = ctl.get("/status") {
+            let cur_event = st["last_event_type"].as_str().unwrap_or("").to_string();
+            let rs = st["redscreen_active"].as_bool().unwrap_or(false);
+            let _ = app.emit("status_update", st.clone());
+            if !cur_event.is_empty() && cur_event != prev_event {
+                let _ = app.emit(
+                    "detection_alert",
+                    json!({ "event_type": cur_event, "level": st["redscreen_level"] }),
+                );
+            }
+            if rs && !prev_rs {
+                let _ = app.emit(
+                    "redscreen_triggered",
+                    json!({ "level": st["redscreen_level"] }),
+                );
+            } else if !rs && prev_rs {
+                let _ = app.emit("redscreen_unlocked", json!({}));
+            }
+            prev_event = cur_event;
+            prev_rs = rs;
+        }
+    }
+}
+
 /// 桌面壳入口：封装 React GUI（继承自 ptv-frontend）+ Java 客户端进程 + 系统托盘 + 红屏窗口。
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -163,6 +264,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ClientProc::default())
+        .manage(ControlClient::default())
         .setup(|app| {
             // 系统托盘
             let i_main = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
@@ -192,7 +294,9 @@ pub fn run() {
             // Java 客户端进程管理与崩溃自愈
             let handle = app.handle().clone();
             spawn_client(&handle);
-            supervise(handle);
+            supervise(handle.clone());
+            // 本地控制服务状态轮询：向 WebView 推送状态/红屏/告警事件
+            std::thread::spawn(move || poll_and_emit(handle));
 
             let _ = app.emit(
                 "app-ready",
@@ -204,7 +308,16 @@ pub fn run() {
             toggle_redscreen,
             show_main_window,
             diagnostics_json,
-            screen_share_credentials
+            screen_share_credentials,
+            detection_status,
+            detection_start,
+            detection_stop,
+            get_detections,
+            get_detection_config,
+            update_detection_config,
+            pteid_info,
+            open_logs,
+            set_autostart
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

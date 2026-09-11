@@ -11,6 +11,8 @@ import com.potatotv.paccclient.store.RedScreenStatePersistence;
 public final class RedscreenReceiver {
 
     private static RedScreenStatePersistence persistence;
+    private static volatile int activeLevel;
+    private static volatile long activeSince;
 
     private RedscreenReceiver() {
     }
@@ -18,6 +20,26 @@ public final class RedscreenReceiver {
     /** 注入红屏状态持久化；未注入则不落盘（纯内存演示模式兼容）。 */
     public static void init(RedScreenStatePersistence p) {
         persistence = p;
+    }
+
+    /** 当前是否处于红屏激活态（供桌面壳轮询触发 redscreen_triggered 事件）。 */
+    public static int activeLevel() {
+        return activeLevel;
+    }
+
+    public static long activeSince() {
+        return activeSince;
+    }
+
+    /** 供启动时重启恢复红屏路径设置激活态（保持控制服务状态一致）。 */
+    public static void markActive(int level) {
+        activeLevel = Math.max(1, level);
+        activeSince = System.currentTimeMillis();
+    }
+
+    private static void markClear() {
+        activeLevel = 0;
+        activeSince = 0;
     }
 
     public static void handle(String json) {
@@ -29,12 +51,14 @@ public final class RedscreenReceiver {
                 String pteid = stringOf(json, "pteid_masked", "****");
                 String risk = stringOf(json, "risk_score", "0");
                 if (persistence != null) persistence.setActive(level, type, pteid, risk);
+                markActive(level);
                 FullScreenRed.show(level, type, pteid, risk);
             } else if (json.contains("\"type\":\"mitigation\"")) {
                 // 服务端就地防护指令（如 force_close）
                 System.out.println("[PTV-Client] 收到缓解指令: " + json);
             } else if (json.contains("unlock") && !json.contains("redscreen")) {
                 if (persistence != null) persistence.clear();
+                markClear();
                 FullScreenRed.dismiss();
             }
         } catch (Exception e) {

@@ -39,9 +39,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const selected = findSelectedKey(location.pathname)
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout
+      style={{
+        minHeight: '100vh',
+        background:
+          'radial-gradient(1000px 520px at 82% -160px, rgba(255,77,61,.10), transparent 60%), var(--bg)',
+      }}
+    >
       <AdminHeader collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} onSearch={setSearch} />
-      <Layout>
+      <Layout style={{ background: 'transparent' }}>
         <Sider
           width={220}
           collapsible
@@ -50,7 +56,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           breakpoint="lg"
           collapsedWidth={0}
           onBreakpoint={(broken) => setCollapsed(broken)}
-          style={{ background: '#0d1117', borderRight: '1px solid #30363d' }}
+          style={{
+            background: 'rgba(5,6,8,.45)',
+            borderRight: '1px solid var(--border)',
+            backdropFilter: 'blur(6px)',
+          }}
         >
           <Menu
             theme="dark"

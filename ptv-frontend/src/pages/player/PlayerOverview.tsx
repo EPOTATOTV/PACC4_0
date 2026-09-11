@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Col, Row, Space, Statistic, Tag, Typography } from 'antd'
 import { api } from '../../api/client'
 import type { MatchValidateResult, PlayerCurrentMatch, PlayerEnrollmentStatus, PlayerSummary } from '../../types'
+import PlayerDetectionPanel from './PlayerDetectionPanel'
 
 const { Title, Text } = Typography
 
@@ -30,6 +31,8 @@ export default function PlayerOverview() {
       <Title level={3} style={{ marginTop: 0 }}>我的概览</Title>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+
+      <PlayerDetectionPanel />
 
       {summary && (
         <>

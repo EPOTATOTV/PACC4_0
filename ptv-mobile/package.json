@@ -17,9 +17,7 @@
     "@capacitor/core": "^7",
     "@capacitor/ios": "^7",
     "@capacitor/network": "^7",
-    "@capacitor/push-notifications": "^7",
-    "@capacitor/secure-storage-plugin": "^1.2.0",
-    "@capacitor-community/biometrics": "^6"
+    "@capacitor/push-notifications": "^7"
   },
   "devDependencies": {
     "@capacitor/cli": "^7",

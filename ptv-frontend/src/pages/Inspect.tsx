@@ -162,7 +162,7 @@ export default function Inspect() {
           onChange={(e) => setNote(e.target.value)}
           placeholder="备注（可选）"
           rows={4}
-          style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: 8 }}
+          style={{ width: '100%', background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: 8 }}
         />
       </Modal>
 

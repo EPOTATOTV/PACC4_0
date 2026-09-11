@@ -241,7 +241,7 @@ export default function V46Detection() {
         <Col span={8}><Card><Statistic title="特征库扩充种子" value={seedCount} /></Card></Col>
       </Row>
 
-      <Card title="零日检测评估" style={{ marginBottom: 16, border: '1px solid #30363d' }}>
+      <Card title="零日检测评估" style={{ marginBottom: 16, border: '1px solid var(--border-strong)' }}>
         <TextArea
           rows={4} value={features}
           onChange={(e) => setFeatures(e.target.value)}
@@ -261,11 +261,11 @@ export default function V46Detection() {
         )}
       </Card>
 
-      <Card title={`零日发现 / 主动学习队列（${zQueue.length}）`} style={{ marginBottom: 16, border: '1px solid #30363d' }}>
+      <Card title={`零日发现 / 主动学习队列（${zQueue.length}）`} style={{ marginBottom: 16, border: '1px solid var(--border-strong)' }}>
         <Table rowKey={(r) => str(pick(r, 'id'))} columns={zColumns} dataSource={zQueue} size="small" pagination={{ pageSize: 8 }} />
       </Card>
 
-      <Card title="威胁情报" style={{ marginBottom: 16, border: '1px solid #30363d' }}>
+      <Card title="威胁情报" style={{ marginBottom: 16, border: '1px solid var(--border-strong)' }}>
         <TextArea
           rows={3} value={threatForm}
           onChange={(e) => setThreatForm(e.target.value)}
@@ -287,7 +287,7 @@ export default function V46Detection() {
         <Table rowKey={(r) => str(pick(r, 'id'))} columns={tColumns} dataSource={threatRecent} size="small" pagination={{ pageSize: 8 }} style={{ marginTop: 12 }} />
       </Card>
 
-      <Card title="AI 家族聚类（威胁情报样本指纹）" style={{ marginBottom: 16, border: '1px solid #30363d' }}>
+      <Card title="AI 家族聚类（威胁情报样本指纹）" style={{ marginBottom: 16, border: '1px solid var(--border-strong)' }}>
         <div style={{ fontSize: 13, marginBottom: 10 }}>
           <Button type="primary" loading={clusterBusy} onClick={() => runCluster()}>执行聚类（k=3）</Button>
           <Button style={{ marginLeft: 8 }} loading={clusterBusy} onClick={() => runCluster({ k: 5 })}>执行聚类（k=5）</Button>
@@ -313,7 +313,7 @@ export default function V46Detection() {
         )}
       </Card>
 
-      <Card title="特征库扩充（基岩 / Java）" style={{ border: '1px solid #30363d' }}>
+      <Card title="特征库扩充（基岩 / Java）" style={{ border: '1px solid var(--border-strong)' }}>
         <Table rowKey={(r) => str(pick(r, 'name'))} columns={seedColumns} dataSource={seeds} size="small" pagination={{ pageSize: 8 }} />
       </Card>
 
@@ -359,7 +359,7 @@ export default function V46Detection() {
                 <Col span={16}>{confirmed === 'true' ? <Tag color="success">确认真样本</Tag> : confirmed === 'false' ? <Tag color="default">确认误报</Tag> : <Text type="secondary">待复核</Text>}</Col>
               </Row>
 
-              <div style={{ borderBottom: '1px solid #30363d', marginTop: 14, paddingBottom: 6, fontWeight: 600 }}>
+              <div style={{ borderBottom: '1px solid var(--border-strong)', marginTop: 14, paddingBottom: 6, fontWeight: 600 }}>
                 自动分析报告
               </div>
               {report ? (
@@ -395,7 +395,7 @@ export default function V46Detection() {
                 <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>尚未执行自动分析</Text>
               )}
 
-              <div style={{ borderBottom: '1px solid #30363d', marginTop: 14, paddingBottom: 6, fontWeight: 600 }}>
+              <div style={{ borderBottom: '1px solid var(--border-strong)', marginTop: 14, paddingBottom: 6, fontWeight: 600 }}>
                 检测规则（晋升用）
               </div>
               <pre style={{ fontSize: 12, color: '#8b949e', whiteSpace: 'pre-wrap', wordBreak: 'break-all', marginTop: 8 }}>

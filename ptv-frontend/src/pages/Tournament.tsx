@@ -179,8 +179,8 @@ export default function Tournament() {
                 <Col xs={24} sm={12} lg={5}><Form.Item label="标题" required><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="标题 *" /></Form.Item></Col>
                 <Col xs={12} sm={6} lg={3}><Form.Item label="类别"><Select value={kind} onChange={setKind} options={Object.entries(kindNames).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
                 <Col xs={12} sm={6} lg={3}><Form.Item label="状态"><Select value={status} onChange={setStatus} options={Object.entries(statusNames).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
-                <Col xs={24} sm={12} lg={4}><Form.Item label="开始时间(可选)"><input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
-                <Col xs={24} sm={12} lg={4}><Form.Item label="结束时间(可选)"><input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
+                <Col xs={24} sm={12} lg={4}><Form.Item label="开始时间(可选)"><input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={{ width: '100%', background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
+                <Col xs={24} sm={12} lg={4}><Form.Item label="结束时间(可选)"><input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ width: '100%', background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
                 <Col xs={24} sm={12} lg={4}><Form.Item label="备注(可选)"><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="备注" /></Form.Item></Col>
                 <Col xs={24} lg={1}><Form.Item label=" ">
                   <Button type="primary" htmlType="submit" icon={<PlusOutlined />}>添加</Button>
@@ -302,7 +302,7 @@ export default function Tournament() {
               <div style={{ padding: 20, color: '#8b949e' }}>暂无公告。</div>
             ) : (
               notices.map((n) => (
-                <div key={n.noticeId} style={{ padding: '12px 16px', borderTop: '1px solid #21262d' }}>
+                <div key={n.noticeId} style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     {n.pinned && <Tag color="purple">置顶</Tag>}
                     <Text strong>{n.title}</Text>
@@ -330,7 +330,7 @@ export default function Tournament() {
             <Input placeholder="赛事名称（公开展示）" value={cfgTitle} onChange={(e) => setCfgTitle(e.target.value)} />
             <Input placeholder="腾讯文档收集表链接 https://..." value={docUrl} onChange={(e) => setDocUrl(e.target.value)} />
             <Space wrap>
-              <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} />
+              <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '5px 10px' }} />
               <Tag color={allowRegister ? 'success' : 'default'} style={{ fontSize: 13, padding: '4px 12px', cursor: 'pointer' }} onClick={() => setAllowRegister(!allowRegister)}>
                 {allowRegister ? '报名中' : '已截止'}
               </Tag>
@@ -378,8 +378,8 @@ export default function Tournament() {
           <Row gutter={12}>
             <Col span={12}><Form.Item label="类别"><Select value={editing?.kind} onChange={(v) => editing && setEditing({ ...editing, kind: v })} options={Object.entries(kindNames).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
             <Col span={12}><Form.Item label="状态"><Select value={editing?.status} onChange={(v) => editing && setEditing({ ...editing, status: v })} options={Object.entries(statusNames).map(([k, v]) => ({ value: k, label: v }))} /></Form.Item></Col>
-            <Col span={12}><Form.Item label="开始时间"><input type="datetime-local" value={editing ? toLocalInput(editing.startTime ?? '') : ''} onChange={(e) => editing && setEditing({ ...editing, startTime: toIso(e.target.value, 0) })} style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
-            <Col span={12}><Form.Item label="结束时间"><input type="datetime-local" value={editing ? toLocalInput(editing.endTime ?? '') : ''} onChange={(e) => editing && setEditing({ ...editing, endTime: toIso(e.target.value, 1) })} style={{ width: '100%', background: '#0d1117', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
+            <Col span={12}><Form.Item label="开始时间"><input type="datetime-local" value={editing ? toLocalInput(editing.startTime ?? '') : ''} onChange={(e) => editing && setEditing({ ...editing, startTime: toIso(e.target.value, 0) })} style={{ width: '100%', background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
+            <Col span={12}><Form.Item label="结束时间"><input type="datetime-local" value={editing ? toLocalInput(editing.endTime ?? '') : ''} onChange={(e) => editing && setEditing({ ...editing, endTime: toIso(e.target.value, 1) })} style={{ width: '100%', background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '5px 10px' }} /></Form.Item></Col>
             <Col span={24}><Form.Item label="结果/比分"><Input value={editing?.resultNote} onChange={(e) => editing && setEditing({ ...editing, resultNote: e.target.value })} /></Form.Item></Col>
             <Col span={24}><Form.Item label="备注"><Input value={editing?.note} onChange={(e) => editing && setEditing({ ...editing, note: e.target.value })} /></Form.Item></Col>
           </Row>
@@ -446,11 +446,11 @@ function renderGantt(stages: TournamentStage[]) {
           return (
             <g key={b.s.stageId}>
               <text x={6} y={y + 16} fontSize={12} fill="#8b949e">{b.s.title}</text>
-              <rect x={W * 0.28} y={y + 4} width={W * 0.68} height={18} rx={4} fill="#0d1117" opacity={0.35} />
+              <rect x={W * 0.28} y={y + 4} width={W * 0.68} height={18} rx={4} fill="#101319" opacity={0.35} />
               <rect x={W * (0.28 + (b.leftPct / 100) * 0.68)} y={y + 4} width={W * 0.68 * (b.widthPct / 100)} height={18} rx={4}
                 fill={c} opacity={b.s.status === 'ACTIVE' ? 0.95 : b.s.status === 'DONE' ? 0.55 : 0.8}
                 stroke={b.s.status === 'ACTIVE' ? '#ffffff' : 'none'} strokeWidth={1} />
-              <text x={W * (0.28 + (b.leftPct / 100) * 0.68) + 6} y={y + 17} fontSize={11} fill="#0d1117" fontWeight={700}>
+              <text x={W * (0.28 + (b.leftPct / 100) * 0.68) + 6} y={y + 17} fontSize={11} fill="#101319" fontWeight={700}>
                 {statusNames[b.s.status] ?? b.s.status}
               </text>
             </g>

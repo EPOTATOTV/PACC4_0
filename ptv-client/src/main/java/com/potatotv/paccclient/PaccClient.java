@@ -1,5 +1,7 @@
 package com.potatotv.paccclient;
 
+import com.potatotv.paccclient.control.DetectionController;
+import com.potatotv.paccclient.control.LocalControlServer;
 import com.potatotv.paccclient.detection.DetectionEngine;
 import com.potatotv.paccclient.inspect.InspectAgent;
 import com.potatotv.paccclient.redscreen.FullScreenRed;
@@ -34,6 +36,9 @@ import java.util.concurrent.TimeUnit;
  */
 public final class PaccClient {
 
+    /** 与桌面壳/版本元数据保持一致，供本地控制服务状态上报。 */
+    private static final String APP_VERSION = "4.2.0";
+
     public static void main(String[] args) {
         ClientConfig cfg = ClientConfig.load();
         System.out.println("[PTV-Client] PACC v4.2 玩家端启动 pteid=" + cfg.pteid
@@ -67,6 +72,7 @@ public final class PaccClient {
                 new RedScreenStatePersistence(storeDir.resolve("redscreen.enc"), storePassword);
         redscreenState.loadActive().ifPresent(active -> {
             System.out.println("[PTV-Client] 检测到未解除红屏，重启恢复 level=" + active.level());
+            RedscreenReceiver.markActive(active.level());
             FullScreenRed.show(active.level(), active.cheatType(), active.masked(), active.risk());
         });
         RedscreenReceiver.init(redscreenState);
@@ -94,12 +100,13 @@ public final class PaccClient {
             return;
         }
 
-        // 后台周期采样上报
-        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(
-                r -> Thread.ofVirtual().name("ptv-detector").unstarted(r));
-        scheduler.scheduleWithFixedDelay(() -> {
-            engine.sample(cfg.clientRisk).ifPresent(reporter::report);
-        }, 2, cfg.heartbeatSeconds, TimeUnit.SECONDS);
+        // 后台周期采样上报：封装为可被本地控制服务启停的控制器（默认启动驱动，行为不变）
+        DetectionController detector = new DetectionController(engine, reporter,
+                new DetectionController.RuntimeConfig(cfg.clientRisk, cfg.heartbeatSeconds, true));
+        detector.start();
+
+        // 本地回环控制服务：供桌面壳下发检测控制并查询状态/记录/配置（尽力而为，失败不阻断）
+        LocalControlServer control = LocalControlServer.start(detector, pteid, APP_VERSION);
 
         // ---- v4.7 运维客户端：远程配置、崩溃上报、性能上报、特征库热更新（尽力而为，失败不阻断）----
         OpsClient opsClient = new OpsClient(cfg.serverUri, token);
@@ -137,7 +144,8 @@ public final class PaccClient {
 
         // 常驻运行，Ctrl+C 退出
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            scheduler.shutdownNow();
+            detector.stop();
+            if (control != null) control.close();
             opsScheduler.shutdownNow();
             reporter.close();
             System.out.println("[PTV-Client] 玩家端已退出");

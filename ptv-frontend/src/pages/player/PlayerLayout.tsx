@@ -33,13 +33,23 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
   )?.key
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout
+      style={{
+        minHeight: '100vh',
+        background:
+          'radial-gradient(1000px 520px at 82% -160px, rgba(255,77,61,.10), transparent 60%), var(--bg)',
+      }}
+    >
       <Header
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 20,
           height: 56,
           lineHeight: '56px',
-          background: '#0d1117',
-          borderBottom: '1px solid #30363d',
+          background: 'rgba(5,6,8,.55)',
+          backdropFilter: 'blur(14px) saturate(140%)',
+          borderBottom: '1px solid var(--border)',
           padding: '0 16px',
           display: 'flex',
           alignItems: 'center',
@@ -57,7 +67,7 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
         <div style={{ flex: 1 }} />
         <LanguageSwitcher compact />
       </Header>
-      <Layout>
+      <Layout style={{ background: 'transparent' }}>
         <Sider
           width={220}
           collapsible
@@ -66,7 +76,11 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
           breakpoint="lg"
           collapsedWidth={0}
           onBreakpoint={(broken) => setCollapsed(broken)}
-          style={{ background: '#0d1117', borderRight: '1px solid #30363d' }}
+          style={{
+            background: 'rgba(5,6,8,.45)',
+            borderRight: '1px solid var(--border)',
+            backdropFilter: 'blur(6px)',
+          }}
         >
           <Menu
             theme="dark"

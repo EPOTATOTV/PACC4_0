@@ -86,12 +86,12 @@ export default function Countermeasure() {
         </Card>
       </div>
 
-      <div style={{ borderBottom: '1px solid #30363d', marginBottom: 16, paddingBottom: 6 }}>
+      <div style={{ borderBottom: '1px solid var(--border-strong)', marginBottom: 16, paddingBottom: 6 }}>
         <span style={{ fontWeight: 600 }}>高危账号事件</span>
       </div>
       <Card
         size="small"
-        style={{ border: '1px solid #30363d', boxShadow: 'none', marginBottom: 20 }}
+        style={{ border: '1px solid var(--border-strong)', boxShadow: 'none', marginBottom: 20 }}
         styles={{ body: { padding: 0 } }}
       >
         <Table
@@ -104,11 +104,11 @@ export default function Countermeasure() {
         />
       </Card>
 
-      <div style={{ borderBottom: '1px solid #30363d', marginBottom: 16, paddingBottom: 6 }}>
+      <div style={{ borderBottom: '1px solid var(--border-strong)', marginBottom: 16, paddingBottom: 6 }}>
         <span style={{ fontWeight: 600 }}>近期事件</span>
         <Badge style={{ marginLeft: 10 }} count={data?.recent.length ?? 0} />
       </div>
-      <Card size="small" style={{ border: '1px solid #30363d', boxShadow: 'none' }} styles={{ body: { padding: 0 } }}>
+      <Card size="small" style={{ border: '1px solid var(--border-strong)', boxShadow: 'none' }} styles={{ body: { padding: 0 } }}>
         <Table
           rowKey="id"
           size="small"

@@ -7,8 +7,13 @@
   <meta name="description" content="PACC 反作弊客户端官方下载，支持 Windows、Linux、Android、iOS、HarmonyOS 与 Java 版。" />
   <link rel="icon" href="favicon.ico" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 </head>
 <body>
+  <div class="bg" aria-hidden="true"></div>
+
   <header class="nav">
     <div class="nav-inner">
       <a class="brand" href="/">
@@ -16,72 +21,131 @@
         <span class="brand-font">PACC</span>
       </a>
       <nav>
-        <a href="#download">客户端下载</a>
+        <a href="#download">DOWNLOAD</a>
+        <a class="dl mono" href="#download">客户端下载</a>
       </nav>
     </div>
   </header>
 
   <section class="hero">
-    <div class="hero-inner">
-      <h1 class="brand-font hero-title">PACC</h1>
-      <p class="hero-sub">专业反作弊客户端 · 为纯净的游戏环境而生</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="#download">立即下载</a>
-      </div>
+    <div class="hero-eyebrow"><span class="dot"></span>ANTI-CHEAT / POTATOTV SEC</div>
+    <h1 class="brand-font hero-title">PACC</h1>
+    <p class="hero-sub">为纯净的游戏环境而生。一套运行时反作弊客户端，覆盖六大平台，检测在你眼皮底下进行的每一次外部干预。</p>
+    <div class="hero-meta">
+      <span>Win / Lin / Apr / iOS / Harmony / JVM</span>
+      <span>实时内核级检测</span>
+      <span>v4.2.0</span>
+    </div>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#download">
+        立即下载
+        <span class="key">↓</span>
+      </a>
+      <a class="btn" href="#note">平台说明 <span class="key">i</span></a>
     </div>
   </section>
 
   <section class="download" id="download">
-    <h2>客户端下载 <span class="version">v4.2.0</span></h2>
-    <p class="sub">选择适合您设备的版本</p>
+    <div class="section-head">
+      <h2>客户端下载</h2>
+      <span class="version mono">v4.2.0</span>
+    </div>
+    <p class="sub">选择适配您设备的版本</p>
 
     <div class="grid">
       <div class="card">
-        <div class="card-badge">WIN</div>
+        <div class="card-top">
+          <div class="card-badge">WIN</div>
+          <span class="card-os mono">x64</span>
+        </div>
         <h3>Windows</h3>
-        <p>Windows 10 / 11 · x64</p>
+        <p>Windows 10 / 11 桌面端，含驱动层防护。</p>
         <a class="btn" href="files/pacc-client-windows-x64-v4.2.0.zip">下载</a>
       </div>
       <div class="card">
-        <div class="card-badge">LNX</div>
+        <div class="card-top">
+          <div class="card-badge">LNX</div>
+          <span class="card-os mono">x86_64</span>
+        </div>
         <h3>Linux</h3>
-        <p>Linux x86_64</p>
+        <p>Linux x86_64，面向桌面与服务器场景。</p>
         <a class="btn" href="files/pacc-client-linux-x86_64-v4.2.0.tar.gz">下载</a>
       </div>
       <div class="card">
-        <div class="card-badge">APK</div>
+        <div class="card-top">
+          <div class="card-badge">APK</div>
+          <span class="card-os mono">ARM</span>
+        </div>
         <h3>Android</h3>
-        <p>Android 8.0 及以上</p>
+        <p>Android 8.0 及以上，以服务模式后台常驻。</p>
         <a class="btn" href="files/pacc-client-android-v4.2.0.apk">下载</a>
       </div>
       <div class="card">
-        <div class="card-badge">iOS</div>
+        <div class="card-top">
+          <div class="card-badge">iOS</div>
+          <span class="card-os mono">OS 15+</span>
+        </div>
         <h3>iOS / iPadOS</h3>
-        <p>iOS 15 及以上</p>
+        <p>iOS 15 及以上，签名安装包。</p>
         <a class="btn" href="files/pacc-client-ios-v4.2.0.tar.gz">下载</a>
       </div>
       <div class="card">
-        <div class="card-badge">HMY</div>
+        <div class="card-top">
+          <div class="card-badge">HMY</div>
+          <span class="card-os mono">NEXT</span>
+        </div>
         <h3>HarmonyOS</h3>
-        <p>HarmonyOS NEXT</p>
+        <p>HarmonyOS NEXT 原生支持。</p>
         <a class="btn" href="files/pacc-client-harmony-v4.2.0.tar.gz">下载</a>
       </div>
       <div class="card">
-        <div class="card-badge">JVM</div>
-        <h3>Java 版探针</h3>
-        <p>Java 21 及以上</p>
+        <div class="card-top">
+          <div class="card-badge">JVM</div>
+          <span class="card-os mono">JDK 21+</span>
+        </div>
+        <h3>Java 探针</h3>
+        <p>Java 21+ 探针，校验运行时字节码完整性。</p>
         <a class="btn" href="files/ptv-agent-4.2.0.jar">下载</a>
       </div>
     </div>
   </section>
 
-  <footer class="footer">
-    <div class="footer-brand">
-      <img src="logo.png" width="20" height="20" alt="PACC logo" />
-      <span class="brand-font">PACC</span>
-      <span>PotatoTV 反作弊系统</span>
+  <section class="note" id="note">
+    <div class="note-box">
+      <div>
+        <div class="t">安装前</div>
+        <ul>
+          <li>Windows 请先关闭其它签名/调试工具，避免冲突。</li>
+          <li>Android 需开启「安装未知来源」。</li>
+          <li>iOS 为签名安装包，未越狱即可使用。</li>
+        </ul>
+      </div>
+      <div>
+        <div class="t">运行须知</div>
+        <ul>
+          <li>客户端需保持后台运行，随系统/平台启动。</li>
+          <li>被检测到外部进程注入会断开本轮对局并上报。</li>
+        </ul>
+      </div>
+      <div>
+        <div class="t">遇到问题</div>
+        <ul>
+          <li>先核对设备版本与规格是否满足。</li>
+          <li>仍异常可到管控台自助门户提交工单。</li>
+        </ul>
+      </div>
     </div>
-    <p class="small">© 2026 POTATOTV</p>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="logo.png" width="20" height="20" alt="PACC logo" />
+        <span class="brand-font">PACC</span>
+        <span style="color:var(--dim)">PotatoTV 反作弊系统</span>
+      </div>
+      <p class="small">© 2026 POTATOTV · pacc.potatotv.asia</p>
+    </div>
   </footer>
 </body>
 </html>

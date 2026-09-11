@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"capability that allows the main window to run shell（启动 Java 服务）与访问主包资源","local":true,"windows":["main","redscreen"],"permissions":["core:default","shell:allow-execute","shell:allow-spawn","autostart:allow-enable","autostart:allow-disable","autostart:allow-is-enabled","updater:default"]}}

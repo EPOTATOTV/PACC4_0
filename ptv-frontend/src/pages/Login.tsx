@@ -58,10 +58,40 @@ export default function Login() {
   return (
     <div
       style={{
+        position: 'relative',
         minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 12px',
       }}
     >
-      <Card style={{ width: '100%', maxWidth: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} styles={{ body: { padding: 28 } }}>
+      {/* 环境氛围：顶部微光 + 细网格 */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden',
+          background:
+            'radial-gradient(760px 430px at 50% -120px, rgba(255,77,61,.16), transparent 62%), var(--bg)',
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed', inset: 0, zIndex: 0, opacity: .5,
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px)',
+          backgroundSize: '52px 52px',
+          maskImage: 'radial-gradient(circle at 50% 0%, #000 0%, transparent 70%)',
+          WebkitMaskImage: 'radial-gradient(circle at 50% 0%, #000 0%, transparent 70%)',
+        }}
+      />
+      <Card
+        style={{
+          position: 'relative', zIndex: 1, width: '100%', maxWidth: 400,
+          background: 'rgba(17,20,27,.72)',
+          backdropFilter: 'blur(16px) saturate(140%)',
+          border: '1px solid var(--border-strong)',
+          boxShadow: '0 24px 80px rgba(0,0,0,.5)',
+        }}
+        styles={{ body: { padding: 30 } }}
+      >
         <Brand size="md" subtitle={t('login.title')} />
 
         <Segmented
@@ -111,7 +141,7 @@ export default function Login() {
           style={{
             marginTop: 16,
             textAlign: 'center',
-            borderTop: '1px solid #30363d',
+            borderTop: '1px solid var(--border)',
             paddingTop: 14,
           }}
         >

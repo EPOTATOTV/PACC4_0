@@ -51,7 +51,7 @@ function FamilyGraph({ graph }: { graph: AnyRec | null }) {
           return (
             <line
               key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y}
-              stroke={Number(l.value) > 0.3 ? '#58a6ff' : '#30363d'}
+              stroke={Number(l.value) > 0.3 ? '#58a6ff' : '#2a2e38'}
               strokeWidth={Math.max(1, Number(l.value) * 4)}
               opacity={0.7}
             />
@@ -63,7 +63,7 @@ function FamilyGraph({ graph }: { graph: AnyRec | null }) {
           const d = Math.min(44, 18 + Number(n.size) * 6)
           return (
             <g key={str(n.id)}>
-              <circle cx={p.x} cy={p.y} r={d / 2} fill="#161b22" stroke="#8b5cf6" strokeWidth={2} />
+              <circle cx={p.x} cy={p.y} r={d / 2} fill="#101319" stroke="#8b5cf6" strokeWidth={2} />
               <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={11} fill="#c9d1d9">
                 {str(n.name)}
               </text>
@@ -225,12 +225,12 @@ export default function V47ThreatIntel() {
         <Col span={8}><Card><Statistic title="谱系连边" value={graph?.links?.length ?? 0} /></Card></Col>
         <Col span={8}><Card><Statistic title="家族样本总数" value={families.reduce((a: number, r: AnyRec) => a + Number(r.size ?? 0), 0)} /></Card></Col>
         <Col span={24}>
-          <Card title="家族档案" style={{ border: '1px solid #30363d' }}>
+          <Card title="家族档案" style={{ border: '1px solid var(--border-strong)' }}>
             <Table rowKey={(r: AnyRec) => r.family} columns={familyColumns} dataSource={families} size="small" pagination={false} />
           </Card>
         </Col>
         <Col span={24}>
-          <Card title="家族谱系（血缘）图" style={{ border: '1px solid #30363d' }}>
+          <Card title="家族谱系（血缘）图" style={{ border: '1px solid var(--border-strong)' }}>
             <FamilyGraph graph={graph} />
           </Card>
         </Col>
@@ -248,7 +248,7 @@ export default function V47ThreatIntel() {
           </Col>
         ))}
         <Col span={24}>
-          <Card title="处置策略（对已确认恶意样本/家族设置分级处置）" style={{ border: '1px solid #30363d' }}>
+          <Card title="处置策略（对已确认恶意样本/家族设置分级处置）" style={{ border: '1px solid var(--border-strong)' }}>
             <Form
               layout="inline" style={{ marginBottom: 14, rowGap: 10 }}
               onFinish={onSetDeter}
@@ -312,7 +312,7 @@ export default function V47ThreatIntel() {
         <Col span={8}><Card><Statistic title="高严重度（≥4）" value={ioc?.high_severity ?? 0} /></Card></Col>
 
         <Col span={24}>
-          <Card title="IOC 中心化库" style={{ border: '1px solid #30363d' }}>
+          <Card title="IOC 中心化库" style={{ border: '1px solid var(--border-strong)' }}>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
               <Input
                 allowClear placeholder="检索值 / 家族 / 来源" style={{ width: 220 }}

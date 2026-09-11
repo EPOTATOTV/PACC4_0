@@ -112,12 +112,12 @@ function DetectionCard({ title, verdicts, color }: { title: string; verdicts: Ve
     <Card title={title} styles={{ body: { padding: 0 } }}>
       {verdicts.length === 0 && <div style={{ padding: 16, color: '#8b949e' }}>该类别无命中</div>}
       {verdicts.map((v, i) => (
-        <div key={i} style={{ padding: '12px 16px', borderTop: '1px solid #21262d' }}>
+        <div key={i} style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600 }}>{cheatName(v)}</span>
             <span style={{
               fontSize: 11, padding: '2px 8px', borderRadius: 10,
-              background: v.detected ? color : '#21262d',
+              background: v.detected ? color : 'var(--panel-2)',
               color: v.detected ? '#0d1117' : '#8b949e',
             }}>
               {v.detected ? '已判定' : '可疑'}
