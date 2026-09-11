@@ -4,10 +4,10 @@
   "version": "4.2.0",
   "identifier": "asia.potatotv.pacc.client",
   "build": {
-    "beforeDevCommand": "npm run dev --prefix ../ptv-frontend",
+    "beforeDevCommand": "npm run dev --prefix ../../ptv-frontend",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "npm run web:build",
-    "frontendDist": "../ptv-frontend/dist"
+    "frontendDist": "../../ptv-frontend/dist"
   },
   "app": {
     "withGlobalTauri": true,
@@ -45,7 +45,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["../ptv-client/lib/ptv-client-*.jar"]
+    "resources": ["../../ptv-client/lib/ptv-client-*.jar"]
   },
   "plugins": {
     "updater": {

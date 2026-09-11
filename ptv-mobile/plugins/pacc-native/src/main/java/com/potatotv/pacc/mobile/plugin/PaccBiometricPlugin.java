@@ -1,9 +1,11 @@
 package com.potatotv.pacc.mobile.plugin;
 
 import androidx.fragment.app.FragmentActivity;
+import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.core.content.ContextCompat;
 
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -30,7 +32,7 @@ public class PaccBiometricPlugin extends Plugin {
         try {
             androidx.biometric.BiometricManager bm =
                     androidx.biometric.BiometricManager.from(getContext());
-            int r = bm.canAuthenticate(BiometricPrompt.AUTHENTICATOR_BIOMETRIC_WEAK);
+            int r = bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK);
             return r == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS
                     || r == androidx.biometric.BiometricManager.BIOMETRIC_STATUS_UNKNOWN;
         } catch (Throwable ignored) {
@@ -51,7 +53,7 @@ public class PaccBiometricPlugin extends Plugin {
                 .setTitle("身份验证")
                 .setSubtitle(reason)
                 .setNegativeButtonText("取消")
-                .setAllowedAuthenticators(BiometricPrompt.AUTHENTICATOR_BIOMETRIC_WEAK)
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
                 .build();
         prompt.authenticate(info);
         // 结果回调 will resolve/reject call.

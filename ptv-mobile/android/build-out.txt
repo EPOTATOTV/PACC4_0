@@ -1,0 +1,159 @@
+﻿To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Configure project :capacitor-cordova-android-plugins
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :capacitor-android:preBuild UP-TO-DATE
+> Task :capacitor-android:preDebugBuild UP-TO-DATE
+> Task :capacitor-android:writeDebugAarMetadata UP-TO-DATE
+> Task :capacitor-app:preBuild UP-TO-DATE
+> Task :capacitor-app:preDebugBuild UP-TO-DATE
+> Task :capacitor-app:writeDebugAarMetadata UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:preBuild UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:preDebugBuild UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:writeDebugAarMetadata UP-TO-DATE
+> Task :capacitor-network:preBuild UP-TO-DATE
+> Task :capacitor-network:preDebugBuild UP-TO-DATE
+> Task :capacitor-network:writeDebugAarMetadata UP-TO-DATE
+> Task :capacitor-pacc-native:preBuild UP-TO-DATE
+> Task :capacitor-pacc-native:preDebugBuild UP-TO-DATE
+> Task :capacitor-pacc-native:writeDebugAarMetadata UP-TO-DATE
+> Task :capacitor-push-notifications:preBuild UP-TO-DATE
+> Task :capacitor-push-notifications:preDebugBuild UP-TO-DATE
+> Task :capacitor-push-notifications:writeDebugAarMetadata UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :capacitor-android:generateDebugResValues UP-TO-DATE
+> Task :capacitor-android:generateDebugResources UP-TO-DATE
+> Task :capacitor-android:packageDebugResources UP-TO-DATE
+> Task :capacitor-app:generateDebugResValues UP-TO-DATE
+> Task :capacitor-app:generateDebugResources UP-TO-DATE
+> Task :capacitor-app:packageDebugResources UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:generateDebugResValues UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:generateDebugResources UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:packageDebugResources UP-TO-DATE
+> Task :capacitor-network:generateDebugResValues UP-TO-DATE
+> Task :capacitor-network:generateDebugResources UP-TO-DATE
+> Task :capacitor-network:packageDebugResources UP-TO-DATE
+> Task :capacitor-pacc-native:generateDebugResValues UP-TO-DATE
+> Task :capacitor-pacc-native:generateDebugResources UP-TO-DATE
+> Task :capacitor-pacc-native:packageDebugResources UP-TO-DATE
+> Task :capacitor-push-notifications:generateDebugResValues UP-TO-DATE
+> Task :capacitor-push-notifications:generateDebugResources UP-TO-DATE
+> Task :capacitor-push-notifications:packageDebugResources UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-android:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-android:processDebugManifest UP-TO-DATE
+> Task :capacitor-app:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-app:processDebugManifest UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:processDebugManifest UP-TO-DATE
+> Task :capacitor-network:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-network:processDebugManifest UP-TO-DATE
+> Task :capacitor-pacc-native:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-pacc-native:processDebugManifest UP-TO-DATE
+> Task :capacitor-push-notifications:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-push-notifications:processDebugManifest UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :capacitor-android:compileDebugLibraryResources UP-TO-DATE
+> Task :capacitor-android:parseDebugLocalResources UP-TO-DATE
+> Task :capacitor-android:generateDebugRFile UP-TO-DATE
+> Task :capacitor-app:compileDebugLibraryResources UP-TO-DATE
+> Task :capacitor-app:parseDebugLocalResources UP-TO-DATE
+> Task :capacitor-app:generateDebugRFile UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:compileDebugLibraryResources UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:parseDebugLocalResources UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:generateDebugRFile UP-TO-DATE
+> Task :capacitor-network:compileDebugLibraryResources UP-TO-DATE
+> Task :capacitor-network:parseDebugLocalResources UP-TO-DATE
+> Task :capacitor-network:generateDebugRFile UP-TO-DATE
+> Task :capacitor-pacc-native:compileDebugLibraryResources UP-TO-DATE
+> Task :capacitor-pacc-native:parseDebugLocalResources UP-TO-DATE
+> Task :capacitor-pacc-native:generateDebugRFile UP-TO-DATE
+> Task :capacitor-push-notifications:compileDebugLibraryResources UP-TO-DATE
+> Task :capacitor-push-notifications:parseDebugLocalResources UP-TO-DATE
+> Task :capacitor-push-notifications:generateDebugRFile UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :capacitor-android:javaPreCompileDebug UP-TO-DATE
+> Task :capacitor-android:compileDebugJavaWithJavac UP-TO-DATE
+> Task :capacitor-android:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :capacitor-app:javaPreCompileDebug UP-TO-DATE
+> Task :capacitor-app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :capacitor-app:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:javaPreCompileDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:compileDebugJavaWithJavac NO-SOURCE
+> Task :capacitor-cordova-android-plugins:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :capacitor-network:javaPreCompileDebug UP-TO-DATE
+> Task :capacitor-network:compileDebugJavaWithJavac UP-TO-DATE
+> Task :capacitor-network:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :capacitor-pacc-native:javaPreCompileDebug UP-TO-DATE
+
+> Task :capacitor-pacc-native:compileDebugJavaWithJavac FAILED
+gradlew.bat : D:\pacc\ptv-mobile\plugins\pacc-native\src\main\java\com\potatotv\pacc\mobile\plugin\PaccBiometricPlugin.
+java:35: 错误: 找不到符号
+At line:15 char:4745
++ ... roid-sdk2"; & "d:\pacc\ptv-mobile\android\gradlew.bat" :app:assembleD ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (D:\pacc\ptv-mob...a:35: 错误: 找不到符号:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+            int r = bm.canAuthenticate(BiometricManager.Authenticators.AUTHENTICATOR_BIOMETRIC_WEAK);
+                                                                      ^
+  符号:   变量 AUTHENTICATOR_BIOMETRIC_WEAK
+  位置: 接口 Authenticators
+D:\pacc\ptv-mobile\plugins\pacc-native\src\main\java\com\potatotv\pacc\mobile\plugin\PaccBiometricPlugin.java:56: 错误: 找
+不到符号
+                .setAllowedAuthenticators(BiometricManager.Authenticators.AUTHENTICATOR_BIOMETRIC_WEAK)
+                                                                         ^
+  符号:   变量 AUTHENTICATOR_BIOMETRIC_WEAK
+  位置: 接口 Authenticators
+注: D:\pacc\ptv-mobile\plugins\pacc-native\src\main\java\com\potatotv\pacc\mobile\plugin\RedscreenActivity.java使用或覆盖了已过时
+的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+2 个错误
+[Incubating] Problems report is available at: file:///D:/pacc/ptv-mobile/android/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':capacitor-pacc-native:compileDebugJavaWithJavac'.
+> Compilation failed; see the compiler output below.
+  注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+  注: D:\pacc\ptv-mobile\plugins\pacc-native\src\main\java\com\potatotv\pacc\mobile\plugin\RedscreenActivity.java使用或覆盖了已
+过时的 API。
+  D:\pacc\ptv-mobile\plugins\pacc-native\src\main\java\com\potatotv\pacc\mobile\plugin\PaccBiometricPlugin.java:35: 错误:
+ 找不到符号
+              int r = bm.canAuthenticate(BiometricManager.Authenticators.AUTHENTICATOR_BIOMETRIC_WEAK);
+                                                                        ^
+    符号:   变量 AUTHENTICATOR_BIOMETRIC_WEAK
+    位置: 接口 Authenticators
+  D:\pacc\ptv-mobile\plugins\pacc-native\src\main\java\com\potatotv\pacc\mobile\plugin\PaccBiometricPlugin.java:56: 错误:
+ 找不到符号
+                  .setAllowedAuthenticators(BiometricManager.Authenticators.AUTHENTICATOR_BIOMETRIC_WEAK)
+                                                                           ^
+    符号:   变量 AUTHENTICATOR_BIOMETRIC_WEAK
+    位置: 接口 Authenticators
+  2 个错误
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights.
+
+BUILD FAILED in 26s
+81 actionable tasks: 1 executed, 80 up-to-date
