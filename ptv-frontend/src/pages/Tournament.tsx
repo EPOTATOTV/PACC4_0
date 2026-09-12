@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Card, Checkbox, Col, Form, Input, Modal, Progress, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
 import MetricCard from '../components/MetricCard'
@@ -45,16 +45,14 @@ export default function Tournament() {
   // 编辑器
   const [editing, setEditing] = useState<TournamentStage | null>(null)
 
-  async function loadConfig() {
+  const loadConfig = useCallback(async () => {
     if (!tournamentId.trim()) return
     try {
       const c = await api.competition.config(tournamentId)
       setCfgTitle(c.title ?? ''); setDocUrl(c.tencentDocUrl ?? '')
       setDeadline(toLocalInput(c.applyDeadline ?? '')); setAllowRegister(c.allowRegister)
-    } catch (e) { /* 无配置属正常 */ }
-  }
-  useEffect(() => { load() }, [])
-  useEffect(() => { loadConfig() }, [tournamentId])
+    } catch { /* 无配置属正常 */ }
+  }, [tournamentId])
 
   async function saveConfig() {
     try {
@@ -66,13 +64,15 @@ export default function Tournament() {
     } catch (e) { setErr((e as Error).message) }
   }
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!tournamentId.trim()) return
     try {
       const [s, n] = await Promise.all([api.competition.stages(tournamentId), api.competition.notices(tournamentId)])
       setStages(s); setNotices(n); setErr('')
     } catch (e) { setErr((e as Error).message) }
-  }
+  }, [tournamentId])
+  useEffect(() => { load() }, [tournamentId, load])
+  useEffect(() => { loadConfig() }, [tournamentId, loadConfig])
 
   async function loadStats() {
     try { setStats(await api.competition.enrollmentStats()); setErr('') } catch (e) { setErr((e as Error).message) }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.proto.PaccWire;
 import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.InspectSignalBus;
+import com.potatotv.pacc.service.MapBpEventBus;
 import com.potatotv.pacc.service.OnlineStatusService;
 import com.potatotv.pacc.service.RedscreenService;
 import com.potatotv.pacc.service.RiskScoringService;
@@ -35,7 +36,7 @@ class PlayerWebSocketHandlerBinaryTest {
         when(bus.forwardPlayerToAdmin(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(true);
 
-        PlayerWebSocketHandler h = new PlayerWebSocketHandler(new ObjectMapper(), online, risk, red, acc, guard, bus, codec);
+        PlayerWebSocketHandler h = new PlayerWebSocketHandler(new ObjectMapper(), online, risk, red, acc, guard, bus, new MapBpEventBus(new ObjectMapper()), codec);
 
         WebSocketSession session = mock(WebSocketSession.class);
         when(session.getAttributes()).thenReturn(Map.of("pteid", "PT01"));
@@ -59,7 +60,7 @@ class PlayerWebSocketHandlerBinaryTest {
         AccountService acc = mock(AccountService.class);
         WssMessageGuard guard = mock(WssMessageGuard.class);
         InspectSignalBus bus = mock(InspectSignalBus.class);
-        PlayerWebSocketHandler h = new PlayerWebSocketHandler(new ObjectMapper(), online, risk, red, acc, guard, bus, codec);
+        PlayerWebSocketHandler h = new PlayerWebSocketHandler(new ObjectMapper(), online, risk, red, acc, guard, bus, new MapBpEventBus(new ObjectMapper()), codec);
 
         WebSocketSession session = mock(WebSocketSession.class);
         when(session.getAttributes()).thenReturn(Map.of("pteid", "PT02"));

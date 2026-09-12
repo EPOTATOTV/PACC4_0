@@ -24,7 +24,11 @@ const navGroups = [
   {
     groupKey: 'player.group.event',
     groupI18nKey: 'player.group.event',
-    items: [{ key: '/portal/tournament', to: '/portal/tournament', i18nKey: 'player.tournament' }],
+    items: [
+      { key: '/portal/tournament', to: '/portal/tournament', i18nKey: 'player.tournament' },
+      { key: '/portal/maps', to: '/portal/maps', i18nKey: 'player.mapPools' },
+      { key: '/portal/stream-live', to: '/portal/stream-live', i18nKey: 'player.streamLive.title' },
+    ],
   },
   {
     groupKey: 'player.group.records',
@@ -61,9 +65,8 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
   const selectedGroup = navGroups.find((g) => g.items.some((i) => i.key === selected))?.groupKey
   const [openKeys, setOpenKeys] = useState<string[]>([])
   useEffect(() => {
-    if (selectedGroup && !openKeys.includes(selectedGroup)) {
-      setOpenKeys((prev) => (prev.includes(selectedGroup) ? prev : [...prev, selectedGroup]))
-    }
+    if (!selectedGroup) return
+    setOpenKeys((prev) => (prev.includes(selectedGroup) ? prev : [...prev, selectedGroup]))
   }, [selectedGroup])
 
   return (

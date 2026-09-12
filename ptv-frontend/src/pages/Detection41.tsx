@@ -24,7 +24,7 @@ interface Analysis {
 const { Title, Text } = Typography
 
 function cheatName(v: Verdict): string {
-  return (v as any).displayName || (v as any).name || (v as any).cheatType || '-'
+  return v.displayName || v.name || v.cheatType || '-'
 }
 
 export default function Detection41() {

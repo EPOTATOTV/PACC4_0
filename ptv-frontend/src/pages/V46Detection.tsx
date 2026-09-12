@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Col, Drawer, Input, Row, Statistic, Table, Tag, Typography, message } from 'antd'
 import { api } from '../api/client'
+import type {
+  ThreatAnalysisReport,
+  ThreatClusterResult,
+  ThreatIngestResult,
+  ThreatSample,
+  V46Overview,
+  ZeroDayAssessment,
+  ZeroDayFinding,
+  SignatureSeed,
+} from '../types'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -29,15 +39,15 @@ function str(o: unknown): string {
 }
 
 export default function V46Detection() {
-  const [overview, setOverview] = useState<any | null>(null)
+  const [overview, setOverview] = useState<V46Overview | null>(null)
   const [err, setErr] = useState('')
   const [features, setFeatures] = useState('{"feature_killaura_angle_speed":62,"feature_aim_smoothness":0.02,"feature_click_interval_cv":0.03,"feature_semantic_killaura":0.82,"feature_speed_ratio":1.9,"feature_human_likeness":0.12,"feature_trajectory_curvature":0.98,"feature_jitter_entropy":0.4}')
-  const [assess, setAssess] = useState<any | null>(null)
+  const [assess, setAssess] = useState<ZeroDayAssessment | null>(null)
   const [threatForm, setThreatForm] = useState('{"md5":"demo-md5-001","sha1":"demo-sha1-001","static_dims":{"java_ghost_client":"com.x.Ghost","java_killaura":"net.y.Kill"}}')
-  const [threatOut, setThreatOut] = useState<any | null>(null)
-  const [clusters, setClusters] = useState<any | null>(null)
+  const [threatOut, setThreatOut] = useState<ThreatIngestResult | null>(null)
+  const [clusters, setClusters] = useState<ThreatClusterResult | null>(null)
   const [clusterBusy, setClusterBusy] = useState(false)
-  const [detail, setDetail] = useState<any | null>(null)
+  const [detail, setDetail] = useState<ThreatSample | null>(null)
 
   const load = () => {
     api.v46.overview().then(setOverview).catch((e) => setErr((e as Error).message))
@@ -123,36 +133,36 @@ export default function V46Detection() {
       .catch((e) => message.error((e as Error).message))
   }
 
-  const zeroDayRecent = (overview?.zero_day?.recent ?? []) as any[]
-  const zQueue = (overview?.active_learning?.zero_day_queue ?? []) as any[]
-  const threatRecent = (overview?.threat_intel?.recent ?? []) as any[]
-  const seeds = (overview?.signature_expansion?.seeds ?? []) as any[]
+  const zeroDayRecent = overview?.zero_day?.recent ?? []
+  const zQueue = overview?.active_learning?.zero_day_queue ?? []
+  const threatRecent = overview?.threat_intel?.recent ?? []
+  const seeds = overview?.signature_expansion?.seeds ?? []
   const zOpen = overview?.zero_day?.open ?? 0
   const tNew = overview?.threat_intel?.new_count ?? 0
   const seedCount = overview?.signature_expansion?.seed_count ?? 0
 
   const zColumns = [
-    { title: '时间', key: 'createdAt', width: 150, render: (_: unknown, r: any) => fmtTime(str(pick(r, 'createdAt'))) },
-    { title: 'PTEID', key: 'pteid', render: (_: unknown, r: any) => str(pick(r, 'pteid')) },
+    { title: '时间', key: 'createdAt', width: 150, render: (_: unknown, r: ZeroDayFinding) => fmtTime(str(pick(r, 'createdAt'))) },
+    { title: 'PTEID', key: 'pteid', render: (_: unknown, r: ZeroDayFinding) => str(pick(r, 'pteid')) },
     {
       title: '等级', key: 'tier', width: 90,
-      render: (_: unknown, r: any) => {
+      render: (_: unknown, r: ZeroDayFinding) => {
         const t = str(pick(r, 'confidenceTier'))
         return <Tag color={(tierColor[t] ?? 'default') as string}>{t || '-'}</Tag>
       },
     },
     {
       title: '综合分', key: 'score', width: 80,
-      sorter: (a: any, b: any) => Number(pick(a, 'compositeScore') ?? 0) - Number(pick(b, 'compositeScore') ?? 0),
-      render: (_: unknown, r: any) => Number(pick(r, 'compositeScore') ?? 0),
+      sorter: (a: ZeroDayFinding, b: ZeroDayFinding) => Number(pick(a, 'compositeScore') ?? 0) - Number(pick(b, 'compositeScore') ?? 0),
+      render: (_: unknown, r: ZeroDayFinding) => Number(pick(r, 'compositeScore') ?? 0),
     },
     {
       title: '状态', key: 'status', width: 90,
-      render: (_: unknown, r: any) => str(pick(r, 'status')),
+      render: (_: unknown, r: ZeroDayFinding) => str(pick(r, 'status')),
     },
     {
       title: '复核', key: 'review', width: 220,
-      render: (_: unknown, r: any) => {
+      render: (_: unknown, r: ZeroDayFinding) => {
         const status = str(pick(r, 'status'))
         if (status === 'REVIEWED') return <Text type="secondary">已复核</Text>
         const id = str(pick(r, 'id'))
@@ -168,19 +178,19 @@ export default function V46Detection() {
   ]
 
   const tColumns = [
-    { title: '时间', key: 'createdAt', width: 150, render: (_: unknown, r: any) => fmtTime(str(pick(r, 'createdAt'))) },
-    { title: 'PTEID', key: 'pteid', render: (_: unknown, r: any) => str(pick(r, 'pteid')) },
-    { title: '家族', key: 'family', render: (_: unknown, r: any) => <Tag>{str(pick(r, 'family')) || '-'}</Tag> },
+    { title: '时间', key: 'createdAt', width: 150, render: (_: unknown, r: ThreatSample) => fmtTime(str(pick(r, 'createdAt'))) },
+    { title: 'PTEID', key: 'pteid', render: (_: unknown, r: ThreatSample) => str(pick(r, 'pteid')) },
+    { title: '家族', key: 'family', render: (_: unknown, r: ThreatSample) => <Tag>{str(pick(r, 'family')) || '-'}</Tag> },
     {
       title: 'AI 家族', key: 'familyLabel', width: 150,
-      render: (_: unknown, r: any) => {
+      render: (_: unknown, r: ThreatSample) => {
         const l = str(pick(r, 'familyLabel'))
         return l ? <Tag color="purple">{l}</Tag> : <Text type="secondary">未聚类</Text>
       },
     },
     {
       title: '分析', key: 'analysis', ellipsis: true,
-      render: (_: unknown, r: any) => {
+      render: (_: unknown, r: ThreatSample) => {
         const a = str(pick(r, 'autoAnalysis'))
         if (!a) return <span style={{ fontSize: 12 }}>-</span>
         try {
@@ -198,12 +208,12 @@ export default function V46Detection() {
     },
     {
       title: '规则', key: 'rule', ellipsis: true,
-      render: (_: unknown, r: any) => <span style={{ fontSize: 12 }}>{str(pick(r, 'generatedRule')) || '-'}</span>,
+      render: (_: unknown, r: ThreatSample) => <span style={{ fontSize: 12 }}>{str(pick(r, 'generatedRule')) || '-'}</span>,
     },
-    { title: '状态', key: 'status', width: 90, render: (_: unknown, r: any) => str(pick(r, 'status')) },
+    { title: '状态', key: 'status', width: 90, render: (_: unknown, r: ThreatSample) => str(pick(r, 'status')) },
     {
       title: '操作', key: 'actions', width: 240,
-      render: (_: unknown, r: any) => (
+      render: (_: unknown, r: ThreatSample) => (
         <span style={{ display: 'flex', gap: 6 }}>
           <Button size="small" onClick={() => setDetail(r)}>详情</Button>
           <Button size="small" onClick={() => analyzeThreatSample(str(pick(r, 'id')))}>自动分析</Button>
@@ -220,10 +230,10 @@ export default function V46Detection() {
   ]
 
   const seedColumns = [
-    { title: '名称', key: 'name', render: (_: unknown, r: any) => str(pick(r, 'name')) },
-    { title: '维度键', key: 'pattern', render: (_: unknown, r: any) => <code>{str(pick(r, 'pattern'))}</code> },
-    { title: '风险', key: 'risk', width: 80, render: (_: unknown, r: any) => Number(pick(r, 'riskLevel') ?? 0) },
-    { title: '版本', key: 'edition', width: 110, render: (_: unknown, r: any) => str(pick(r, 'edition')) },
+    { title: '名称', key: 'name', render: (_: unknown, r: SignatureSeed) => str(pick(r, 'name')) },
+    { title: '维度键', key: 'pattern', render: (_: unknown, r: SignatureSeed) => <code>{str(pick(r, 'pattern'))}</code> },
+    { title: '风险', key: 'risk', width: 80, render: (_: unknown, r: SignatureSeed) => Number(pick(r, 'riskLevel') ?? 0) },
+    { title: '版本', key: 'edition', width: 110, render: (_: unknown, r: SignatureSeed) => str(pick(r, 'edition')) },
   ]
 
   return (
@@ -277,9 +287,9 @@ export default function V46Detection() {
           <div style={{ marginTop: 12, fontSize: 13, lineHeight: 1.8 }}>
             <div>sample={threatOut.sample_id} · family=<Tag>{threatOut.family}</Tag></div>
             <div style={{ color: '#8b949e' }}>rule={threatOut.generated_rule}</div>
-            {threatOut.matches?.length > 0 && (
+            {(threatOut.matches?.length ?? 0) > 0 && (
               <div>命中特征库：
-                {(threatOut.matches as any[]).map((m) => <Tag key={m.name}>{m.name}({m.riskLevel})</Tag>)}
+                {(threatOut.matches ?? []).map((m) => <Tag key={m.name}>{m.name}({m.riskLevel})</Tag>)}
               </div>
             )}
           </div>
@@ -331,8 +341,10 @@ export default function V46Detection() {
       >
         {detail && (() => {
           const dp = pick(detail, 'autoAnalysis')
-          let report: any = null
-          try { report = dp ? JSON.parse(String(dp)) : null } catch { report = null }
+          const report = (() => {
+            if (!dp) return null
+            try { return JSON.parse(String(dp)) as ThreatAnalysisReport } catch { return null }
+          })()
           const confirmed = str(pick(detail, 'confirmed'))
           return (
             <div style={{ fontSize: 13, lineHeight: 2 }}>
@@ -366,7 +378,7 @@ export default function V46Detection() {
                 <>
                   <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
                     <Col span={12}>
-                      <div>严重度 <Tag color={(tierColor[report.tier] ?? 'default') as string}>{report.severity}</Tag></div>
+                      <div>严重度 <Tag color={(tierColor[report.tier ?? ''] ?? 'default') as string}>{report.severity}</Tag></div>
                     </Col>
                     <Col span={12}><div>类型 <Tag>{report.type ?? '-'}</Tag></div></Col>
                   </Row>
@@ -377,13 +389,13 @@ export default function V46Detection() {
                   {report.matched_seeds && Array.isArray(report.matched_seeds) && report.matched_seeds.length > 0 && (
                     <div style={{ marginTop: 8 }}>
                       <Text type="secondary">命中特征库</Text>
-                      <div>{(report.matched_seeds as any[]).map((s) => <Tag key={s} style={{ marginBottom: 4 }}>{s}</Tag>)}</div>
+                      <div>{(report.matched_seeds).map((s) => <Tag key={s} style={{ marginBottom: 4 }}>{s}</Tag>)}</div>
                     </div>
                   )}
                   {report.indicators && Array.isArray(report.indicators) && report.indicators.length > 0 && (
                     <div style={{ marginTop: 8 }}>
                       <Text type="secondary">提取指标</Text>
-                      <div>{(report.indicators as any[]).map((i) => <Tag key={i} color="processing" style={{ marginBottom: 4 }}>{i}</Tag>)}</div>
+                      <div>{(report.indicators).map((i) => <Tag key={i} color="processing" style={{ marginBottom: 4 }}>{i}</Tag>)}</div>
                     </div>
                   )}
                   <div style={{ marginTop: 8 }}>

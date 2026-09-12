@@ -2,6 +2,7 @@ package com.potatotv.pacc.ws;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.service.InspectSignalBus;
+import com.potatotv.pacc.service.MapBpEventBus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
@@ -24,6 +25,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 public class AdminSignalWebSocketHandler extends TextWebSocketHandler {
 
     private final InspectSignalBus signalBus;
+    private final MapBpEventBus mapBpEventBus;
     private final ObjectMapper mapper;
 
     @Override
@@ -38,9 +40,23 @@ public class AdminSignalWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) {
         String sessionId = (String) session.getAttributes().get("session_id");
-        if (sessionId == null) return;
         try {
-            String type = mapper.readTree(message.getPayload()).path("type").asText("");
+            var node = mapper.readTree(message.getPayload());
+            String type = node.path("type").asText("");
+            // 地图 BP 实时订阅（不依赖查端 session_id）
+            if ("bp_subscribe".equals(type) || "bp_unsubscribe".equals(type)) {
+                String bpId = node.path("bp_session_id").asText(null);
+                if (bpId != null && !bpId.isBlank()) {
+                    if ("bp_subscribe".equals(type)) {
+                        mapBpEventBus.subscribe(bpId, session);
+                        send(session, "{\"type\":\"bp_subscribed\",\"bp_session_id\":\"" + bpId + "\"}");
+                    } else {
+                        mapBpEventBus.unsubscribe(bpId, session);
+                    }
+                }
+                return;
+            }
+            if (sessionId == null) return;
             switch (type) {
                 case "ping" -> send(session, "{\"type\":\"pong\"}");
                 case "inspect_answer", "inspect_ice", "inspect_cancel", "inspect_forces" ->
@@ -55,6 +71,7 @@ public class AdminSignalWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
         signalBus.unregister(session);
+        mapBpEventBus.onDisconnect(session);
         log.info("管理端信令下线 ws={}", session.getId());
     }
 
@@ -67,6 +84,7 @@ public class AdminSignalWebSocketHandler extends TextWebSocketHandler {
             // 关闭失败忽略
         }
         signalBus.unregister(session);
+        mapBpEventBus.onDisconnect(session);
     }
 
     private void send(WebSocketSession session, String json) {

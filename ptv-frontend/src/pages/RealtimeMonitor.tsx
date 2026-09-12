@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button, Card, Col, Row, Space, Tag, Typography } from 'antd'
-import { FullscreenOutlined, ReloadOutlined } from '@ant-design/icons'
+import { FullscreenOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons'
 import type { EChartsOption } from 'echarts'
 import { api } from '../api/client'
-import type { RealtimeAlert, RealtimeOverview, RuntimeStat } from '../types'
+import type { MapBanPickSession, RealtimeAlert, RealtimeOverview, RuntimeStat } from '../types'
 import EChart from '../components/EChart'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
 
 const { Text } = Typography
+
+const bpStatusNames: Record<string, string> = { PENDING: '待开始', ACTIVE: '进行中', PAUSED: '已暂停', COMPLETED: '已完成', CANCELLED: '已取消' }
 
 /**
  * 实时监控大屏：无侧边栏的全屏运营视图。
@@ -16,24 +19,28 @@ const { Text } = Typography
  * 数据来自 /api/admin/realtime 系列，后端未就绪时保持空态。
  */
 export default function RealtimeMonitor() {
+  const navigate = useNavigate()
   const [overview, setOverview] = useState<RealtimeOverview | null>(null)
   const [runtime, setRuntime] = useState<RuntimeStat[]>([])
   const [events, setEvents] = useState<RealtimeAlert[]>([])
   const [alerts, setAlerts] = useState<RealtimeAlert[]>([])
+  const [bpSessions, setBpSessions] = useState<MapBanPickSession[]>([])
   const [err, setErr] = useState('')
 
   async function load() {
     try {
-      const [o, r, e, a] = await Promise.all([
+      const [o, r, e, a, bps] = await Promise.all([
         api.realtime.overview(),
         api.realtime.runtime(),
         api.realtime.events(30),
         api.realtime.alerts(20),
+        api.maps.bpSessions().catch(() => []),
       ])
       setOverview(o)
       setRuntime(r)
       setEvents(e)
       setAlerts(a)
+      setBpSessions(bps)
       setErr('')
     } catch (e) {
       setErr((e as Error).message)
@@ -121,6 +128,42 @@ export default function RealtimeMonitor() {
         <Col xs={12} sm={8} md={4}><MetricCard label="平均风险" value={overview?.avgRisk ?? '-'} accent={(overview?.avgRisk ?? 0) >= 70 ? 'var(--kpi-amber)' : 'var(--kpi-muted)'} /></Col>
         <Col xs={12} sm={8} md={4}><MetricCard label="进行中查端" value={overview?.activeInspect ?? '-'} accent="var(--kpi-muted)" /></Col>
       </Row>
+
+      <Card
+        title={<Space size={8}><PlayCircleOutlined style={{ color: 'var(--kpi-blue)' }} />地图 BP 概览</Space>}
+        size="small"
+        style={{ marginTop: 12 }}
+        extra={<Button type="link" size="small" onClick={() => navigate('/maps/bp')}>全部 BP</Button>}
+      >
+        {bpSessions.length === 0 ? (
+          <Text type="secondary">暂无 BP 会话</Text>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {bpSessions.slice(0, 6).map((s) => {
+              const active = s.status === 'ACTIVE' || s.status === 'PAUSED'
+              return (
+                <Button
+                  key={s.bpSessionId}
+                  type="text"
+                  onClick={() => navigate(`/maps/bp/${s.bpSessionId}`)}
+                  style={{
+                    height: 'auto', textAlign: 'left', padding: '8px 12px',
+                    border: active ? '1px solid var(--kpi-blue)' : '1px solid var(--border)',
+                    borderRadius: 8, background: active ? 'rgba(88,166,255,.06)' : 'rgba(255,255,255,.02)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, fontFamily: 'inherit',
+                  }}
+                >
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{s.blueTeamName || '蓝'} vs {s.redTeamName || '红'}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                    <Tag bordered={false} style={{ marginRight: 4, fontSize: 11 }}>{s.format}</Tag>
+                    {bpStatusNames[s.status] ?? s.status}
+                  </span>
+                </Button>
+              )
+            })}
+          </div>
+        )}
+      </Card>
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
         <Col xs={24} lg={8}>

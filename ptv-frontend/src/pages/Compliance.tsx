@@ -3,7 +3,7 @@ import { Alert, Button, Card, Col, Empty, List, Modal, Input, Row, Space, Typogr
 import { api } from '../api/client'
 import MetricCard from '../components/MetricCard'
 import TicketList from '../components/ticket/TicketList'
-import type { SupportTicket } from '../types'
+import type { Appeal, SupportTicket } from '../types'
 
 interface Summary { pending_appeals: number; open_tickets: number; in_progress_tickets: number }
 
@@ -12,7 +12,7 @@ const { Title, Text } = Typography
 export default function Compliance() {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [tickets, setTickets] = useState<SupportTicket[]>([])
-  const [appeals, setAppeals] = useState<any[]>([])
+  const [appeals, setAppeals] = useState<Appeal[]>([])
   const [err, setErr] = useState('')
   const [reviewing, setReviewing] = useState<{ id: string; status: string } | null>(null)
   const [comment, setComment] = useState('')
@@ -70,7 +70,7 @@ export default function Compliance() {
             {appeals.length === 0 ? <Empty description="无待审申诉" style={{ margin: '16px 0' }} /> : (
               <List
                 dataSource={appeals}
-                renderItem={(a: any) => (
+                renderItem={(a: Appeal) => (
                   <List.Item style={{ padding: '12px 16px' }} actions={[
                     <Space size={6} key="ops">
                       <Button size="small" style={{ background: '#3fb950', borderColor: 'transparent', color: '#0d1117' }} onClick={() => setReviewing({ id: a.appealId, status: 'approved' })}>通过</Button>

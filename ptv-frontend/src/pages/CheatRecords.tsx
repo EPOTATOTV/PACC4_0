@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Card, Input, Popconfirm, Space, Table, Tag, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
@@ -11,7 +11,7 @@ export default function CheatRecords() {
   const [keyword, setKeyword] = useState('')
   const [err, setErr] = useState('')
 
-  async function load(kw = keyword) {
+  const load = useCallback(async (kw: string) => {
     try {
       const list = await api.records.list(kw)
       setRecords(list)
@@ -19,14 +19,14 @@ export default function CheatRecords() {
     } catch (e) {
       setErr((e as Error).message)
     }
-  }
+  }, [])
 
-  useEffect(() => { load('') }, [])
+  useEffect(() => { void load('') }, [load])
 
   async function toggleRevoke(r: CheatRecord) {
     try {
       await api.records.revoke(r.recordId, !r.revoked)
-      load()
+      load(keyword)
     } catch (e) { setErr((e as Error).message) }
   }
 
@@ -72,11 +72,11 @@ export default function CheatRecords() {
           placeholder="按 PTEID 检索"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          onPressEnter={() => load()}
+          onPressEnter={() => load(keyword)}
           style={{ width: 320 }}
           allowClear
         />
-        <Button type="primary" onClick={() => load()}>检索</Button>
+        <Button type="primary" onClick={() => load(keyword)}>检索</Button>
         <Button onClick={() => { setKeyword(''); load('') }}>清空</Button>
       </Space>
 

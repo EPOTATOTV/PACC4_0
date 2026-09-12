@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Card, Col, Form, Input, Modal, Row, Select, Switch, Table, Tabs, Tag, Typography, message } from 'antd'
 import type { TableColumnsType } from 'antd'
 import MetricCard from '../components/MetricCard'
@@ -92,7 +92,13 @@ export default function OpsCenter() {
   const [editing, setEditing] = useState<ConfigRow | null>(null)
   const [form] = Form.useForm()
 
-  const loadAll = () => {
+  const loadConfigs = useCallback(() => {
+    opsFetch<{ configs: ConfigRow[] }>('/config')
+      .then((d) => setConfigs(d.configs ?? []))
+      .catch(() => setConfigs([]))
+  }, [])
+
+  const loadAll = useCallback(() => {
     opsFetch<Health>('/health').then(setHealth).catch((e) => setErr((e as Error).message))
     opsFetch<Overview>('/overview').then(setOverview).catch(() => setOverview(null))
     opsFetch<{ crashes: CrashRow[] }>('/crashes?limit=50')
@@ -102,17 +108,11 @@ export default function OpsCenter() {
       .then((d) => setTelemetry(d.telemetry ?? []))
       .catch(() => setTelemetry([]))
     loadConfigs()
-  }
-
-  const loadConfigs = () => {
-    opsFetch<{ configs: ConfigRow[] }>('/config')
-      .then((d) => setConfigs(d.configs ?? []))
-      .catch(() => setConfigs([]))
-  }
+  }, [loadConfigs])
 
   useEffect(() => {
     loadAll()
-  }, [])
+  }, [loadAll])
 
   const dbUp = health?.db === 'UP'
   const mem = health?.memory

@@ -65,6 +65,9 @@ export const navGroups: NavGroup[] = [
     items: [
       { key: '/competition', to: '/competition', label: '赛事风控', i18nKey: 'nav.competition' },
       { key: '/tournament', to: '/tournament', label: '赛事进程', i18nKey: 'nav.tournament' },
+      { key: '/maps/bp', to: '/maps/bp', label: 'BP 会话', i18nKey: 'nav.bpSessions' },
+      { key: '/maps', to: '/maps', label: '地图池', i18nKey: 'nav.mapPool' },
+      { key: '/stream-live', to: '/stream-live', label: '直播转播', i18nKey: 'nav.streamLive' },
     ],
   },
   {
@@ -120,6 +123,9 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/compliance': { titleKey: 'nav.compliance', groupKey: 'nav.group.rules' },
   '/competition': { titleKey: 'nav.competition', groupKey: 'nav.group.event' },
   '/tournament': { titleKey: 'nav.tournament', groupKey: 'nav.group.event' },
+  '/maps': { titleKey: 'nav.mapPool', groupKey: 'nav.group.event' },
+  '/maps/bp': { titleKey: 'nav.bpSessions', groupKey: 'nav.group.event' },
+  '/stream-live': { titleKey: 'nav.streamLive', groupKey: 'nav.group.event' },
   '/login-logs': { titleKey: 'nav.loginLogs', groupKey: 'nav.group.system' },
   '/audit': { titleKey: 'nav.audit', groupKey: 'nav.group.system' },
   '/tenant': { titleKey: 'nav.tenant', groupKey: 'nav.group.system' },

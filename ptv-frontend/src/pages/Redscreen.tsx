@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, Card, Segmented, Table, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
@@ -12,18 +12,18 @@ export default function Redscreen() {
   const [list, setList] = useState<RedscreenAlert[]>([])
   const [err, setErr] = useState('')
 
-  async function load(s = state) {
+  const load = useCallback(async (s: string) => {
     try {
       setList(await api.redscreens.list(s))
       setErr('')
     } catch (e) {
       setErr((e as Error).message)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    load()
-  }, [state])
+    load(state)
+  }, [state, load])
 
   const states = ['PENDING_INSPECT', 'CONFIRMED', 'FALSE_POSITIVE']
 

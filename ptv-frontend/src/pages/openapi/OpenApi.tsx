@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Form, Input, Modal, Select, Space, Switch, Table, Tag, Typography } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { api } from '../../api/client'
+import type { OpenApiAuditRow } from '../../types'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -33,7 +35,7 @@ export default function OpenApi() {
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [result, setResult] = useState<{ keyId: string; secret: string } | null>(null)
-  const [audit, setAudit] = useState<{ rows: any[]; total: number } | null>(null)
+  const [audit, setAudit] = useState<{ rows: OpenApiAuditRow[]; total: number } | null>(null)
 
   const reload = () => {
     setLoading(true)
@@ -74,7 +76,7 @@ export default function OpenApi() {
     }
   }
 
-  const columns = [
+  const columns: TableColumnsType<ApiKeyRow> = [
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: 'Key ID', dataIndex: 'keyId', key: 'keyId', render: (k: string) => <Text code>{k}</Text> },
     {
@@ -147,7 +149,7 @@ export default function OpenApi() {
         <Button type="primary" size="small" onClick={() => setCreating(true)}>新建密钥</Button>
       </div>
       <Card size="small" style={{ border: '1px solid var(--border-strong)', boxShadow: 'none', marginBottom: 20 }} styles={{ body: { padding: 0 } }}>
-        <Table rowKey="keyId" size="small" loading={loading} dataSource={keys} columns={columns as any}
+        <Table rowKey="keyId" size="small" loading={loading} dataSource={keys} columns={columns}
           pagination={false} locale={{ emptyText: '暂无 API 密钥，点击右上角新建' }} />
       </Card>
 

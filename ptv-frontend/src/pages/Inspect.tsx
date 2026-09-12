@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, Badge, Button, Card, Drawer, List, Modal, Space, Table, Tag, Typography, message } from 'antd'
 import { SyncOutlined } from '@ant-design/icons'
 import type { TableColumnsType } from 'antd'
@@ -31,7 +31,7 @@ export default function Inspect() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [screenOn, setScreenOn] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const [p, a] = await Promise.all([api.inspects.pending(), api.inspects.all()])
       setPending(p)
@@ -40,9 +40,9 @@ export default function Inspect() {
     } catch (e) {
       setErr((e as Error).message)
     }
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
   // 打开查端抽屉：建立 /ws/admin 信令通道，实时展示玩家端回传的取证信令与 B2 实时屏幕
   useEffect(() => {
@@ -62,16 +62,17 @@ export default function Inspect() {
     ws.onclose = () => setWsStatus((s) => (s === '已连接' ? '掉线' : '已断开'))
     ws.onerror = () => setWsStatus('掉线')
     ws.onmessage = (ev) => {
-      let msg: any
+      let msg: unknown
       try { msg = JSON.parse(ev.data as string) } catch { return }
+      const record = msg as Record<string, unknown>
       setLog((l) => [...l, JSON.stringify(msg)].slice(-30))
-      if (msg?.type === 'inspect_started') {
+      if (record?.type === 'inspect_started') {
         setLog((l) => [...l, '玩家已连接，等待取证...'])
-      } else if (msg?.type === 'inspect_forensics') {
-        setForensics(msg)
-      } else if (msg?.type === 'inspect_offer' || msg?.type === 'inspect_ice') {
+      } else if (record?.type === 'inspect_forensics') {
+        setForensics(record as Forensics)
+      } else if (record?.type === 'inspect_offer' || record?.type === 'inspect_ice') {
         setScreenOn(true)
-        screen?.onSignal(msg as Record<string, unknown>).catch(console.error)
+        screen?.onSignal(record).catch(console.error)
       }
     }
     return () => {
@@ -80,7 +81,7 @@ export default function Inspect() {
       wsRef.current = null
       setScreenOn(false)
     }
-  }, [view?.sessionId])
+  }, [view])
 
   async function start(session: InspectSession) {
     try {

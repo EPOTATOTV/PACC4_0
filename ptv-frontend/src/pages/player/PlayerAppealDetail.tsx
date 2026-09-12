@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Card, Col, Descriptions, Empty, List, Row, Steps, Tag, Typography, Input, message } from 'antd'
 import { ArrowLeftOutlined, SendOutlined } from '@ant-design/icons'
@@ -29,7 +29,7 @@ export default function PlayerAppealDetail() {
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!id) return
     try {
       setDetail(await api.player.appealDetail(id))
@@ -37,19 +37,17 @@ export default function PlayerAppealDetail() {
     } catch (e) {
       setErr((e as Error).message)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     load()
-  }, [id])
+  }, [id, load])
 
   async function send() {
     if (!id || !msg.trim()) return
     // 补充信息复用工单回复接口语义；申诉侧使用同一消息通道
     setSending(true)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-      msg.trim()
       setMsg('')
       message.success('已提交补充说明')
       load()

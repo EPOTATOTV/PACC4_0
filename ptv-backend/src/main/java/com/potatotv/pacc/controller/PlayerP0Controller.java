@@ -2,6 +2,7 @@ package com.potatotv.pacc.controller;
 
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.Appeal;
+import com.potatotv.pacc.domain.Broadcast;
 import com.potatotv.pacc.domain.DeviceRecord;
 import com.potatotv.pacc.domain.LoginEvent;
 import com.potatotv.pacc.domain.PlayerNotifRead;
@@ -12,6 +13,7 @@ import com.potatotv.pacc.domain.DetectionEvent;
 import com.potatotv.pacc.domain.TicketMessage;
 import com.potatotv.pacc.repository.AccountRepository;
 import com.potatotv.pacc.repository.AppealRepository;
+import com.potatotv.pacc.repository.BroadcastRepository;
 import com.potatotv.pacc.repository.DetectionEventRepository;
 import com.potatotv.pacc.repository.DeviceRecordRepository;
 import com.potatotv.pacc.repository.LoginEventRepository;
@@ -70,10 +72,32 @@ public class PlayerP0Controller {
     private final TicketMessageRepository messageRepository;
     private final PlayerNotifReadRepository notifReadRepository;
     private final AccountService accountService;
+    private final BroadcastRepository broadcastRepository;
 
     private String pteidOf(HttpServletRequest req) {
         Object v = req.getAttribute("pteid");
         return v == null ? "" : v.toString();
+    }
+
+    // -------------------------------- 赛事直播转播（只读） --------------------------------
+
+    @GetMapping("/stream-live")
+    public List<Map<String, Object>> streamLive(HttpServletRequest req) {
+        pteidOf(req); // 触发 JwtAuthFilter 已注入身份，保持鉴权上下文
+        return broadcastRepository.findByLiveTrueOrderBySortAscCreatedAtDesc().stream()
+                .map(this::broadcastToView)
+                .collect(Collectors.toList());
+    }
+
+    private Map<String, Object> broadcastToView(Broadcast b) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", b.getId());
+        m.put("title", b.getTitle());
+        m.put("bilibili_live_id", b.getBilibiliLiveId());
+        m.put("cover_url", b.getCoverUrl());
+        m.put("description", b.getDescription());
+        m.put("platform", b.getPlatform());
+        return m;
     }
 
     // -------------------------------- 实时保护 --------------------------------

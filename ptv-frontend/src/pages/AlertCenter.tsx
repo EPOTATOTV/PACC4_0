@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Card, Col, Input, Modal, Row, Select, Space, Switch, Table, Tag, Typography, message } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -29,7 +29,7 @@ export default function AlertCenter() {
   const [err, setErr] = useState('')
   const [ruleOpen, setRuleOpen] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const [items, rs] = await Promise.all([api.alerts.list(level), api.alerts.rules()])
       setList(items)
@@ -38,13 +38,13 @@ export default function AlertCenter() {
     } catch (e) {
       setErr((e as Error).message)
     }
-  }
+  }, [level])
 
   useEffect(() => {
     load()
     const t = setInterval(load, 15000)
     return () => clearInterval(t)
-  }, [level])
+  }, [level, load])
 
   async function toggleRule(r: AlertRule, enabled: boolean) {
     try {

@@ -7,7 +7,7 @@ import { api } from '../api/client'
 
 const { Title, Text } = Typography
 
-type AnyRec = Record<string, any>
+type AnyRec = Record<string, unknown>
 
 function str(o: unknown): string {
   return o == null ? '' : String(o)
@@ -27,8 +27,10 @@ const deterColor: Record<string, string> = {
 
 /* ---------- 家族谱系（血缘）图：节点环形排布，边为 Jaccard 相似度 ---------- */
 function FamilyGraph({ graph }: { graph: AnyRec | null }) {
-  const nodes = graph?.nodes ?? []
-  const links = graph?.links ?? []
+  const rawNodes = graph?.nodes
+  const rawLinks = graph?.links
+  const nodes: AnyRec[] = Array.isArray(rawNodes) ? rawNodes : []
+  const links: AnyRec[] = Array.isArray(rawLinks) ? rawLinks : []
   if (!nodes.length) return <Text type="secondary">暂无已聚类的家族数据，请先在「检测深化 v4.6」录入并聚类</Text>
 
   const size = 520
@@ -84,7 +86,7 @@ export default function V47ThreatIntel() {
   const [graph, setGraph] = useState<AnyRec | null>(null)
   const [deter, setDeter] = useState<AnyRec | null>(null)
   const [ioc, setIoc] = useState<AnyRec | null>(null)
-  const [query, setQuery] = useState<AnyRec>({ page: 0, size: 20, q: '', type: '', state: '' })
+  const [query, setQuery] = useState<Record<string, string | number>>({ page: 0, size: 20, q: '', type: '', state: '' })
   const [err, setErr] = useState('')
 
   const loadAll = () => {
@@ -104,17 +106,18 @@ export default function V47ThreatIntel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query])
 
-  const families = family?.families ?? []
+  const rawFamilies = family?.families
+  const families: AnyRec[] = Array.isArray(rawFamilies) ? rawFamilies : []
   const familyColumns = useMemo(
     () => [
-      { title: 'AI 家族', key: 'family', render: (_: unknown, r: AnyRec) => <Tag color="purple">{r.family ?? '-'}</Tag> },
+      { title: 'AI 家族', key: 'family', render: (_: unknown, r: AnyRec) => <Tag color="purple">{String(r.family ?? '-')}</Tag> },
       { title: '样本数', key: 'size', width: 90, render: (_: unknown, r: AnyRec) => Number(r.size ?? 0) },
       { title: '平均严重度', key: 'severity', width: 110, render: (_: unknown, r: AnyRec) => Number(r.severity ?? 0) },
       { title: '已确认', key: 'confirmed', width: 90, render: (_: unknown, r: AnyRec) => Number(r.confirmed ?? 0) },
       {
         title: '版本分布', key: 'editions', ellipsis: true,
         render: (_: unknown, r: AnyRec) => {
-          const m = r.editions ?? {}
+          const m = (r.editions ?? {}) as Record<string, unknown>
           return Object.entries(m).map(([k, v]) => <Tag key={String(k)}>{String(k)}×{String(v)}</Tag>)
         },
       },
@@ -123,14 +126,15 @@ export default function V47ThreatIntel() {
     [],
   )
 
-  const deterPolicies = deter?.policies ?? []
+  const rawPolicies = deter?.policies
+  const deterPolicies: AnyRec[] = Array.isArray(rawPolicies) ? rawPolicies : []
   const deterColumns = useMemo(
     () => [
-      { title: '作用域', key: 'scope', width: 110, render: (_: unknown, r: AnyRec) => <Tag>{r.scopeType ?? '-'}</Tag> },
-      { title: '目标', key: 'scopeValue', render: (_: unknown, r: AnyRec) => <code>{r.scopeValue ?? '-'}</code> },
-      { title: '处置', key: 'action', width: 110, render: (_: unknown, r: AnyRec) => <Tag color={deterColor[r.action] ?? 'default'}>{r.action ?? '-'}</Tag> },
+      { title: '作用域', key: 'scope', width: 110, render: (_: unknown, r: AnyRec) => <Tag>{String(r.scopeType ?? '-')}</Tag> },
+      { title: '目标', key: 'scopeValue', render: (_: unknown, r: AnyRec) => <code>{String(r.scopeValue ?? '-')}</code> },
+      { title: '处置', key: 'action', width: 110, render: (_: unknown, r: AnyRec) => <Tag color={deterColor[String(r.action)] ?? 'default'}>{String(r.action ?? '-')}</Tag> },
       { title: '严重度', key: 'severity', width: 90, render: (_: unknown, r: AnyRec) => Number(r.severity ?? 0) },
-      { title: '备注', key: 'note', ellipsis: true, render: (_: unknown, r: AnyRec) => r.note ?? '-' },
+      { title: '备注', key: 'note', ellipsis: true, render: (_: unknown, r: AnyRec) => String(r.note ?? '-') },
       {
         title: '启用', key: 'enabled', width: 100,
         render: (_: unknown, r: AnyRec) => <Tag color={r.enabled ? 'success' : 'default'}>{r.enabled ? '启用' : '停用'}</Tag>,
@@ -138,7 +142,7 @@ export default function V47ThreatIntel() {
       {
         title: '操作', key: 'actions', width: 90,
         render: (_: unknown, r: AnyRec) => (
-          <Button size="small" onClick={() => api.v47.toggleDeter(r.id, !r.enabled).then(loadAll)}>
+          <Button size="small" onClick={() => api.v47.toggleDeter(Number(r.id), !r.enabled).then(loadAll)}>
             {r.enabled ? '停用' : '启用'}
           </Button>
         ),
@@ -150,14 +154,14 @@ export default function V47ThreatIntel() {
   const iocItems = (iocList.items ?? []) as AnyRec[]
   const iocColumns = useMemo(
     () => [
-      { title: '值', key: 'value', width: 280, render: (_: unknown, r: AnyRec) => <code style={{ wordBreak: 'break-all' }}>{r.value ?? '-'}</code> },
-      { title: '类型', key: 'type', width: 120, render: (_: unknown, r: AnyRec) => <Tag>{r.type ?? '-'}</Tag> },
-      { title: '风险', key: 'severity', width: 80, render: (_: unknown, r: AnyRec) => <Tag color={Number(r.severity) >= 4 ? 'error' : 'default'}>{r.severity ?? '-'}</Tag> },
-      { title: '来源家族', key: 'sourceFamily', width: 120, render: (_: unknown, r: AnyRec) => r.sourceFamily ?? '-' },
+      { title: '值', key: 'value', width: 280, render: (_: unknown, r: AnyRec) => <code style={{ wordBreak: 'break-all' }}>{String(r.value ?? '-')}</code> },
+      { title: '类型', key: 'type', width: 120, render: (_: unknown, r: AnyRec) => <Tag>{String(r.type ?? '-')}</Tag> },
+      { title: '风险', key: 'severity', width: 80, render: (_: unknown, r: AnyRec) => <Tag color={Number(r.severity) >= 4 ? 'error' : 'default'}>{String(r.severity ?? '-')}</Tag> },
+      { title: '来源家族', key: 'sourceFamily', width: 120, render: (_: unknown, r: AnyRec) => String(r.sourceFamily ?? '-') },
       { title: '命中', key: 'hitCount', width: 80, render: (_: unknown, r: AnyRec) => Number(r.hitCount ?? 0) },
       {
         title: '状态', key: 'state', width: 100,
-        render: (_: unknown, r: AnyRec) => <Tag color={r.state === 'OPEN' ? 'processing' : 'default'}>{r.state ?? '-'}</Tag>,
+        render: (_: unknown, r: AnyRec) => <Tag color={r.state === 'OPEN' ? 'processing' : 'default'}>{String(r.state ?? '-')}</Tag>,
       },
       { title: '订阅', key: 'subscribed', width: 90, render: (_: unknown, r: AnyRec) => (r.subscribed ? <Tag color="gold">已订阅</Tag> : <Text type="secondary">-</Text>) },
       { title: '最近命中', key: 'lastSeen', width: 150, render: (_: unknown, r: AnyRec) => fmtTime(r.last_seen) },
@@ -165,9 +169,9 @@ export default function V47ThreatIntel() {
         title: '操作', key: 'actions', width: 210,
         render: (_: unknown, r: AnyRec) => (
           <span style={{ display: 'flex', gap: 6 }}>
-            <Button size="small" type="primary" ghost onClick={() => api.v47.subscribeIoc(r.id).then(loadIoc)}>订阅</Button>
-            <Button size="small" onClick={() => api.v47.disarmIoc(r.id).then(loadIoc)}>出示</Button>
-            <Button size="small" onClick={() => api.v47.hitIoc(r.id).then(() => { loadIoc(); loadAll() })}>命中</Button>
+            <Button size="small" type="primary" ghost onClick={() => api.v47.subscribeIoc(Number(r.id)).then(loadIoc)}>订阅</Button>
+            <Button size="small" onClick={() => api.v47.disarmIoc(Number(r.id)).then(loadIoc)}>出示</Button>
+            <Button size="small" onClick={() => api.v47.hitIoc(Number(r.id)).then(() => { loadIoc(); loadAll() })}>命中</Button>
           </span>
         ),
       },
@@ -222,11 +226,11 @@ export default function V47ThreatIntel() {
     return (
       <Row gutter={[12, 12]}>
         <Col span={8}><Card><Statistic title="聚合家族数" value={families.length} /></Card></Col>
-        <Col span={8}><Card><Statistic title="谱系连边" value={graph?.links?.length ?? 0} /></Card></Col>
+        <Col span={8}><Card><Statistic title="谱系连边" value={Array.isArray(graph?.links) ? graph.links.length : 0} /></Card></Col>
         <Col span={8}><Card><Statistic title="家族样本总数" value={families.reduce((a: number, r: AnyRec) => a + Number(r.size ?? 0), 0)} /></Card></Col>
         <Col span={24}>
           <Card title="家族档案" style={{ border: '1px solid var(--border-strong)' }}>
-            <Table rowKey={(r: AnyRec) => r.family} columns={familyColumns} dataSource={families} size="small" pagination={false} />
+            <Table rowKey={(r: AnyRec) => String(r.family)} columns={familyColumns} dataSource={families} size="small" pagination={false} />
           </Card>
         </Col>
         <Col span={24}>
@@ -244,7 +248,7 @@ export default function V47ThreatIntel() {
       <Row gutter={[12, 12]}>
         {(['BLOCK', 'ISOLATE', 'MONITOR', 'IGNORE'] as const).map((a) => (
           <Col span={6} key={a}>
-            <Card><Statistic title={`处置 · ${a}`} value={byAction[a] ?? 0} valueStyle={{ color: a === 'BLOCK' ? '#ff3b30' : undefined }} /></Card>
+            <Card><Statistic title={`处置 · ${a}`} value={Number(byAction[a] ?? 0)} valueStyle={{ color: a === 'BLOCK' ? '#ff3b30' : undefined }} /></Card>
           </Col>
         ))}
         <Col span={24}>
@@ -288,14 +292,14 @@ export default function V47ThreatIntel() {
               <Button style={{ marginLeft: 6 }} onClick={() => api.v47.resolveDeter(resolveFamily).then(setResolve)}>解析处置</Button>
               {resolve && (
                 <div style={{ marginTop: 8, fontSize: 13 }}>
-                  命中 <Tag color="purple">{resolve.family}</Tag>
-                  → <Tag color={deterColor[resolve.action] ?? 'default'}>{resolve.action}</Tag>
-                  （严重度 {resolve.severity} · {resolve.protected ? '已受处置策略保护' : '默认观测'})
+                  命中 <Tag color="purple">{String(resolve.family)}</Tag>
+                  → <Tag color={deterColor[String(resolve.action)] ?? 'default'}>{String(resolve.action)}</Tag>
+                  （严重度 {Number(resolve.severity)} · {resolve.protected ? '已受处置策略保护' : '默认观测'})
                   <Button size="small" style={{ marginLeft: 8 }} onClick={() => api.v47.resolveDeter(resolveFamily).then(setResolve)}>再试</Button>
                 </div>
               )}
             </div>
-            <Table rowKey={(r: AnyRec) => r.id} columns={deterColumns} dataSource={deterPolicies} size="small" pagination={false} />
+            <Table rowKey={(r: AnyRec) => String(r.id)} columns={deterColumns} dataSource={deterPolicies} size="small" pagination={false} />
           </Card>
         </Col>
       </Row>
@@ -305,11 +309,11 @@ export default function V47ThreatIntel() {
   function iocTab() {
     return (
       <Row gutter={[12, 12]}>
-        <Col span={4}><Card><Statistic title="IOC 总数" value={ioc?.total ?? 0} /></Card></Col>
-        <Col span={4}><Card><Statistic title="开启" value={ioc?.open ?? 0} /></Card></Col>
-        <Col span={4}><Card><Statistic title="已出示" value={ioc?.disarmed ?? 0} /></Card></Col>
-        <Col span={4}><Card><Statistic title="订阅告警" value={ioc?.subscribed ?? 0} /></Card></Col>
-        <Col span={8}><Card><Statistic title="高严重度（≥4）" value={ioc?.high_severity ?? 0} /></Card></Col>
+        <Col span={4}><Card><Statistic title="IOC 总数" value={Number(ioc?.total ?? 0)} /></Card></Col>
+        <Col span={4}><Card><Statistic title="开启" value={Number(ioc?.open ?? 0)} /></Card></Col>
+        <Col span={4}><Card><Statistic title="已出示" value={Number(ioc?.disarmed ?? 0)} /></Card></Col>
+        <Col span={4}><Card><Statistic title="订阅告警" value={Number(ioc?.subscribed ?? 0)} /></Card></Col>
+        <Col span={8}><Card><Statistic title="高严重度（≥4）" value={Number(ioc?.high_severity ?? 0)} /></Card></Col>
 
         <Col span={24}>
           <Card title="IOC 中心化库" style={{ border: '1px solid var(--border-strong)' }}>
@@ -336,7 +340,7 @@ export default function V47ThreatIntel() {
               <Button onClick={loadIoc}>刷新</Button>
             </div>
             <Table
-              rowKey={(r: AnyRec) => r.id} columns={iocColumns} dataSource={iocItems} size="small"
+              rowKey={(r: AnyRec) => String(r.id)} columns={iocColumns} dataSource={iocItems} size="small"
               pagination={{ pageSize: Number(query.size), total: Number(iocList?.total ?? 0), showSizeChanger: false,
                 onChange: (p) => setQuery((q) => ({ ...q, page: p - 1 })) }}
             />

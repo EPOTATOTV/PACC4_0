@@ -24,23 +24,18 @@ import System from './pages/System'
 import Admins from './pages/Admins'
 import Audit from './pages/Audit'
 import Tenant from './pages/Tenant'
+import StreamLive from './pages/StreamLive'
 import AbExperiment from './pages/AbExperiment'
 import OpsCenter from './pages/OpsCenter'
 import SupportCenter from './pages/SupportCenter'
+import MapPoolManager from './pages/maps/MapPoolManager'
+import BpSessions from './pages/maps/BpSessions'
+import BpConsole from './pages/maps/BpConsole'
 import PlayerPortal from './pages/player/PlayerPortal'
 import PlayerScreenShare from './pages/player/PlayerScreenShare'
 
 export default function App() {
-  // 玩家自助门户独立于管理端鉴权，路径以 /portal 开头即进入
-  if (window.location.pathname.startsWith('/portal')) {
-    return <PlayerPortal />
-  }
-
-  // 远程查端屏幕共享页：桌面壳 WebView 以 /screen-share 打开，独立于管理端鉴权
-  if (window.location.pathname.startsWith('/screen-share')) {
-    return <PlayerScreenShare />
-  }
-
+  // 先声明 Hook（必须无条件、固定顺序），再做路径分支渲染，避免条件调用 Hook
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [role, setRole] = useState<string>('')
 
@@ -54,6 +49,16 @@ export default function App() {
       alive = false
     }
   }, [])
+
+  // 玩家自助门户独立于管理端鉴权，路径以 /portal 开头即进入
+  if (window.location.pathname.startsWith('/portal')) {
+    return <PlayerPortal />
+  }
+
+  // 远程查端屏幕共享页：桌面壳 WebView 以 /screen-share 打开，独立于管理端鉴权
+  if (window.location.pathname.startsWith('/screen-share')) {
+    return <PlayerScreenShare />
+  }
 
   if (authed === null) {
     return (
@@ -89,6 +94,10 @@ export default function App() {
         <Route path="/records" element={<CheatRecords />} />
         <Route path="/competition" element={<Competition />} />
         <Route path="/tournament" element={<Tournament />} />
+        <Route path="/maps" element={<MapPoolManager />} />
+        <Route path="/maps/bp" element={<BpSessions />} />
+        <Route path="/maps/bp/:bpId" element={<BpConsole />} />
+        <Route path="/stream-live" element={<StreamLive />} />
         <Route path="/detection41" element={<Detection41 />} />
         <Route path="/countermeasure" element={<Countermeasure />} />
         <Route path="/v46" element={<V46Detection />} />

@@ -55,6 +55,39 @@ import type {
   AlertRule,
   AdminRole,
   AdminPlayerDetail,
+  Broadcast,
+  SignatureDiff,
+  AbExperimentRow,
+  AbSignificance,
+  OpsHealth,
+  OpsOverview,
+  OpsCrashRow,
+  OpsTelemetryRow,
+  OpsConfigRow,
+  SupportTicketItem,
+  SupportFaqItem,
+  SupportDashboard,
+  SupportReplyResult,
+  OpenApiKeyRow,
+  OpenApiAuditRow,
+  AuditOperationPage,
+  AuditOverview,
+  TenantRow,
+  TenantAdminRow,
+  AlertsListItem,
+  DetectionAnalysis,
+  V46Overview,
+  ZeroDayAssessment,
+  ThreatIngestResult,
+  ThreatClusterResult,
+  SignatureSeed,
+  AnyRow,
+  MapPool,
+  MapEntry,
+  MapBanPickSession,
+  MapBanPickAction,
+  BpStateDto,
+  MapPoolStats,
 } from '../types'
 
 // 管理后台凭据已迁至 HttpOnly 会话 cookie（pacc_admin）：JS 不再持有/读取密钥或令牌，
@@ -210,6 +243,7 @@ export const api = {
       playerRequest<PlayerRegisterInfo>(`/competition/register?tournament_id=${encodeURIComponent(tournamentId)}`),
     submitRegister: (body: Record<string, string>) =>
       playerRequest<Enrollment>('/competition/register', { method: 'POST', body: JSON.stringify(body) }),
+    liveStreams: () => playerRequest<Broadcast[]>('/stream-live'),
 
     // ---- PACC 4.0 玩家端 P0：实时保护 / 监控 / 通知 / 安全 ----
     protection: {
@@ -251,6 +285,23 @@ export const api = {
       totpSetup: () => playerRequest<{ secret: string; otpauth: string }>('/security/totp/setup'),
       totpEnable: (body: Record<string, string>) =>
         playerRequest<{ ok: boolean }>('/security/totp/enable', { method: 'POST', body: JSON.stringify(body) }),
+    },
+    // ---- 地图 BP（Ban/Pick）：玩家端浏览与参与 ----
+    maps: {
+      pools: () => playerRequest<MapPool[]>('/maps/pools'),
+      pool: (poolId: string) => playerRequest<MapPool>(`/maps/pools/${encodeURIComponent(poolId)}`),
+      entries: (poolId: string) =>
+        playerRequest<MapEntry[]>(`/maps/pools/${encodeURIComponent(poolId)}/entries`),
+      bpCurrent: () => playerRequest<MapBanPickSession[]>('/maps/bp/current'),
+      bpHistory: () => playerRequest<MapBanPickSession[]>('/maps/bp/history'),
+      bpState: (bpId: string) => playerRequest<BpStateDto>(`/maps/bp/${encodeURIComponent(bpId)}`),
+      bpActions: (bpId: string) =>
+        playerRequest<MapBanPickAction[]>(`/maps/bp/${encodeURIComponent(bpId)}/actions`),
+      bpAction: (bpId: string, body: { action: string; map_id?: string; device_fingerprint?: string }) =>
+        playerRequest<BpStateDto>(`/maps/bp/${encodeURIComponent(bpId)}/action`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
     },
     appealDetail: (id: string) => playerRequest<AppealDetail>(`/appeals/${id}`),
     appealMessages: (id: string) => playerRequest<AppealDetail>(`/appeals/${id}`),
@@ -388,7 +439,7 @@ export const api = {
         body: JSON.stringify({ edition, operator: 'admin' }),
       }),
     diff: (edition: string, afterVersion = 0) =>
-      request<any>(`/signatures/diff?edition=${edition}&afterVersion=${afterVersion}&signed=true`),
+      request<SignatureDiff>(`/signatures/diff?edition=${edition}&afterVersion=${afterVersion}&signed=true`),
     autoRollback: (falsePositiveRate: number) =>
       request<{ ok: boolean; rolled_back: number }>('/signatures/auto-rollback', {
         method: 'POST',
@@ -398,51 +449,51 @@ export const api = {
 
   // ---- v4.7 检测算法 A/B 测试 ----
   ab: {
-    list: () => request<any[]>('/ab'),
+    list: () => request<AbExperimentRow[]>('/ab'),
     create: (body: Record<string, string | number>) =>
-      request<any>('/ab', { method: 'POST', body: JSON.stringify(body) }),
-    significance: (id: string) => request<any>(`/ab/${id}/significance`),
+      request<AbExperimentRow>('/ab', { method: 'POST', body: JSON.stringify(body) }),
+    significance: (id: string) => request<AbSignificance>(`/ab/${id}/significance`),
     breakdown: (id: string, body: Record<string, unknown>) =>
-      request<any>(`/ab/${id}/breakdown`, { method: 'POST', body: JSON.stringify(body) }),
-    finish: (id: string) => request<any>(`/ab/finish/${id}`, { method: 'POST' }),
-    publish: (id: string) => request<any>(`/ab/publish/${id}`, { method: 'POST' }),
+      request<Record<string, number>>(`/ab/${id}/breakdown`, { method: 'POST', body: JSON.stringify(body) }),
+    finish: (id: string) => request<AbExperimentRow>(`/ab/finish/${id}`, { method: 'POST' }),
+    publish: (id: string) => request<AbExperimentRow>(`/ab/publish/${id}`, { method: 'POST' }),
   },
 
   // ---- v4.7 自动化运维 ----
   ops: {
-    health: () => request<any>('/ops/health'),
-    crashes: (limit = 50) => request<any[]>(`/ops/crashes?limit=${limit}`),
-    telemetry: (limit = 50) => request<any[]>(`/ops/telemetry?limit=${limit}`),
-    overview: () => request<any>('/ops/overview'),
-    config: () => request<any[]>('/ops/config'),
+    health: () => request<OpsHealth>('/ops/health'),
+    crashes: (limit = 50) => request<{ crashes: OpsCrashRow[] }>(`/ops/crashes?limit=${limit}`),
+    telemetry: (limit = 50) => request<{ telemetry: OpsTelemetryRow[] }>(`/ops/telemetry?limit=${limit}`),
+    overview: () => request<OpsOverview>('/ops/overview'),
+    config: () => request<{ configs: OpsConfigRow[] }>('/ops/config'),
     saveConfig: (key: string, body: Record<string, unknown>) =>
-      request<any>(`/ops/config/${key}`, { method: 'PUT', body: JSON.stringify(body) }),
+      request<{ ok: boolean }>(`/ops/config/${key}`, { method: 'PUT', body: JSON.stringify(body) }),
   },
 
   // ---- v4.7 客服工单 ----
   support: {
     tickets: (category?: string, status?: string) =>
-      request<any[]>(`/support/tickets${category ? `?category=${category}` : ''}${status ? `&status=${status}` : ''}`),
+      request<SupportTicketItem[]>(`/support/tickets${category ? `?category=${category}` : ''}${status ? `&status=${status}` : ''}`),
     createTicket: (body: Record<string, string>) =>
-      request<any>('/support/tickets', { method: 'POST', body: JSON.stringify(body) }),
+      request<SupportTicketItem>('/support/tickets', { method: 'POST', body: JSON.stringify(body) }),
     replyTicket: (id: string, reply: string, responder = 'admin') =>
-      request<any>(`/support/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply, responder }) }),
+      request<SupportReplyResult>(`/support/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply, responder }) }),
     resolveTicket: (id: string) =>
-      request<any>(`/support/tickets/${id}/resolve`, { method: 'POST', body: JSON.stringify({}) }),
-    smartHitRate: () => request<any>('/support/smart/hit-rate'),
-    dashboard: () => request<any>('/support/dashboard'),
-    faqList: () => request<any[]>('/support/faq'),
-    addFaq: (body: Record<string, string>) => request<any>('/support/faq', { method: 'POST', body: JSON.stringify(body) }),
-    deleteFaq: (id: string) => request<any>(`/support/faq/${id}`, { method: 'DELETE' }),
+      request<{ ok: boolean }>(`/support/tickets/${id}/resolve`, { method: 'POST', body: JSON.stringify({}) }),
+    smartHitRate: () => request<{ hit_rate: number }>('/support/smart/hit-rate'),
+    dashboard: () => request<SupportDashboard>('/support/dashboard'),
+    faqList: () => request<SupportFaqItem[]>('/support/faq'),
+    addFaq: (body: Record<string, string>) => request<SupportFaqItem>('/support/faq', { method: 'POST', body: JSON.stringify(body) }),
+    deleteFaq: (id: string) => request<{ ok: boolean }>(`/support/faq/${id}`, { method: 'DELETE' }),
   },
 
   // ---- v4.8 开放 API 平台：API 密钥管理 + 调用审计 ----
   openApi: {
-    keys: (tenant = 'platform') => request<any[]>(`/api/keys?tenant=${tenant}`),
+    keys: (tenant = 'platform') => request<OpenApiKeyRow[]>(`/api/keys?tenant=${tenant}`),
     createKey: (body: Record<string, string | number>) =>
       request<{ keyId: string; secret: string }>('/api/keys', { method: 'POST', body: JSON.stringify(body) }),
     rotateKey: (id: string) =>
-      request<any>(`/api/keys/${id}/rotate`, { method: 'POST' }),
+      request<{ keyId: string; secret: string }>(`/api/keys/${id}/rotate`, { method: 'POST' }),
     toggleKey: (id: string, enabled: boolean) =>
       request<{ enabled: boolean }>(`/api/keys/${id}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
     deleteKey: (id: string) =>
@@ -453,42 +504,55 @@ export const api = {
         body: JSON.stringify({ url, secret }),
       }),
     audit: (keyId?: string, page = 0, size = 20) =>
-      request<any>(`/api/audit?page=${page}&size=${size}${keyId ? `&keyId=${encodeURIComponent(keyId)}` : ''}`),
+      request<{ rows: OpenApiAuditRow[]; total: number }>(`/api/audit?page=${page}&size=${size}${keyId ? `&keyId=${encodeURIComponent(keyId)}` : ''}`),
   },
 
   // ---- v4.8 合规审计强化：管理员操作审计 ----
   audit: {
     operations: (params: Record<string, string> = {}) => {
       const p = new URLSearchParams(params)
-      return request<any>(`/audit/operations?${p.toString()}`)
+      return request<AuditOperationPage>(`/audit/operations?${p.toString()}`)
     },
-    trend: (days = 30) => request<any>(`/audit/trend?days=${days}`),
-    overview: (days = 30) => request<any>(`/audit/overview?days=${days}`),
+    trend: (days = 30) => request<{ days: string[]; counts: number[]; total?: number }>(`/audit/trend?days=${days}`),
+    overview: (days = 30) => request<AuditOverview>(`/audit/overview?days=${days}`),
   },
 
   // ---- v4.8 多租户架构：租户管理 ----
   tenant: {
     list: (params: Record<string, string> = {}) => {
       const p = new URLSearchParams(params)
-      return request<any>(`/tenant/list?${p.toString()}`)
+      return request<{ rows: TenantRow[]; total: number; page?: number }>(`/tenant/list?${p.toString()}`)
     },
-    get: (id: string) => request<any>(`/tenant/${id}`),
+    get: (id: string) => request<TenantRow>(`/tenant/${id}`),
     create: (body: Record<string, unknown>) =>
-      request<any>('/tenant', { method: 'POST', body: JSON.stringify(body) }),
+      request<TenantRow>('/tenant', { method: 'POST', body: JSON.stringify(body) }),
     update: (id: string, body: Record<string, unknown>) =>
-      request<any>(`/tenant/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+      request<TenantRow>(`/tenant/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
     remove: (id: string) =>
-      request<any>(`/tenant/${id}`, { method: 'DELETE' }),
-    admins: (id: string) => request<any[]>(`/tenant/${id}/admins`),
+      request<{ ok: boolean }>(`/tenant/${id}`, { method: 'DELETE' }),
+    admins: (id: string) => request<TenantAdminRow[]>(`/tenant/${id}/admins`),
     addAdmin: (id: string, identity: string, role: string) =>
-      request<any>(`/tenant/${id}/admins`, { method: 'POST', body: JSON.stringify({ identity, role }) }),
+      request<TenantAdminRow>(`/tenant/${id}/admins`, { method: 'POST', body: JSON.stringify({ identity, role }) }),
     removeAdmin: (id: string, identity: string) =>
-      request<any>(`/tenant/${id}/admins/${encodeURIComponent(identity)}`, { method: 'DELETE' }),
+      request<{ ok: boolean }>(`/tenant/${id}/admins/${encodeURIComponent(identity)}`, { method: 'DELETE' }),
     setAdminEnabled: (id: string, identity: string, enabled: boolean) =>
-      request<any>(`/tenant/${id}/admins/${encodeURIComponent(identity)}/enabled`, {
+      request<{ ok: boolean }>(`/tenant/${id}/admins/${encodeURIComponent(identity)}/enabled`, {
         method: 'PUT',
         body: JSON.stringify({ enabled }),
       }),
+  },
+
+  // ---- v5.0 赛事直播转播：管理端 CRUD ----
+  streamLive: {
+    list: () => request<{ rows: Broadcast[]; total: number }>('/stream-live'),
+    create: (body: Record<string, unknown>) =>
+      request<Broadcast>('/stream-live', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string, body: Record<string, unknown>) =>
+      request<Broadcast>(`/stream-live/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    remove: (id: string) =>
+      request<{ ok: boolean }>(`/stream-live/${id}`, { method: 'DELETE' }),
+    setLive: (id: string, live: boolean) =>
+      request<Broadcast>(`/stream-live/${id}/live`, { method: 'PUT', body: JSON.stringify({ live }) }),
   },
 
   accounts: {
@@ -499,22 +563,22 @@ export const api = {
   // ---- v4.1 ----
   detection41: {
     analyze: (features: Record<string, number>) =>
-      request<any>('/v41/analyze', { method: 'POST', body: JSON.stringify(features) }),
-    demoCheat: () => request<any>('/v41/demo/cheat'),
-    demoHuman: () => request<any>('/v41/demo/human'),
+      request<DetectionAnalysis>('/v41/analyze', { method: 'POST', body: JSON.stringify(features) }),
+    demoCheat: () => request<DetectionAnalysis>('/v41/demo/cheat'),
+    demoHuman: () => request<DetectionAnalysis>('/v41/demo/human'),
   },
   compliance: {
-    selfCheck: () => request<any>('/compliance/selfcheck'),
-    sla: () => request<any>('/compliance/sla'),
-    branding: () => request<any>('/compliance/branding'),
-    sbom: () => request<any>('/compliance/sbom'),
-    supportSummary: () => request<any>('/support/summary'),
-    supportTickets: (status = 'open') => request<any[]>(`/support/tickets?status=${status}`),
-    supportAppeals: (status = 'pending') => request<any[]>(`/support/appeals?status=${status}`),
+    selfCheck: () => request<AnyRow>('/compliance/selfcheck'),
+    sla: () => request<AnyRow>('/compliance/sla'),
+    branding: () => request<AnyRow>('/compliance/branding'),
+    sbom: () => request<AnyRow>('/compliance/sbom'),
+    supportSummary: () => request<{ pending_appeals: number; open_tickets: number; in_progress_tickets: number }>('/support/summary'),
+    supportTickets: (status = 'open') => request<SupportTicket[]>(`/support/tickets?status=${status}`),
+    supportAppeals: (status = 'pending') => request<Appeal[]>(`/support/appeals?status=${status}`),
     reviewAppeal: (id: string, body: Record<string, string>) =>
-      request<any>(`/support/appeals/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
+      request<{ ok: boolean }>(`/support/appeals/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
     transitionTicket: (id: string, body: Record<string, string>) =>
-      request<any>(`/support/tickets/${id}/transition`, { method: 'POST', body: JSON.stringify(body) }),
+      request<{ ok: boolean }>(`/support/tickets/${id}/transition`, { method: 'POST', body: JSON.stringify(body) }),
   },
 
   // ---- v4.2 系统管理 ----
@@ -531,48 +595,49 @@ export const api = {
 
   // ---- v4.6 检测能力深化：零日 / 威胁情报 / 特征库扩充 / 主动学习 ----
   v46: {
-    overview: () => request<any>('/v46/overview'),
+    overview: () => request<V46Overview>('/v46/overview'),
     assessZeroDay: (body: Record<string, unknown>) =>
-      request<any>('/v46/zero-day/assess', { method: 'POST', body: JSON.stringify(body) }),
+      request<ZeroDayAssessment>('/v46/zero-day/assess', { method: 'POST', body: JSON.stringify(body) }),
     reviewZeroDay: (id: string, body: Record<string, unknown>) =>
-      request<any>(`/v46/zero-day/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
+      request<{ ok: boolean }>(`/v46/zero-day/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
     reflowZeroDay: (id: string, reviewer?: string) =>
-      request<any>(`/v46/zero-day/${id}/reflow`, { method: 'POST', body: JSON.stringify({ reviewer: reviewer ?? 'admin' }) }),
+      request<{ sample_id?: string; family?: string }>(`/v46/zero-day/${id}/reflow`, { method: 'POST', body: JSON.stringify({ reviewer: reviewer ?? 'admin' }) }),
     ingestThreat: (body: Record<string, unknown>) =>
-      request<any>('/v46/threat/ingest', { method: 'POST', body: JSON.stringify(body) }),
+      request<ThreatIngestResult>('/v46/threat/ingest', { method: 'POST', body: JSON.stringify(body) }),
     reviewThreat: (id: string, body: Record<string, unknown>) =>
-      request<any>(`/v46/threat/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
+      request<{ ok: boolean }>(`/v46/threat/${id}/review`, { method: 'POST', body: JSON.stringify(body) }),
     analyzeThreat: (id: string) =>
-      request<any>(`/v46/threat/analyze/${id}`, { method: 'POST' }),
+      request<{ ok: boolean }>(`/v46/threat/analyze/${id}`, { method: 'POST' }),
     clusterThreat: (k?: number) =>
-      request<any>('/v46/threat/cluster', { method: 'POST', body: JSON.stringify({ k: k ?? 3 }) }),
-    threatClusters: () => request<any>('/v46/threat/clusters'),
+      request<ThreatClusterResult>('/v46/threat/cluster', { method: 'POST', body: JSON.stringify({ k: k ?? 3 }) }),
+    threatClusters: () => request<ThreatClusterResult>('/v46/threat/clusters'),
     promoteThreat: (id: string) =>
-      request<any>(`/v46/threat/${id}/promote`, { method: 'POST', body: JSON.stringify({ operator: 'admin' }) }),
-    signatures: () => request<any>('/v46/signatures'),
+      request<{ name: string; state: string }>(`/v46/threat/${id}/promote`, { method: 'POST', body: JSON.stringify({ operator: 'admin' }) }),
+    signatures: () => request<SignatureSeed[]>('/v46/signatures'),
   },
 
   // ---- v4.7 威胁情报运营中台：家族谱系 / 主动威慑 / IOC 中心化 ----
   v47: {
-    familyOverview: () => request<any>('/v47/family/overview'),
-    familyGraph: () => request<any>('/v47/family/graph'),
-    deterOverview: () => request<any>('/v47/deter/overview'),
+    familyOverview: () => request<AnyRow>('/v47/family/overview'),
+    familyGraph: () => request<AnyRow>('/v47/family/graph'),
+    deterOverview: () => request<AnyRow>('/v47/deter/overview'),
     setDeter: (body: Record<string, unknown>) =>
-      request<any>('/v47/deter/set', { method: 'POST', body: JSON.stringify(body) }),
+      request<{ ok: boolean }>('/v47/deter/set', { method: 'POST', body: JSON.stringify(body) }),
     toggleDeter: (id: number, enabled: boolean) =>
-      request<any>(`/v47/deter/${id}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+      request<{ ok: boolean }>(`/v47/deter/${id}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
     resolveDeter: (family: string) =>
-      request<any>('/v47/deter/resolve', { method: 'POST', body: JSON.stringify({ family }) }),
-    iocOverview: () => request<any>('/v47/ioc/overview'),
+      request<{ family: string; action: string; severity: number; protected: boolean }>('/v47/deter/resolve', { method: 'POST', body: JSON.stringify({ family }) }),
+    iocOverview: () =>
+      request<{ total: number; open: number; disarmed: number; subscribed: number; high_severity: number }>('/v47/ioc/overview'),
     iocList: (params: Record<string, string | number> = {}) => {
       const p = new URLSearchParams(params as Record<string, string>)
-      return request<any>(`/v47/ioc/list?${p.toString()}`)
+      return request<{ items: AnyRow[]; total: number }>(`/v47/ioc/list?${p.toString()}`)
     },
     importIoc: (sampleId: string) =>
-      request<any>('/v47/ioc/import', { method: 'POST', body: JSON.stringify({ sampleId }) }),
-    subscribeIoc: (id: number) => request<any>(`/v47/ioc/${id}/subscribe`, { method: 'POST' }),
-    disarmIoc: (id: number) => request<any>(`/v47/ioc/${id}/disarm`, { method: 'POST' }),
-    hitIoc: (id: number) => request<any>(`/v47/ioc/${id}/hit`, { method: 'POST' }),
+      request<{ imported: number }>('/v47/ioc/import', { method: 'POST', body: JSON.stringify({ sampleId }) }),
+    subscribeIoc: (id: number) => request<{ ok: boolean }>(`/v47/ioc/${id}/subscribe`, { method: 'POST' }),
+    disarmIoc: (id: number) => request<{ ok: boolean }>(`/v47/ioc/${id}/disarm`, { method: 'POST' }),
+    hitIoc: (id: number) => request<{ ok: boolean }>(`/v47/ioc/${id}/hit`, { method: 'POST' }),
   },
 
   // ---- PACC 4.0 管理端 P0：实时监控 / 玩家详情 / 告警中心 / 角色权限 ----
@@ -589,7 +654,7 @@ export const api = {
       const p = new URLSearchParams()
       if (level) p.set('level', level)
       if (status) p.set('status', status)
-      return request<any[]>(`/alerts?${p.toString()}`)
+      return request<AlertsListItem[]>(`/alerts?${p.toString()}`)
     },
     rules: () => request<AlertRule[]>('/alerts/rules'),
     saveRule: (body: Record<string, unknown>) =>
@@ -606,5 +671,76 @@ export const api = {
     update: (id: string, body: Record<string, unknown>) =>
       request<AdminRole>(`/roles/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
     remove: (id: string) => request<{ ok: boolean }>(`/roles/${id}`, { method: 'DELETE' }),
+  },
+
+  // ---- 地图 BP（Ban/Pick）：管理端地图池 / 地图条目 / BP 会话 ----
+  maps: {
+    pools: () => request<MapPool[]>('/maps/pools'),
+    createPool: (body: Record<string, string>) =>
+      request<MapPool>('/maps/pools', { method: 'POST', body: JSON.stringify(body) }),
+    updatePool: (poolId: string, body: Record<string, string>) =>
+      request<MapPool>(`/maps/pools/${encodeURIComponent(poolId)}`, { method: 'PUT', body: JSON.stringify(body) }),
+    deletePool: (poolId: string) =>
+      request<{ pool_id: string; ok: boolean }>(`/maps/pools/${encodeURIComponent(poolId)}`, { method: 'DELETE' }),
+
+    entries: (poolId: string) =>
+      request<MapEntry[]>(`/maps/pools/${encodeURIComponent(poolId)}/entries`),
+    poolStats: (poolId: string) =>
+      request<MapPoolStats>(`/maps/pools/${encodeURIComponent(poolId)}/stats`),
+    createEntry: (poolId: string, body: Record<string, string>) =>
+      request<MapEntry>(`/maps/pools/${encodeURIComponent(poolId)}/entries`, { method: 'POST', body: JSON.stringify(body) }),
+    batchAddEntries: (poolId: string, body: { rows: Record<string, unknown>[]; created_by?: string }) =>
+      request<{ pool_id: string; added: number }>(`/maps/pools/${encodeURIComponent(poolId)}/entries/batch`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    updateEntry: (mapId: string, body: Record<string, string | number | boolean>) =>
+      request<MapEntry>(`/maps/entries/${encodeURIComponent(mapId)}`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteEntry: (mapId: string) =>
+      request<{ map_id: string; ok: boolean }>(`/maps/entries/${encodeURIComponent(mapId)}`, { method: 'DELETE' }),
+    toggleEntry: (mapId: string) =>
+      request<{ map_id: string; ok: boolean }>(`/maps/entries/${encodeURIComponent(mapId)}/toggle`, { method: 'POST' }),
+
+    bpSessions: () => request<MapBanPickSession[]>('/maps/bp'),
+    createBp: (body: Record<string, string>) =>
+      request<MapBanPickSession>('/maps/bp', { method: 'POST', body: JSON.stringify(body) }),
+    bpState: (bpId: string) => request<BpStateDto>(`/maps/bp/${encodeURIComponent(bpId)}`),
+    bpActions: (bpId: string) =>
+      request<MapBanPickAction[]>(`/maps/bp/${encodeURIComponent(bpId)}/actions`),
+    bpStart: (bpId: string, operator = 'admin') =>
+      request<MapBanPickSession>(`/maps/bp/${encodeURIComponent(bpId)}/start`, {
+        method: 'POST',
+        body: JSON.stringify({ operator }),
+      }),
+    bpPause: (bpId: string, operator = 'admin') =>
+      request<MapBanPickSession>(`/maps/bp/${encodeURIComponent(bpId)}/pause`, {
+        method: 'POST',
+        body: JSON.stringify({ operator }),
+      }),
+    bpResume: (bpId: string, operator = 'admin') =>
+      request<MapBanPickSession>(`/maps/bp/${encodeURIComponent(bpId)}/resume`, {
+        method: 'POST',
+        body: JSON.stringify({ operator }),
+      }),
+    bpReset: (bpId: string, operator = 'admin') =>
+      request<MapBanPickSession>(`/maps/bp/${encodeURIComponent(bpId)}/reset`, {
+        method: 'POST',
+        body: JSON.stringify({ operator }),
+      }),
+    bpCancel: (bpId: string, operator = 'admin', reason = '裁判取消') =>
+      request<MapBanPickSession>(`/maps/bp/${encodeURIComponent(bpId)}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({ operator, reason }),
+      }),
+    bpComplete: (bpId: string, operator = 'admin') =>
+      request<MapBanPickSession>(`/maps/bp/${encodeURIComponent(bpId)}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({ operator }),
+      }),
+    bpForceAction: (bpId: string, body: { action: string; map_id?: string; operator?: string }) =>
+      request<BpStateDto>(`/maps/bp/${encodeURIComponent(bpId)}/force`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
   },
 }

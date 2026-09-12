@@ -141,6 +141,10 @@ export interface MatchSession {
   endedAt?: string
   operator?: string
   lastSeenAt?: string
+  /** BP 最终选图（JSON 数组字符串，对局前地图选择结果）。 */
+  selectedMaps?: string
+  /** 关联的 BP 会话 ID（若本场对局走了地图 BP 流程）。 */
+  bpSessionId?: string
 }
 
 export interface MatchValidateResult {
@@ -607,4 +611,441 @@ export interface AdminPlayerDetail {
   appeals: Appeal[]
   inspects: InspectSession[]
   records: CheatRecord[]
+}
+
+/** 赛事直播转播配置（管理端维护，玩家端只读展示 live=true 项）。 */
+export interface Broadcast {
+  id: string
+  title: string
+  bilibili_live_id: string
+  cover_url?: string | null
+  description?: string | null
+  platform: string
+  live: boolean
+  sort: number
+  created_at: string
+  updated_at?: string | null
+}
+
+/** 松散记录：值为服务端动态字段，避免显式 any。 */
+export type AnyRow = Record<string, unknown>
+
+// ===================== v4.7 检测算法 A/B 测试 =====================
+/** A/B 实验实体（后端 camelCase JSON 字段）。 */
+export interface AbExperimentRow {
+  id: string
+  name: string
+  description?: string
+  dimension: string
+  variantA: string
+  variantB: string
+  targetPercent: number
+  status: string
+  metricsCtExposure: number
+  metricsCtDetect: number
+  metricsCtFalsePositive: number
+  startedAt?: string
+  endedAt?: string
+  winner?: string
+  createdAt: string
+}
+
+/** A/B 显著性结果（后端 snake_case）。 */
+export interface AbSignificance {
+  ctr_a: number
+  ctr_b: number
+  lift: number
+  p_value: number
+  significant: boolean
+}
+
+// ===================== v4.7 自动化运维 =====================
+export interface OpsHealth {
+  status?: string
+  db?: string
+  db_error?: string
+  memory?: { used_mb?: number; max_mb?: number }
+  uptime_seconds?: number
+}
+
+export interface OpsOverview {
+  total_crashes?: number
+  crash_count_last_24h?: number
+  avg_cpu?: number
+  avg_mem_mb?: number
+  sample_telemetry_count?: number
+}
+
+export interface OpsCrashRow {
+  id: string
+  platform?: string
+  clientVersion?: string
+  os?: string
+  arch?: string
+  controller?: string
+  createdAt?: string
+}
+
+export interface OpsTelemetryRow {
+  id: string
+  cpuPercent?: number
+  memMb?: number
+  detectionLatencyMs?: number
+  fpsImpactPercent?: number
+  pteid?: string
+  createdAt?: string
+}
+
+export interface OpsConfigRow {
+  id: string
+  category?: string
+  intValue?: number | null
+  doubleValue?: number | null
+  boolValue?: boolean | null
+  updatedBy?: string | null
+  updatedAt?: string
+}
+
+// ===================== v4.7 客服工单 =====================
+export interface SupportTicketItem {
+  id: string
+  pteid?: string
+  category?: string
+  title?: string
+  description?: string
+  status?: string
+  priority?: string
+  assignee?: string
+  firstReplyAt?: string
+  resolvedAt?: string
+  createdAt?: string
+}
+
+export interface SupportFaqItem {
+  id: string
+  question?: string
+  answer?: string
+  keywords?: string
+  createdAt?: string
+}
+
+export interface SupportDashboard {
+  open_count: number
+  by_category: Record<string, number>
+  by_priority: Record<string, number>
+  avg_first_reply_seconds: number
+  smart_hit_rate: number
+}
+
+export interface SupportReplyResult {
+  sla_info: {
+    priority: string
+    first_reply_seconds: number
+    sla_budget_seconds: number
+    in_sla: boolean
+  }
+}
+
+// ===================== v4.8 开放 API 平台 =====================
+export interface OpenApiKeyRow {
+  keyId: string
+  name: string
+  tenantId: string
+  plan: string
+  scopes: string
+  categories?: string
+  ipWhitelist?: string
+  rateLimitPerHour: number
+  webhookUrl?: string
+  enabled: boolean
+  createdAt: string
+  lastUsedAt?: string
+}
+
+export interface OpenApiAuditRow {
+  id: string
+  createdAt: string
+  method: string
+  path: string
+  apiKeyId?: string
+  ip?: string
+  statusCode: number
+  latencyMs?: number
+}
+
+// ===================== v4.8 合规审计：管理员操作审计 =====================
+export interface AuditOperationPage {
+  rows: AnyRow[]
+  total: number
+  page: number
+}
+
+export interface AuditOverview {
+  total: number
+  error_rate: number
+  error_count: number
+  by_status: Record<string, number>
+  top_actions: { action: string; count: number }[]
+}
+
+// ===================== v4.8 多租户架构：租户管理 =====================
+export type TenantRow = Record<string, unknown>
+
+export interface TenantAdminRow {
+  id: number
+  tenantId: string
+  adminIdentity: string
+  role: string
+  enabled: boolean
+}
+
+// ===================== v4.7 特征库增量 diff =====================
+export interface SignatureDiff {
+  count: number
+  digest: string
+  signature?: string
+  library_version?: string
+  changes?: Signature[]
+}
+
+// ===================== 告警中心列表项 =====================
+export interface AlertsListItem {
+  id: string
+  type: string
+  level: number
+  status: 'open' | 'acknowledged' | 'resolved'
+  message: string
+  player?: string
+  time: string
+}
+
+// ===================== v4.1 检测分析引擎 =====================
+export interface DetectionVerdict {
+  cheatType?: string
+  displayName?: string
+  name?: string
+  detected: boolean
+  confidence: number
+  hits: { layer: number; layerName: string; signal: string; weight: number; type?: string }[]
+  summary: string
+}
+
+export interface DetectionAnalysis {
+  edition: string
+  feature_dims: number
+  brute_force: DetectionVerdict[]
+  stealth: DetectionVerdict[]
+  ai_behavior?: { cheat_prob: number; level: string; n_features: number; model?: string }
+  ai_human_likeness?: { human_likeness: number; verdict: string }
+}
+
+// ===================== v4.6 检测能力深化：零日 / 威胁情报 / 特征库扩充 / 主动学习 =====================
+export interface ZeroDayFinding {
+  id?: string
+  pteid?: string
+  confidenceTier?: string
+  compositeScore?: number
+  status?: string
+  createdAt?: string
+}
+
+export interface ThreatSample {
+  id?: string
+  pteid?: string
+  family?: string
+  familyLabel?: string
+  autoAnalysis?: string
+  generatedRule?: string
+  status?: string
+  confirmed?: boolean | string
+  md5?: string
+  sha1?: string
+  edition?: string
+  createdAt?: string
+}
+
+export interface SignatureSeed {
+  name: string
+  pattern: string
+  riskLevel: number
+  edition: string
+}
+
+export interface ThreatIngestMatch {
+  name: string
+  riskLevel: number
+}
+
+export interface ThreatIngestResult {
+  sample_id: string
+  family?: string
+  generated_rule?: string
+  matches?: ThreatIngestMatch[]
+}
+
+export interface ThreatClusterResult {
+  analyzed: number
+  clusters?: AnyRow
+  distribution?: Record<string, number>
+}
+
+export interface ZeroDayAssessment {
+  confidence_tier: string
+  composite: number
+  iso_score?: number
+  recon_error?: number
+  baseline_deviation?: number
+  finding_id: string
+}
+
+export interface ThreatAnalysisReport {
+  tier?: string
+  severity?: string
+  type?: string
+  summary?: string
+  matched_seeds?: string[]
+  indicators?: string[]
+  suggestion?: string
+}
+
+export interface V46Overview {
+  zero_day?: { open?: number; recent?: ZeroDayFinding[] }
+  active_learning?: { zero_day_queue?: ZeroDayFinding[] }
+  threat_intel?: { new_count?: number; recent?: ThreatSample[] }
+  signature_expansion?: { seed_count?: number; seeds?: SignatureSeed[] }
+}
+
+// ===================== 地图 BP（Ban/Pick） =====================
+export type MapPoolFormat = 'BO1' | 'BO3' | 'BO5'
+
+export interface MapPool {
+  poolId: string
+  tournamentId?: string
+  name: string
+  gameMode?: string
+  edition?: string
+  description?: string
+  active: boolean
+  mapCount: number
+  createdBy?: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface MapEntry {
+  mapId: string
+  poolId: string
+  name: string
+  nameEn?: string
+  mapType?: string
+  author?: string
+  version?: string
+  difficulty?: string
+  thumbnailUrl?: string
+  previewImages?: string
+  description?: string
+  downloadUrl?: string
+  banCount: number
+  pickCount: number
+  winRateBlue: number
+  winRateRed: number
+  active: boolean
+  orderNo: number
+  createdBy?: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export type BpStatus = 'PENDING' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
+
+export interface MapBanPickSession {
+  bpSessionId: string
+  tournamentId?: string
+  matchId?: string
+  stageId?: string
+  poolId: string
+  format: MapPoolFormat
+  status: BpStatus
+  blueEnrollmentId?: string
+  redEnrollmentId?: string
+  blueTeamName?: string
+  redTeamName?: string
+  turnIndex: number
+  currentTurn?: string
+  currentRound: number
+  totalRounds: number
+  turnTimeoutSeconds: number
+  startTime?: string
+  endTime?: string
+  currentTurnDeadline?: string
+  selectedMaps?: string
+  bannedMaps?: string
+  referee?: string
+  createdBy?: string
+  cancelReason?: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export type BpSide = 'BLUE' | 'RED'
+export type BpActionType = 'BAN' | 'PICK'
+
+export interface MapBanPickAction {
+  actionId: string
+  bpSessionId: string
+  roundNo: number
+  team: BpSide
+  actionType: BpActionType
+  mapId?: string
+  mapName?: string
+  operatorPteid?: string
+  operatorDeviceFp?: string
+  clientIp?: string
+  responseTimeMs?: number
+  timeout: boolean
+  createdAt: string
+}
+
+/** selected_maps / banned_maps JSON 数组元素。 */
+export interface BpListedMap {
+  map_id: string
+  map_name: string
+  side: BpSide
+  round: number
+}
+
+/** BP 实时态（/state 返回的扁平 DTO）。 */
+export interface BpStateDto {
+  bp_session_id: string
+  tournament_id?: string
+  match_id?: string
+  format: MapPoolFormat
+  status: BpStatus
+  pool_id: string
+  blue_team_name?: string
+  red_team_name?: string
+  turn_index: number
+  current_turn?: string
+          current_round: number
+          total_rounds: number
+          turn_timeout_seconds: number
+          turn_deadline?: string
+          can_act_for?: BpSide
+          /** 玩家端专用：当前登录选手所在阵营（管理端 DTO 无此字段） */
+          my_side?: BpSide
+  start_time?: string
+  end_time?: string
+  cancel_reason?: string
+  selected_maps: BpListedMap[]
+  banned_maps: BpListedMap[]
+  actions: MapBanPickAction[]
+}
+
+export interface MapPoolStats {
+  pool_id: string
+  total: number
+  active: number
+  ban_total: number
+  pick_total: number
+  by_type: Record<string, number>
 }

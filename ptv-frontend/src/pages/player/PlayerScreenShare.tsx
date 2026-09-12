@@ -61,11 +61,12 @@ export default function PlayerScreenShare() {
       ws.onclose = () => setStatus((s) => (s === '共享中' ? '已断开' : '已断开'))
       ws.onerror = () => setStatus('错误')
       ws.onmessage = async (ev) => {
-        let msg: any
+        let msg: unknown
         try { msg = JSON.parse(ev.data as string) } catch { return }
-        if (msg?.type === 'inspect_request') {
+        const record = msg as Record<string, unknown>
+        if (record?.type === 'inspect_request') {
           try {
-            const session = msg.session_id ?? ''
+            const session = String(record.session_id ?? '')
             const screen = screenRef.current ?? createScreenShare(transport, session)
             screenRef.current = screen
             await screen.start()
@@ -75,9 +76,9 @@ export default function PlayerScreenShare() {
             setWarn(`屏幕采集失败：${(e as Error).message}`)
             setStatus('错误')
           }
-        } else if (msg?.type === 'inspect_answer' || msg?.type === 'inspect_ice') {
-          screenRef.current?.onSignal(msg as Record<string, unknown>)
-        } else if (msg?.type === 'inspect_bye') {
+        } else if (record?.type === 'inspect_answer' || record?.type === 'inspect_ice') {
+          screenRef.current?.onSignal(record)
+        } else if (record?.type === 'inspect_bye') {
           await stopShared()
         }
       }
@@ -93,7 +94,6 @@ export default function PlayerScreenShare() {
       wsRef.current?.close()
       wsRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function stop() {

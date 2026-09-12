@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Alert, Button, Card, Col, Empty, Input, Modal, Row, Space, Table, Tag, Typography, message } from 'antd'
 import type { TableColumnsType } from 'antd'
+import { ArrowRightOutlined, PlayCircleOutlined } from '@ant-design/icons'
 import MetricCard from '../components/MetricCard'
 import { api } from '../api/client'
-import type { CompetitionOverview, Enrollment, IpCluster, MatchSession, SuspicionFlag } from '../types'
+import type { CompetitionOverview, Enrollment, IpCluster, MapBanPickSession, MatchSession, SuspicionFlag } from '../types'
 
 const { Title, Text } = Typography
 
@@ -17,12 +19,17 @@ const kindNames: Record<string, string> = {
 const statusText: Record<string, string> = { PENDING: '待审批', APPROVED: '已通过', REJECTED: '已拒绝' }
 const statusColor: Record<string, string> = { PENDING: 'warning', APPROVED: 'success', REJECTED: 'error' }
 
+const bpStatusNames: Record<string, string> = { PENDING: '待开始', ACTIVE: '进行中', PAUSED: '已暂停', COMPLETED: '已完成', CANCELLED: '已取消' }
+const bpStatusColors: Record<string, string> = { PENDING: 'default', ACTIVE: 'processing', PAUSED: 'warning', COMPLETED: 'success', CANCELLED: 'error' }
+
 export default function Competition() {
+  const navigate = useNavigate()
   const [overview, setOverview] = useState<CompetitionOverview | null>(null)
   const [flags, setFlags] = useState<SuspicionFlag[]>([])
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [selected, setSelected] = useState<React.Key[]>([])
   const [matches, setMatches] = useState<MatchSession[]>([])
+  const [bpSessions, setBpSessions] = useState<MapBanPickSession[]>([])
   const [clusters, setClusters] = useState<IpCluster[]>([])
   const [keyword, setKeyword] = useState('')
   const [err, setErr] = useState('')
@@ -39,16 +46,20 @@ export default function Competition() {
 
   async function load() {
     try {
-      const [ov, fs, es, ms, cs] = await Promise.all([
+      const [ov, fs, es, ms, cs, bps] = await Promise.all([
         api.competition.overview(),
         api.competition.flags(keyword),
         api.competition.enrollments(),
         api.competition.matches(),
         api.competition.ipClusters(),
+        api.maps.bpSessions(),
       ])
-      setOverview(ov); setFlags(fs); setEnrollments(es); setMatches(ms); setClusters(cs); setErr('')
+      setOverview(ov); setFlags(fs); setEnrollments(es); setMatches(ms); setClusters(cs); setBpSessions(bps); setErr('')
     } catch (e) { setErr((e as Error).message) }
   }
+  // 刻意仅在挂载时加载一次：load 依赖 keyword（5 个接口），若加入依赖会在每次输入时重载全部数据；
+  // 检索仅在回车/按钮时通过 load() 手动触发。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [])
 
   function ask(title: string, label: string, initial = '', onSubmit: (v: string) => void) {
@@ -164,9 +175,49 @@ export default function Competition() {
     { title: 'PTEID', dataIndex: 'pteid', render: (v: string) => <Text strong>{v}</Text> },
     { title: 'Token（前16位）', dataIndex: 'matchId', render: (v: string) => <Text code style={{ fontSize: 10 }}>{v.slice(0, 16)}…</Text> },
     { title: '状态', dataIndex: 'status', width: 100, render: (s: string) => (s === 'ACTIVE' ? <Tag color="success">进行中</Tag> : <Tag>已结束</Tag>) },
+    {
+      title: 'BP 选图', key: 'bp', width: 140,
+      render: (_, m) => {
+        const maps = parseMaps(m.selectedMaps)
+        if (!m.bpSessionId) return <Text type="secondary" style={{ fontSize: 12 }}>-</Text>
+        return maps.length > 0
+          ? <span style={{ fontSize: 12 }}>{maps.map((x) => x.map_name).join(' / ')}</span>
+          : <Tag bordered={false} color="warning">BP 关联</Tag>
+      },
+    },
     { title: '开始', dataIndex: 'startedAt', width: 170, render: (v?: string) => <span style={{ fontSize: 12 }}>{fmt(v)}</span> },
     { title: '过期', dataIndex: 'expiresAt', width: 170, render: (v?: string) => <span style={{ fontSize: 12 }}>{fmt(v)}</span> },
-    { title: '操作', dataIndex: 'status', width: 90, render: (_, m) => (m.status === 'ACTIVE' ? <Button size="small" danger onClick={() => confirmEnd(m)}>结束</Button> : null) },
+    {
+      title: '操作', key: 'op', width: 140,
+      render: (_, m) => (
+        <Space size={4} wrap>
+          {m.status === 'ACTIVE' && <Button size="small" danger onClick={() => confirmEnd(m)}>结束</Button>}
+          {m.bpSessionId && <Button size="small" icon={<ArrowRightOutlined />} onClick={() => navigate(`/maps/bp/${m.bpSessionId}`)}>BP</Button>}
+        </Space>
+      ),
+    },
+  ]
+
+  const bpCols: TableColumnsType<MapBanPickSession> = [
+    { title: '赛制', dataIndex: 'format', width: 64, render: (v: string) => <Tag bordered={false}>{v}</Tag> },
+    { title: '对阵', key: 'teams', render: (_, s) => (
+        <Space size={6} wrap>
+          <Tag color="blue">{s.blueTeamName || '蓝方'}</Tag>
+          <Text type="secondary">vs</Text>
+          <Tag color="red">{s.redTeamName || '红方'}</Tag>
+        </Space>
+      ) },
+    { title: '状态', dataIndex: 'status', width: 90, render: (v: string) => <Tag color={bpStatusColors[v]}>{bpStatusNames[v] ?? v}</Tag> },
+    { title: '进度', key: 'turn', width: 120, render: (_, s) => (
+        s.status === 'ACTIVE' ? (
+          <Text style={{ fontSize: 12 }}>{s.currentRound}/{s.totalRounds} 轮 · {s.turnIndex} 步</Text>
+        ) : s.status === 'COMPLETED' ? (
+          <Text type="secondary" style={{ fontSize: 12 }}>{s.totalRounds} 图完成</Text>
+        ) : <Text type="secondary" style={{ fontSize: 12 }}>-</Text>
+      ) },
+    { title: '', key: 'op', width: 90, render: (_, s) => (
+        <Button size="small" icon={<PlayCircleOutlined />} onClick={() => navigate(`/maps/bp/${s.bpSessionId}`)}>控制台</Button>
+      ) },
   ]
 
   const ipCols: TableColumnsType<IpCluster> = [
@@ -226,7 +277,18 @@ export default function Competition() {
 
       <Card title="对局会话（session token 隔离）" style={{ marginBottom: 16 }} styles={{ body: { padding: 0 } }}>
         {matches.length === 0 ? <Empty style={{ margin: '16px 0' }} description="暂无对局会话" /> : (
-          <Table<MatchSession> rowKey="matchId" columns={matchCols} dataSource={matches} pagination={false} scroll={{ x: 760 }} />
+          <Table<MatchSession> rowKey="matchId" columns={matchCols} dataSource={matches} pagination={false} scroll={{ x: 900 }} />
+        )}
+      </Card>
+
+      <Card
+        title={<Space size={8}><PlayCircleOutlined style={{ color: 'var(--kpi-blue)' }} />地图 BP 会话</Space>}
+        style={{ marginBottom: 16 }}
+        extra={<Button type="link" size="small" onClick={() => navigate('/maps/bp')}>全部 BP</Button>}
+        styles={{ body: { padding: 0 } }}
+      >
+        {bpSessions.length === 0 ? <Empty style={{ margin: '16px 0' }} description="暂无 BP 会话" /> : (
+          <Table<MapBanPickSession> rowKey="bpSessionId" columns={bpCols} dataSource={bpSessions.slice(0, 5)} pagination={false} scroll={{ x: 760 }} />
         )}
       </Card>
 
@@ -267,4 +329,15 @@ function fmt(s?: string): string {
   if (!s) return '-'
   const d = new Date(s)
   return isNaN(d.getTime()) ? s : d.toLocaleString('zh-CN', { hour12: false })
+}
+
+/** 解析 MatchSession.selectedMaps（JSON 数组字符串），失败返回空数组。 */
+function parseMaps(json?: string): { map_id: string; map_name: string }[] {
+  if (!json) return []
+  try {
+    const v = JSON.parse(json)
+    return Array.isArray(v) ? v : []
+  } catch {
+    return []
+  }
 }

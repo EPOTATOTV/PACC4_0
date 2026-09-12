@@ -57,4 +57,11 @@ public class MatchSession {
     private String operator;
 
     private Instant lastSeenAt;
+
+    /** BP 最终选图（JSON 数组字符串，对局前地图选择结果）。 */
+    @jakarta.persistence.Column(columnDefinition = "TEXT")
+    private String selectedMaps;
+
+    /** 关联的 BP 会话 ID（若本场对局走了地图 BP 流程）。 */
+    private String bpSessionId;
 }

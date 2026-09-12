@@ -7,6 +7,7 @@ import com.potatotv.pacc.domain.DetectionEvent;
 import com.potatotv.pacc.proto.PaccWire;
 import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.InspectSignalBus;
+import com.potatotv.pacc.service.MapBpEventBus;
 import com.potatotv.pacc.service.OnlineStatusService;
 import com.potatotv.pacc.service.RedscreenService;
 import com.potatotv.pacc.service.RiskScoringService;
@@ -44,6 +45,7 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
     private final AccountService accountService;
     private final WssMessageGuard messageGuard;
     private final InspectSignalBus inspectSignalBus;
+    private final MapBpEventBus mapBpEventBus;
     private final PaccWireCodec paccWireCodec;
 
     @Override
@@ -74,6 +76,18 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
             switch (type) {
                 case "ping" -> send(session, Map.of("type", "pong", "ts", Instant.now().toString()));
                 case "event" -> handleEvent(pteid, edition, node);
+                // 地图 BP 实时订阅
+                case "bp_subscribe" -> {
+                    String bpId = node.path("bp_session_id").asText(null);
+                    if (bpId != null && !bpId.isBlank()) {
+                        mapBpEventBus.subscribe(bpId, session);
+                        send(session, Map.of("type", "bp_subscribed", "bp_session_id", bpId));
+                    }
+                }
+                case "bp_unsubscribe" -> {
+                    String bpId = node.path("bp_session_id").asText(null);
+                    if (bpId != null) mapBpEventBus.unsubscribe(bpId, session);
+                }
                 // 远程查端信令：玩家端取证的 started/forensics 及 B2 透传的 offer/answer/ice 原样转给管理端
                 case "inspect_started", "inspect_forensics", "inspect_offer",
                         "inspect_answer", "inspect_ice", "inspect_ready" -> {
@@ -193,6 +207,7 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
             onlineStatusService.unregister(pteid, session);
             log.info("PTV 玩家端下线 pteid={} session={}", pteid, session.getId());
         }
+        mapBpEventBus.onDisconnect(session);
     }
 
     @Override
@@ -206,5 +221,6 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
         } catch (Exception ignored) {
             // 关闭失败忽略
         }
+        mapBpEventBus.onDisconnect(session);
     }
 }

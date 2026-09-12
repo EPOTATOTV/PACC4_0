@@ -49,9 +49,8 @@ export default function AdminLayout({ children, role }: { children: ReactNode; r
   const selectedGroup = visibleGroups.find((g) => g.items.some((i) => i.key === selected))?.groupKey
   const [openKeys, setOpenKeys] = useState<string[]>([])
   useEffect(() => {
-    if (selectedGroup && !openKeys.includes(selectedGroup)) {
-      setOpenKeys((prev) => (prev.includes(selectedGroup) ? prev : [...prev, selectedGroup]))
-    }
+    if (!selectedGroup) return
+    setOpenKeys((prev) => (prev.includes(selectedGroup) ? prev : [...prev, selectedGroup]))
   }, [selectedGroup])
 
   return (

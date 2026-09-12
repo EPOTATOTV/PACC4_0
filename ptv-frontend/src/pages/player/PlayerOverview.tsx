@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Col, Row, Space, Statistic, Tag, Typography } from 'antd'
-import { NotificationOutlined, SafetyCertificateOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { NotificationOutlined, SafetyCertificateOutlined, SwapOutlined, ThunderboltOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
-import type { MatchValidateResult, PlayerCurrentMatch, PlayerEnrollmentStatus, PlayerSummary } from '../../types'
+import type { Broadcast, MapBanPickSession, MatchValidateResult, PlayerCurrentMatch, PlayerEnrollmentStatus, PlayerSummary } from '../../types'
 import MetricCard from '../../components/MetricCard'
 import PlayerDetectionPanel from './PlayerDetectionPanel'
 import type { ProtectionStatus } from '../../types'
 
 const { Title, Text } = Typography
+
+const bpStatusNames: Record<string, string> = { PENDING: '待开始', ACTIVE: '进行中', PAUSED: '已暂停', COMPLETED: '已完成', CANCELLED: '已取消' }
 
 export default function PlayerOverview() {
   const [summary, setSummary] = useState<PlayerSummary | null>(null)
@@ -16,6 +18,8 @@ export default function PlayerOverview() {
   const [match, setMatch] = useState<PlayerCurrentMatch | null>(null)
   const [validate, setValidate] = useState<MatchValidateResult | null>(null)
   const [protection, setProtection] = useState<ProtectionStatus | null>(null)
+  const [streams, setStreams] = useState<Broadcast[]>([])
+  const [bpSessions, setBpSessions] = useState<MapBanPickSession[]>([])
   const [err, setErr] = useState('')
   const navigate = useNavigate()
 
@@ -24,6 +28,8 @@ export default function PlayerOverview() {
     api.player.myEnrollment().then(setEnroll).catch((e) => setErr((e as Error).message))
     api.player.myCurrentMatch().then(setMatch).catch((e) => setErr((e as Error).message))
     api.player.protection.status().then(setProtection).catch(() => {})
+    api.player.liveStreams().then(setStreams).catch(() => {})
+    api.player.maps.bpCurrent().then((l) => setBpSessions(Array.isArray(l) ? l : [])).catch(() => {})
   }, [])
 
   async function doValidate() {
@@ -116,6 +122,73 @@ export default function PlayerOverview() {
                 </div>
               )}
             </Card>
+          )}
+
+          {streams.length > 0 && (
+            <>
+              <div className="section-title" style={{ marginTop: 20 }}>赛事直播</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginTop: 16 }} className="pacc-stagger">
+                {streams.map((b) => (
+                  <Button
+                    key={b.id}
+                    type="text"
+                    onClick={() => navigate('/portal/stream-live')}
+                    style={{
+                      height: 'auto', textAlign: 'left', padding: '14px 16px',
+                      border: '1px solid var(--border)', borderRadius: 8,
+                      background: 'var(--panel)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8,
+                    }}
+                  >
+                    <Space size={8}>
+                      <VideoCameraOutlined style={{ color: '#ff3b30' }} />
+                      <span style={{ fontWeight: 600 }}>{b.title}</span>
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 12, fontFamily: 'var(--mono)' }}>
+                      live.bilibili.com/{b.bilibili_live_id}
+                    </Text>
+                  </Button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="section-title" style={{ marginTop: 20 }}>地图 BP</div>
+          {bpSessions.length === 0 ? (
+            <Card style={{ marginTop: 16 }} styles={{ body: { padding: '14px 16px' } }}>
+              <Space size={10} align="center" wrap>
+                <SwapOutlined style={{ fontSize: 20, color: 'var(--kpi-blue)' }} />
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <Text strong style={{ display: 'block' }}>暂无进行中的 BP</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>报名参赛后，裁判发起的选图 BP 会出现在这里，你也可以先浏览地图池。</Text>
+                </div>
+                <Button onClick={() => navigate('/portal/maps')}>浏览地图池</Button>
+              </Space>
+            </Card>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginTop: 16 }} className="pacc-stagger">
+              {bpSessions.map((s) => (
+                <Button
+                  key={s.bpSessionId}
+                  type="text"
+                  onClick={() => navigate(`/portal/maps/bp/${s.bpSessionId}`)}
+                  style={{
+                    height: 'auto', textAlign: 'left', padding: '14px 16px',
+                    border: s.status === 'ACTIVE' ? '1px solid var(--kpi-blue)' : '1px solid var(--border)',
+                    borderRadius: 8, background: s.status === 'ACTIVE' ? 'rgba(88,166,255,.06)' : 'var(--panel)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8,
+                  }}
+                >
+                  <Space size={8}>
+                    <SwapOutlined style={{ color: 'var(--kpi-blue)' }} />
+                    <span style={{ fontWeight: 600 }}>{s.blueTeamName || '蓝方'} vs {s.redTeamName || '红方'}</span>
+                  </Space>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Tag bordered={false} style={{ marginRight: 6 }}>{s.format}</Tag>
+                    {bpStatusNames[s.status] ?? s.status}
+                  </Text>
+                </Button>
+              ))}
+            </div>
           )}
         </>
       )}

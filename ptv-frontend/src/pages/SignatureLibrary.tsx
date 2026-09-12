@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Card, Input, Modal, Segmented, Space, Table, Typography, message } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
@@ -32,18 +32,18 @@ export default function SignatureLibrary() {
   const [pattern, setPattern] = useState('')
   const [risk, setRisk] = useState('3')
 
-  async function load(ed = edition, st = state) {
+  const load = useCallback(async (ed: 'BEDROCK' | 'JAVA', st: string) => {
     try {
       setList(await api.signatures.list(ed, st))
       setErr('')
     } catch (e) {
       setErr((e as Error).message)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    load()
-  }, [edition, state])
+    load(edition, state)
+  }, [edition, state, load])
 
   async function add() {
     if (!name || !pattern) return setErr('名称与特征码必填')
@@ -51,7 +51,7 @@ export default function SignatureLibrary() {
       await api.signatures.add({ name, pattern, risk_level: risk, edition, library_version: 'v4.2.0', operator: 'admin' })
       setName(''); setPattern('')
       message.success('特征已加入草稿，需灰度发布后生效')
-      load()
+      load(edition, state)
     } catch (e) { setErr((e as Error).message) }
   }
 
@@ -59,7 +59,7 @@ export default function SignatureLibrary() {
     try {
       await api.signatures.grayRelease(edition, percent)
       message.success(`已灰度发布至 ${percent}%`)
-      load()
+      load(edition, state)
     } catch (e) { setErr((e as Error).message) }
   }
 
@@ -67,7 +67,7 @@ export default function SignatureLibrary() {
     try {
       const r = await api.signatures.rollback(edition)
       message.success(`已回滚 ${r.rolled_back} 条`)
-      load()
+      load(edition, state)
     } catch (e) { setErr((e as Error).message) }
   }
 
@@ -98,7 +98,7 @@ export default function SignatureLibrary() {
         body: JSON.stringify({ edition, false_positive_rate: 0.6, operator: 'admin' }),
       }) as { rolled_back: number }
       message.success(r.rolled_back > 0 ? `误报超阈值，已自动回滚 ${r.rolled_back} 条` : '误报率未超阈值，无需回滚')
-      load()
+      load(edition, state)
     } catch (e) { setErr((e as Error).message) }
     finally { setRolling(false) }
   }

@@ -21,6 +21,9 @@ import PlayerRedScreenDetail from './PlayerRedScreenDetail'
 import PlayerSecurity from './PlayerSecurity'
 import PlayerAppealDetail from './PlayerAppealDetail'
 import PlayerTicketDetail from './PlayerTicketDetail'
+import PlayerStreamLive from './PlayerStreamLive'
+import PlayerMapPools from './PlayerMapPools'
+import PlayerMapBp from './PlayerMapBp'
 
 /**
  * 玩家自助门户入口：未登录显示登录页，已登录进入带侧边栏的多页布局。
@@ -56,6 +59,9 @@ export default function PlayerPortal() {
         <Route path="/portal/protection" element={<PlayerProtection />} />
         <Route path="/portal/monitor" element={<PlayerMonitor />} />
         <Route path="/portal/tournament" element={<PlayerTournament />} />
+        <Route path="/portal/maps" element={<PlayerMapPools />} />
+        <Route path="/portal/maps/bp/:bpId" element={<PlayerMapBp />} />
+        <Route path="/portal/stream-live" element={<PlayerStreamLive />} />
         <Route path="/portal/records" element={<PlayerRecords />} />
         <Route path="/portal/redscreen/:id" element={<PlayerRedScreenDetail />} />
         <Route path="/portal/devices" element={<PlayerDevices />} />

@@ -2,6 +2,7 @@ package com.potatotv.pacc.ws;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.service.InspectSignalBus;
+import com.potatotv.pacc.service.MapBpEventBus;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.web.socket.TextMessage;
@@ -34,7 +35,7 @@ class AdminSignalWebSocketHandlerTest {
         WebSocketSession admin = wss("admin", Map.of("session_id", "s9"));
 
         bus.registerPlayer("s9", player, "PT01");
-        AdminSignalWebSocketHandler h = new AdminSignalWebSocketHandler(bus, new ObjectMapper());
+        AdminSignalWebSocketHandler h = new AdminSignalWebSocketHandler(bus, new MapBpEventBus(new ObjectMapper()), new ObjectMapper());
         h.afterConnectionEstablished(admin);
 
         h.handleMessage(admin, new TextMessage("{\"type\":\"inspect_ice\",\"sdp\":\"x\"}"));

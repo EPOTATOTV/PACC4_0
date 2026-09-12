@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, Badge, Button, Card, Empty, Popconfirm, Space, Tabs, Tag, Typography } from 'antd'
 import { DeleteOutlined, ReadOutlined } from '@ant-design/icons'
 import { api } from '../../api/client'
@@ -37,7 +37,7 @@ export default function PlayerNotifications() {
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const [items, un] = await Promise.all([
@@ -49,17 +49,17 @@ export default function PlayerNotifications() {
       setErr('')
     } catch (e) {
       // 后端未就绪时显示空态而非报错
-      if (!err) setErr((e as Error).message)
+      setErr((e as Error).message)
     } finally {
       setLoading(false)
     }
-  }
+  }, [active])
 
   useEffect(() => {
     load()
     const t = setInterval(load, 30000)
     return () => clearInterval(t)
-  }, [active])
+  }, [active, load])
 
   async function markRead(id: string) {
     try {
