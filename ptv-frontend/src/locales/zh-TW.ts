@@ -32,6 +32,10 @@ const zhTW: Record<string, string> = {
   'nav.support': '客服工單',
 
   'player.overview': '我的概覽',
+  'player.protection': '即時保護',
+  'player.monitor': '即時監控',
+  'player.notifications': '通知中心',
+  'player.security': '帳號安全',
   'player.tournament': '賽事中心',
   'player.records': '作弊記錄',
   'player.devices': '我的設備',

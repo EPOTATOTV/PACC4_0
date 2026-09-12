@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Alert, Card, Typography, message } from 'antd'
+import { Alert, Button, Card, Typography, message } from 'antd'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import TicketForm from '../../components/ticket/TicketForm'
 import TicketList from '../../components/ticket/TicketList'
@@ -13,6 +14,7 @@ export default function PlayerTickets() {
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const navigate = useNavigate()
 
   async function load() {
     setLoading(true)
@@ -56,7 +58,16 @@ export default function PlayerTickets() {
       </Card>
 
       <Card title="我的工单" styles={{ body: { padding: 0 } }}>
-        <TicketList tickets={tickets} loading={loading} showResolution />
+        <TicketList
+          tickets={tickets}
+          loading={loading}
+          showResolution
+          renderActions={(t) => (
+            <Button type="link" size="small" onClick={() => navigate(`/portal/tickets/${t.ticketId}`)}>
+              查看详情
+            </Button>
+          )}
+        />
       </Card>
     </div>
   )

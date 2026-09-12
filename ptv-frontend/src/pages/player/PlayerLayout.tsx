@@ -12,11 +12,15 @@ const { Sider, Content, Footer, Header } = Layout
 
 const navItems = [
   { key: '/portal', to: '/portal', i18nKey: 'player.overview' },
+  { key: '/portal/protection', to: '/portal/protection', i18nKey: 'player.protection' },
+  { key: '/portal/monitor', to: '/portal/monitor', i18nKey: 'player.monitor' },
   { key: '/portal/tournament', to: '/portal/tournament', i18nKey: 'player.tournament' },
   { key: '/portal/records', to: '/portal/records', i18nKey: 'player.records' },
   { key: '/portal/devices', to: '/portal/devices', i18nKey: 'player.devices' },
   { key: '/portal/appeals', to: '/portal/appeals', i18nKey: 'player.appeals' },
   { key: '/portal/tickets', to: '/portal/tickets', i18nKey: 'player.tickets' },
+  { key: '/portal/notifications', to: '/portal/notifications', i18nKey: 'player.notifications' },
+  { key: '/portal/security', to: '/portal/security', i18nKey: 'player.security' },
   { key: '/portal/settings', to: '/portal/settings', i18nKey: 'player.settings' },
   { key: '/portal/diagnostics', to: '/portal/diagnostics', i18nKey: 'player.diagnostics' },
 ]

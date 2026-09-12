@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Col, Row, Space, Statistic, Tag, Typography } from 'antd'
+import { NotificationOutlined, SafetyCertificateOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { MatchValidateResult, PlayerCurrentMatch, PlayerEnrollmentStatus, PlayerSummary } from '../../types'
 import PlayerDetectionPanel from './PlayerDetectionPanel'
+import type { ProtectionStatus } from '../../types'
 
 const { Title, Text } = Typography
 
@@ -11,12 +14,15 @@ export default function PlayerOverview() {
   const [enroll, setEnroll] = useState<PlayerEnrollmentStatus | null>(null)
   const [match, setMatch] = useState<PlayerCurrentMatch | null>(null)
   const [validate, setValidate] = useState<MatchValidateResult | null>(null)
+  const [protection, setProtection] = useState<ProtectionStatus | null>(null)
   const [err, setErr] = useState('')
+  const navigate = useNavigate()
 
   useEffect(() => {
     api.player.summary().then(setSummary).catch((e) => setErr((e as Error).message))
     api.player.myEnrollment().then(setEnroll).catch((e) => setErr((e as Error).message))
     api.player.myCurrentMatch().then(setMatch).catch((e) => setErr((e as Error).message))
+    api.player.protection.status().then(setProtection).catch(() => {})
   }, [])
 
   async function doValidate() {
@@ -42,6 +48,26 @@ export default function PlayerOverview() {
               {summary.pteid}
             </div>
           </Card>
+
+          {protection && (
+            <Card style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+                <Statistic
+                  title="保护状态"
+                  value={protection.running ? '运行中' : protection.state === 'ERROR' ? '异常' : '已暂停'}
+                  valueStyle={{ color: protection.running ? '#3fb950' : protection.state === 'ERROR' ? '#ff3b30' : '#8b949e', fontSize: 18 }}
+                />
+                <Statistic title="扫描模式" value={protection.mode || '-'} valueStyle={{ fontSize: 18 }} />
+                <Statistic title="累计检测" value={protection.detection_count ?? 0} valueStyle={{ fontSize: 18 }} />
+                <Statistic title="当前红屏" value={protection.redscreen_count ?? 0} valueStyle={{ fontSize: 18 }} />
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Button icon={<ThunderboltOutlined />} onClick={() => navigate('/portal/protection')}>前往实时保护</Button>
+                  <Button icon={<NotificationOutlined />} onClick={() => navigate('/portal/notifications')}>通知中心</Button>
+                  <Button icon={<SafetyCertificateOutlined />} onClick={() => navigate('/portal/security')}>账号安全</Button>
+                </div>
+              </div>
+            </Card>
+          )}
 
           <Row gutter={[14, 14]}>
             <Col xs={12} sm={6}><StatCard title="作弊记录" value={summary.record_count} color="#ff3b30" /></Col>

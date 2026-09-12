@@ -36,6 +36,25 @@ import type {
   SystemInfo,
   SystemConfig,
   SystemAdmins,
+  ProtectionStatus,
+  ProtectionStat,
+  ProtectionResource,
+  DetectionEvent,
+  DetectorStatus,
+  AiModelStatus,
+  DetectionLogLine,
+  RedScreenDetail,
+  PlayerNotification,
+  SecurityScore,
+  LoginDevice,
+  AppealDetail,
+  TicketMessage,
+  RealtimeOverview,
+  RuntimeStat,
+  RealtimeAlert,
+  AlertRule,
+  AdminRole,
+  AdminPlayerDetail,
 } from '../types'
 
 // 管理后台凭据已迁至 HttpOnly 会话 cookie（pacc_admin）：JS 不再持有/读取密钥或令牌，
@@ -191,6 +210,56 @@ export const api = {
       playerRequest<PlayerRegisterInfo>(`/competition/register?tournament_id=${encodeURIComponent(tournamentId)}`),
     submitRegister: (body: Record<string, string>) =>
       playerRequest<Enrollment>('/competition/register', { method: 'POST', body: JSON.stringify(body) }),
+
+    // ---- PACC 4.0 玩家端 P0：实时保护 / 监控 / 通知 / 安全 ----
+    protection: {
+      status: () => playerRequest<ProtectionStatus>('/protection/status'),
+      resources: () => playerRequest<ProtectionResource[]>('/protection/resources'),
+      stats: () => playerRequest<ProtectionStat>('/protection/stats'),
+      recentEvents: (limit = 10) =>
+        playerRequest<DetectionEvent[]>(`/protection/events?limit=${limit}`),
+      pause: () => playerRequest<{ running: boolean }>('/protection/pause', { method: 'POST' }),
+      resume: () => playerRequest<{ running: boolean }>('/protection/resume', { method: 'POST' }),
+      scanNow: () => playerRequest<{ ok: boolean }>('/protection/scan', { method: 'POST' }),
+    },
+    monitor: {
+      detectors: () => playerRequest<DetectorStatus[]>('/monitor/detectors'),
+      ai: () => playerRequest<AiModelStatus>('/monitor/ai'),
+      logs: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams(params as Record<string, string>)
+        return playerRequest<DetectionLogLine[]>(`/monitor/logs?${p.toString()}`)
+      },
+    },
+    redscreenDetail: (id: string) => playerRequest<RedScreenDetail>(`/redscreen/${id}`),
+    notifications: {
+      list: (kind?: string) =>
+        playerRequest<PlayerNotification[]>(`/notifications${kind ? `?kind=${kind}` : ''}`),
+      read: (id: string) =>
+        playerRequest<{ ok: boolean }>(`/notifications/${id}/read`, { method: 'POST' }),
+      readAll: () => playerRequest<{ ok: boolean }>('/notifications/read-all', { method: 'POST' }),
+      remove: (id: string) =>
+        playerRequest<{ ok: boolean }>(`/notifications/${id}`, { method: 'DELETE' }),
+      unreadCount: () => playerRequest<{ count: number }>('/notifications/unread-count'),
+    },
+    security: {
+      score: () => playerRequest<SecurityScore>('/security/score'),
+      devices: () => playerRequest<LoginDevice[]>('/security/devices'),
+      logoutDevice: (deviceId: string) =>
+        playerRequest<{ ok: boolean }>(`/security/devices/${deviceId}/logout`, { method: 'POST' }),
+      changePassword: (body: Record<string, string>) =>
+        playerRequest<{ ok: boolean }>('/security/password', { method: 'POST', body: JSON.stringify(body) }),
+      totpSetup: () => playerRequest<{ secret: string; otpauth: string }>('/security/totp/setup'),
+      totpEnable: (body: Record<string, string>) =>
+        playerRequest<{ ok: boolean }>('/security/totp/enable', { method: 'POST', body: JSON.stringify(body) }),
+    },
+    appealDetail: (id: string) => playerRequest<AppealDetail>(`/appeals/${id}`),
+    appealMessages: (id: string) => playerRequest<AppealDetail>(`/appeals/${id}`),
+    ticketMessages: (id: string) => playerRequest<TicketMessage[]>(`/tickets/${id}/messages`),
+    ticketReply: (id: string, reply: string) =>
+      playerRequest<TicketMessage>(`/tickets/${id}/reply`, {
+        method: 'POST',
+        body: JSON.stringify({ reply }),
+      }),
   },
 
   records: {
@@ -504,5 +573,38 @@ export const api = {
     subscribeIoc: (id: number) => request<any>(`/v47/ioc/${id}/subscribe`, { method: 'POST' }),
     disarmIoc: (id: number) => request<any>(`/v47/ioc/${id}/disarm`, { method: 'POST' }),
     hitIoc: (id: number) => request<any>(`/v47/ioc/${id}/hit`, { method: 'POST' }),
+  },
+
+  // ---- PACC 4.0 管理端 P0：实时监控 / 玩家详情 / 告警中心 / 角色权限 ----
+  realtime: {
+    overview: () => request<RealtimeOverview>('/realtime/overview'),
+    runtime: () => request<RuntimeStat[]>('/realtime/runtime'),
+    events: (limit = 30) => request<RealtimeAlert[]>(`/realtime/events?limit=${limit}`),
+    alerts: (limit = 20) => request<RealtimeAlert[]>(`/realtime/alerts?limit=${limit}`),
+  },
+  playerDetail: (pteid: string) => request<AdminPlayerDetail>(`/players/${encodeURIComponent(pteid)}`),
+  redscreenAdminDetail: (id: string) => request<RedScreenDetail>(`/redscreens/${id}`),
+  alerts: {
+    list: (level?: string, status?: string) => {
+      const p = new URLSearchParams()
+      if (level) p.set('level', level)
+      if (status) p.set('status', status)
+      return request<any[]>(`/alerts?${p.toString()}`)
+    },
+    rules: () => request<AlertRule[]>('/alerts/rules'),
+    saveRule: (body: Record<string, unknown>) =>
+      request<AlertRule>('/alerts/rules', { method: 'POST', body: JSON.stringify(body) }),
+    toggleRule: (id: string, enabled: boolean) =>
+      request<{ ok: boolean }>(`/alerts/rules/${id}`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
+    ack: (id: string) => request<{ ok: boolean }>(`/alerts/${id}/ack`, { method: 'POST' }),
+  },
+  roles: {
+    list: () => request<AdminRole[]>('/roles'),
+    get: (id: string) => request<AdminRole>(`/roles/${id}`),
+    save: (body: Record<string, unknown>) =>
+      request<AdminRole>('/roles', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string, body: Record<string, unknown>) =>
+      request<AdminRole>(`/roles/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    remove: (id: string) => request<{ ok: boolean }>(`/roles/${id}`, { method: 'DELETE' }),
   },
 }

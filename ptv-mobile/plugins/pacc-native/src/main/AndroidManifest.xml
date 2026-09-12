@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
     <!-- 红屏全屏 Activity -->
     <application>
         <activity
@@ -8,5 +10,37 @@
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
             android:showWhenLocked="true"
             android:turnScreenOn="true" />
+
+        <!-- 无障碍输入监控（设计文档 §4.2.2 AccessibilityMonitor） -->
+        <service
+            android:name="com.potatotv.pacc.mobile.plugin.PaccAccessibilityService"
+            android:exported="false"
+            android:label="@string/pacc_accessibility_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/pacc_accessibility_config" />
+        </service>
+
+        <!-- 开机自启动（设计文档 §4.2.2 AutoStart） -->
+        <receiver
+            android:name="com.potatotv.pacc.mobile.plugin.PaccBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
+
+    <!-- 权限声明 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 </manifest>

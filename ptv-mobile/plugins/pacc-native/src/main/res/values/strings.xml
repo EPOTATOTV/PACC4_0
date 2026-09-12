@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pacc_accessibility_label">PACC 输入监控</string>
+    <string name="pacc_accessibility_desc">用于检测自动点击器等异常输入行为，仅记录触摸与按键事件时间戳，不上传任何屏幕内容。</string>
+</resources>

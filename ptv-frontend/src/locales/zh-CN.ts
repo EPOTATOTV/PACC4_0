@@ -35,6 +35,10 @@ const zhCN = {
 
   // 玩家门户导航
   'player.overview': '我的概览',
+  'player.protection': '实时保护',
+  'player.monitor': '实时监控',
+  'player.notifications': '通知中心',
+  'player.security': '账号安全',
   'player.tournament': '赛事中心',
   'player.records': '作弊记录',
   'player.devices': '我的设备',

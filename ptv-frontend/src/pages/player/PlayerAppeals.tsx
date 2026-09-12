@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Form, Input, List, Select, Tag, Typography, message } from 'antd'
 import type { FormProps } from 'antd'
 import { SendOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { Appeal } from '../../types'
 
@@ -32,6 +33,7 @@ export default function PlayerAppeals() {
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const navigate = useNavigate()
 
   async function load() {
     setLoading(true)
@@ -103,8 +105,14 @@ export default function PlayerAppeals() {
           renderItem={(a) => (
             <List.Item
               key={a.appealId}
-              style={{ padding: '14px 20px' }}
-              actions={[<Text type="secondary" key="t" style={{ fontSize: 12 }}>{fmt(a.createdAt)}</Text>]}
+              style={{ padding: '14px 20px', cursor: 'pointer' }}
+              onClick={() => navigate(`/portal/appeals/${a.appealId}`)}
+              actions={[
+                <Button key="detail" type="link" size="small" onClick={(e) => { e.stopPropagation(); navigate(`/portal/appeals/${a.appealId}`) }}>
+                  详情
+                </Button>,
+                <Text type="secondary" key="t" style={{ fontSize: 12 }}>{fmt(a.createdAt)}</Text>,
+              ]}
             >
               <List.Item.Meta
                 title={

@@ -32,6 +32,10 @@ const en: Record<string, string> = {
   'nav.support': 'Support Ticketing',
 
   'player.overview': 'My Overview',
+  'player.protection': 'Real-time Protection',
+  'player.monitor': 'Live Monitor',
+  'player.notifications': 'Notifications',
+  'player.security': 'Account Security',
   'player.tournament': 'Tournament Center',
   'player.records': 'Cheat Records',
   'player.devices': 'My Devices',

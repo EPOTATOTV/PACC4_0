@@ -14,6 +14,13 @@ import PlayerDevices from './PlayerDevices'
 import PlayerTournament from './PlayerTournament'
 import PlayerSettings from './PlayerSettings'
 import PlayerDiagnostics from './PlayerDiagnostics'
+import PlayerProtection from './PlayerProtection'
+import PlayerMonitor from './PlayerMonitor'
+import PlayerNotifications from './PlayerNotifications'
+import PlayerRedScreenDetail from './PlayerRedScreenDetail'
+import PlayerSecurity from './PlayerSecurity'
+import PlayerAppealDetail from './PlayerAppealDetail'
+import PlayerTicketDetail from './PlayerTicketDetail'
 
 /**
  * 玩家自助门户入口：未登录显示登录页，已登录进入带侧边栏的多页布局。
@@ -46,11 +53,18 @@ export default function PlayerPortal() {
     <PlayerLayout>
       <Routes>
         <Route path="/portal" element={<PlayerOverview />} />
+        <Route path="/portal/protection" element={<PlayerProtection />} />
+        <Route path="/portal/monitor" element={<PlayerMonitor />} />
         <Route path="/portal/tournament" element={<PlayerTournament />} />
         <Route path="/portal/records" element={<PlayerRecords />} />
+        <Route path="/portal/redscreen/:id" element={<PlayerRedScreenDetail />} />
         <Route path="/portal/devices" element={<PlayerDevices />} />
         <Route path="/portal/appeals" element={<PlayerAppeals />} />
+        <Route path="/portal/appeals/:id" element={<PlayerAppealDetail />} />
         <Route path="/portal/tickets" element={<PlayerTickets />} />
+        <Route path="/portal/tickets/:id" element={<PlayerTicketDetail />} />
+        <Route path="/portal/notifications" element={<PlayerNotifications />} />
+        <Route path="/portal/security" element={<PlayerSecurity />} />
         <Route path="/portal/settings" element={<PlayerSettings />} />
         <Route path="/portal/diagnostics" element={<PlayerDiagnostics />} />
         <Route path="*" element={<Navigate to="/portal" replace />} />

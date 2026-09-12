@@ -406,3 +406,205 @@ export interface BiOverview {
   appeal_funnel: BiAppealFunnel
   login_audit: BiLoginAudit
 }
+
+// ===================== PACC 4.0 前端升级 · 玩家端 =====================
+
+/** 实时保护仪表盘 - 保护状态大卡片 */
+export interface ProtectionStatus {
+  running: boolean
+  state: 'RUNNING' | 'PAUSED' | 'ERROR'
+  mode: string
+  scannable_regions: number
+  scanned_regions: number
+  uptime_sec: number
+  detection_count: number
+  redscreen_count: number
+  last_event_type?: string
+}
+
+/** 实时保护仪表盘 - 实时资源占用 */
+export interface ProtectionResource {
+  cpu: number
+  memory: number
+  network: number
+  ts: number
+}
+
+/** 实时保护仪表盘 - 今日检测统计 */
+export interface ProtectionStat {
+  detections_today: number
+  high_risk_today: number
+  redscreen_today: number
+  false_positive_today: number
+}
+
+/** 最近检测事件（实时事件流） */
+export interface DetectionEvent {
+  id: string
+  type: string
+  riskScore: number
+  timestamp: string
+  player?: string
+}
+
+/** 检测实时监控 - 检测器状态 */
+export interface DetectorStatus {
+  id: string
+  name: string
+  kind: 'violent' | 'stealth'
+  state: 'OK' | 'DEGRADED' | 'ERROR' | 'OFF'
+  scanCount: number
+  hitCount: number
+}
+
+/** 检测实时监控 - AI 模型推理状态 */
+export interface AiModelStatus {
+  modelVersion: string
+  latencyMs: number
+  predictions: { label: string; count: number }[]
+}
+
+/** 检测实时监控 - 实时日志条目 */
+export interface DetectionLogLine {
+  ts: number
+  level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR'
+  origin: string
+  message: string
+}
+
+/** 红屏事件详情 */
+export interface RedScreenDetail {
+  eventId: string
+  triggeredAt: string
+  level: number
+  state: string
+  cheatType: string
+  riskScore: number
+  hitDetectors: { name: string; matched: boolean; risk: number }[]
+  evidence?: {
+    memory?: string
+    behavior?: string
+    processSnapshot?: string[]
+    deviceInfo?: string
+  }
+  timeline: { at: string; action: string; note?: string }[]
+  player?: { pteid: string; reputation: number; device: string }
+}
+
+/** 通知中心条目 */
+export interface PlayerNotification {
+  id: string
+  kind: 'redscreen' | 'appeal' | 'ticket' | 'system' | 'activity' | 'reputation' | 'device' | 'match'
+  title: string
+  body?: string
+  read: boolean
+  createdAt: string
+}
+
+/** 账号安全中心 - 安全评分 */
+export interface SecurityScore {
+  score: number
+  level: 'LOW' | 'MEDIUM' | 'HIGH'
+  suggestions: string[]
+}
+
+/** 账号安全中心 - 登录设备 */
+export interface LoginDevice {
+  deviceId: string
+  name: string
+  platform?: string
+  ip?: string
+  online: boolean
+  suspicious: boolean
+  lastActiveAt: string
+}
+
+/** 申诉详情 */
+export interface AppealDetail extends Appeal {
+  timeline: { at: string; action: string; note?: string }[]
+  messages: { from: 'player' | 'reviewer'; content: string; at: string }[]
+}
+
+/** 工单对话消息 */
+export interface TicketMessage {
+  id: string
+  reply: string
+  responder?: string
+  createdAt: string
+}
+
+// ===================== PACC 4.0 前端升级 · 管理端 =====================
+
+/** 实时监控大屏 - 系统概览 */
+export interface RealtimeOverview {
+  online: number
+  detections: number
+  redscreenToday: number
+  pendingInspect: number
+  activeInspect: number
+  avgRisk: number
+}
+
+/** 实时监控大屏 - 运行状态项 */
+export interface RuntimeStat {
+  key: string
+  label: string
+  value: number
+  unit?: string
+  status?: 'ok' | 'warn' | 'err'
+}
+
+/** 实时监控大屏 - 告警条目 */
+export interface RealtimeAlert {
+  id: string
+  level: number
+  type: string
+  message: string
+  player?: string
+  time: string
+}
+
+/** 告警中心 - 告警规则 */
+export interface AlertRule {
+  id: string
+  name: string
+  scope: string
+  condition: string
+  threshold: number
+  cooldownMin: number
+  enabled: boolean
+  channels: string[]
+}
+
+/** 角色与权限 - 权限项 */
+export interface RolePermission {
+  module: string
+  moduleLabel: string
+  actions: { key: string; label: string; granted: boolean }[]
+}
+
+/** 角色与权限 - 角色 */
+export interface AdminRole {
+  id: string
+  name: string
+  key: string
+  description?: string
+  builtin: boolean
+  memberCount: number
+  permissions: RolePermission[]
+}
+
+/** 玩家详情（管理端视角） */
+export interface AdminPlayerDetail {
+  pteid: string
+  email?: string
+  reputation: number
+  status: string
+  registeredAt: string
+  totalRedscreen: number
+  lastActiveAt?: string
+  devices: DeviceRecord[]
+  appeals: Appeal[]
+  inspects: InspectSession[]
+  records: CheatRecord[]
+}

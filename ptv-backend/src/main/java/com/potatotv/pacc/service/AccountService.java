@@ -97,6 +97,23 @@ public class AccountService {
         accountRepository.save(a);
     }
 
+    /** 修改登录密码：校验当前密码后更新；用于玩家安全中心。 */
+    @Transactional
+    public void changePassword(String pteid, String currentPassword, String newPassword) {
+        Account a = accountRepository.findById(pteid)
+                .orElseThrow(() -> new IllegalArgumentException("账号不存在"));
+        if (!verify(a.getPasswordHash(), currentPassword == null ? "" : currentPassword)) {
+            throw new IllegalArgumentException("当前密码不正确");
+        }
+        if (!isStrongPassword(newPassword)) {
+            throw new IllegalArgumentException("新密码需为 8-32 位，包含大小写字母、数字与特殊符号");
+        }
+        a.setPasswordHash(hashPassword(newPassword));
+        a.setFailedLogins(0);
+        a.setLockedUntil(null);
+        accountRepository.save(a);
+    }
+
     private boolean isStrongPassword(String p) {
         return p != null && p.length() >= 8 && p.length() <= 32
                 && p.matches(".*[A-Z].*") && p.matches(".*[a-z].*")

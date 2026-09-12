@@ -52,4 +52,35 @@ export const mobileBridge = {
     sync: (token: string) =>
       (plugin('PaccPush') as PluginApi)['registerToken']({ token }) as Promise<Record<string, unknown>>,
   },
+  accessibility: {
+    isEnabled: () =>
+      (plugin('PaccAccessibilityMonitor') as PluginApi)['isEnabled']() as Promise<Record<string, unknown>>,
+    events: (limit = 50) =>
+      (plugin('PaccAccessibilityMonitor') as PluginApi)['events']({ limit }) as Promise<Record<string, unknown>>,
+    clear: () => (plugin('PaccAccessibilityMonitor') as PluginApi)['clear']() as Promise<void>,
+  },
+  usageStats: {
+    hasPermission: () =>
+      (plugin('PaccUsageStats') as PluginApi)['hasPermission']() as Promise<Record<string, unknown>>,
+    apps: (days = 1, limit = 50) =>
+      (plugin('PaccUsageStats') as PluginApi)['apps']({ days, limit }) as Promise<Record<string, unknown>>,
+  },
+  appScanner: {
+    scan: (limit = 200) =>
+      (plugin('PaccAppScanner') as PluginApi)['scan']({ limit }) as Promise<Record<string, unknown>>,
+  },
+  usbMonitor: {
+    devices: () => (plugin('PaccUsbMonitor') as PluginApi)['devices']() as Promise<Record<string, unknown>>,
+  },
+  network: {
+    status: () => (plugin('PaccNetwork') as PluginApi)['status']() as Promise<Record<string, unknown>>,
+  },
+  autoStart: {
+    isIgnoringBatteryOptimizations: () =>
+      (plugin('PaccAutoStart') as PluginApi)['isIgnoringBatteryOptimizations']() as Promise<
+        Record<string, unknown>
+      >,
+    requestIgnoreBatteryOptimizations: () =>
+      (plugin('PaccAutoStart') as PluginApi)['requestIgnoreBatteryOptimizations']() as Promise<void>,
+  },
 }

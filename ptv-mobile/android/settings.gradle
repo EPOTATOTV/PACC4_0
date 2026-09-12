@@ -1,4 +1,7 @@
 include ':app'
+include ':pacc-native'
+project(':pacc-native').projectDir = new File('../plugins/pacc-native')
+
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
