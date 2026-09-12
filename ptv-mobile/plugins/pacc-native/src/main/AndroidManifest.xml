@@ -2,6 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- 权限声明（置于 <application> 之前，符合 ManifestOrder 约定） -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
     <!-- 红屏全屏 Activity -->
     <application>
         <activity
@@ -9,7 +19,8 @@
             android:exported="false"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
             android:showWhenLocked="true"
-            android:turnScreenOn="true" />
+            android:turnScreenOn="true"
+            tools:targetApi="27" />
 
         <!-- 无障碍输入监控（设计文档 §4.2.2 AccessibilityMonitor） -->
         <service
@@ -34,13 +45,4 @@
             </intent-filter>
         </receiver>
     </application>
-
-    <!-- 权限声明 -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission" />
-    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 </manifest>

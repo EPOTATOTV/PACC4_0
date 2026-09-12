@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Button, Card, Col, Descriptions, Empty, Row, Statistic, Table, Tabs, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Col, Descriptions, Empty, Row, Table, Tabs, Tag, Typography } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import type { TableColumnsType } from 'antd'
+import MetricCard from '../components/MetricCard'
 import { api } from '../api/client'
 import type { AdminPlayerDetail, Appeal, CheatRecord, DeviceRecord, InspectSession } from '../types'
 import { StatusPill } from '../components/StatusPill'
@@ -73,10 +74,10 @@ export default function PlayerDetail() {
           </div>
 
           <Row gutter={[14, 14]} style={{ marginBottom: 14 }}>
-            <Col xs={12} sm={6}><Card size="small"><Statistic title="信誉分" value={d.reputation} suffix="/100" valueStyle={{ color: d.reputation >= 70 ? '#3fb950' : d.reputation >= 40 ? '#d29922' : '#ff3b30' }} /></Card></Col>
-            <Col xs={12} sm={6}><Card size="small"><Statistic title="红屏次数" value={d.totalRedscreen} valueStyle={{ color: '#ff3b30' }} /></Card></Col>
-            <Col xs={12} sm={6}><Card size="small"><Statistic title="设备数" value={d.devices.length} /></Card></Col>
-            <Col xs={12} sm={6}><Card size="small"><Statistic title="作弊记录" value={d.records.length} /></Card></Col>
+            <Col xs={12} sm={6}><MetricCard label="信誉分" value={`${d.reputation}/100`} accent={d.reputation >= 70 ? 'var(--kpi-green)' : d.reputation >= 40 ? 'var(--kpi-amber)' : 'var(--kpi-red)'} /></Col>
+            <Col xs={12} sm={6}><MetricCard label="红屏次数" value={d.totalRedscreen} accent="var(--kpi-red)" /></Col>
+            <Col xs={12} sm={6}><MetricCard label="设备数" value={d.devices.length} accent="var(--kpi-blue)" /></Col>
+            <Col xs={12} sm={6}><MetricCard label="作弊记录" value={d.records.length} accent="var(--kpi-red)" /></Col>
           </Row>
 
           <Card title="基本信息" size="small" style={{ marginBottom: 14 }}>

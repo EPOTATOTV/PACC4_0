@@ -68,9 +68,11 @@ export default function PlayerAppeals() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>在线申诉</Title>
-
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>在线申诉</Title>
+        <div style={{ flex: 1 }} />
+        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable />}
+      </div>
 
       <Card title="提交申诉" style={{ marginBottom: 16 }} styles={{ body: { padding: 20 } }}>
         <Form<Values>
@@ -124,7 +126,7 @@ export default function PlayerAppeals() {
                 description={
                   <div>
                     <Text type="secondary">{a.description}</Text>
-                    {a.reviewComment ? <div style={{ color: '#3fb950', fontSize: 13, marginTop: 6 }}>备注：{a.reviewComment}</div> : null}
+                    {a.reviewComment ? <div style={{ color: 'var(--kpi-green)', fontSize: 13, marginTop: 6 }}>备注：{a.reviewComment}</div> : null}
                   </div>
                 }
               />

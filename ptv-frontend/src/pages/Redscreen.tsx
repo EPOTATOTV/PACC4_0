@@ -5,7 +5,7 @@ import { api } from '../api/client'
 import type { RedscreenAlert } from '../types'
 import { StatusPill } from '../components/StatusPill'
 
-const { Title } = Typography
+const { Title, Text } = Typography
 
 export default function Redscreen() {
   const [state, setState] = useState('PENDING_INSPECT')
@@ -41,16 +41,17 @@ export default function Redscreen() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>红屏管理</Title>
-
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
-
-      <Segmented
-        value={state}
-        onChange={(v) => setState(v as string)}
-        options={states}
-        style={{ marginBottom: 16 }}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>红屏管理</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>玩家端红屏警告 · 待查 / 确认 / 误报</Text>
+        <div style={{ flex: 1 }} />
+        <Segmented
+          value={state}
+          onChange={(v) => setState(v as string)}
+          options={states}
+        />
+        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+      </div>
 
       <Card styles={{ body: { padding: 0 } }}>
         <Table<RedscreenAlert>

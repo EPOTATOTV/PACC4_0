@@ -4,6 +4,7 @@ import { NotificationOutlined, SafetyCertificateOutlined, ThunderboltOutlined } 
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { MatchValidateResult, PlayerCurrentMatch, PlayerEnrollmentStatus, PlayerSummary } from '../../types'
+import MetricCard from '../../components/MetricCard'
 import PlayerDetectionPanel from './PlayerDetectionPanel'
 import type { ProtectionStatus } from '../../types'
 
@@ -42,16 +43,16 @@ export default function PlayerOverview() {
 
       {summary && (
         <>
-          <Card style={{ marginBottom: 16 }}>
-            <Text type="secondary">账号 PTEID</Text>
-            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', marginTop: 4 }}>
-              {summary.pteid}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,220px) 1fr', gap: 14, marginBottom: 16 }} className="pacc-in">
+            <div style={{ border: '1px solid var(--border)', borderRadius: 8, background: 'var(--panel)', padding: '14px 16px' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>账号 PTEID</Text>
+              <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--mono)', marginTop: 4, wordBreak: 'break-all' }}>
+                {summary.pteid}
+              </div>
             </div>
-          </Card>
 
-          {protection && (
-            <Card style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+            {protection && (
+              <div style={{ border: '1px solid var(--border)', borderRadius: 8, background: 'var(--panel)', padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
                 <Statistic
                   title="保护状态"
                   value={protection.running ? '运行中' : protection.state === 'ERROR' ? '异常' : '已暂停'}
@@ -66,15 +67,17 @@ export default function PlayerOverview() {
                   <Button icon={<SafetyCertificateOutlined />} onClick={() => navigate('/portal/security')}>账号安全</Button>
                 </div>
               </div>
-            </Card>
-          )}
+            )}
+          </div>
 
-          <Row gutter={[14, 14]}>
-            <Col xs={12} sm={6}><StatCard title="作弊记录" value={summary.record_count} color="#ff3b30" /></Col>
-            <Col xs={12} sm={6}><StatCard title="已撤销记录" value={summary.revoked_count} color="#3fb950" /></Col>
-            <Col xs={12} sm={6}><StatCard title="待处理申诉" value={summary.pending_appeals} color="#d29922" /></Col>
-            <Col xs={12} sm={6}><StatCard title="未关闭工单" value={summary.open_tickets} color="#58a6ff" /></Col>
+          <Row gutter={[14, 14]} className="pacc-stagger">
+            <Col xs={12} sm={6}><MetricCard label="作弊记录" value={summary.record_count} accent="var(--kpi-red)" /></Col>
+            <Col xs={12} sm={6}><MetricCard label="已撤销记录" value={summary.revoked_count} accent="var(--kpi-green)" /></Col>
+            <Col xs={12} sm={6}><MetricCard label="待处理申诉" value={summary.pending_appeals} accent="var(--kpi-amber)" /></Col>
+            <Col xs={12} sm={6}><MetricCard label="未关闭工单" value={summary.open_tickets} accent="var(--kpi-blue)" /></Col>
           </Row>
+
+          <div className="section-title">赛事与会话</div>
 
           {enroll && (
             <Card title="赛事状态" style={{ marginTop: 16 }}>
@@ -117,14 +120,6 @@ export default function PlayerOverview() {
         </>
       )}
     </div>
-  )
-}
-
-function StatCard({ title, value, color }: { title: string; value: number; color: string }) {
-  return (
-    <Card size="small">
-      <Statistic title={title} value={value} valueStyle={{ color, fontWeight: 700 }} />
-    </Card>
   )
 }
 

@@ -45,9 +45,11 @@ export default function PlayerTickets() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>客服工单</Title>
-
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>客服工单</Title>
+        <div style={{ flex: 1 }} />
+        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+      </div>
 
       <Card title="提交工单" style={{ marginBottom: 16 }} styles={{ body: { padding: 20 } }}>
         <TicketForm

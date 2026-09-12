@@ -230,7 +230,7 @@ export default function V46Detection() {
     <div style={{ maxWidth: 1180 }}>
       <Title level={3} style={{ marginTop: 0 }}>检测深化 · v4.6</Title>
       <Text type="secondary" style={{ display: 'block', marginBottom: 18 }}>
-        零日外挂检测（孤立森林 + 线性自编码重构 + 行为基线偏离）与威胁情报 / 主动学习回流
+        零日外挂检测与威胁情报 / 主动学习回流，样本复核确认后回灌特征库
       </Text>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}

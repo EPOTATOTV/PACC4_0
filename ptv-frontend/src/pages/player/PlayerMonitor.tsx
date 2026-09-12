@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, Card, Col, Input, Row, Space, Statistic, Switch, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Col, Input, Row, Space, Switch, Tag, Typography } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import type { EChartsOption } from 'echarts'
 import { api } from '../../api/client'
 import { desktopBridge } from '../../services/desktopBridge'
 import type { AiModelStatus, DetectionLogLine, DetectorStatus } from '../../types'
 import EChart from '../../components/EChart'
+import MetricCard from '../../components/MetricCard'
 
 const { Title, Text } = Typography
 
@@ -114,10 +115,10 @@ export default function PlayerMonitor() {
       </div>
 
       <Row gutter={[14, 14]}>
-        <Col xs={24} md={6}><Card size="small"><Statistic title="暴力检测器" value={detectors.filter((d) => d.kind === 'violent').length ?? '-'} suffix="个" /></Card></Col>
-        <Col xs={24} md={6}><Card size="small"><Statistic title="隐身检测器" value={detectors.filter((d) => d.kind === 'stealth').length ?? '-'} suffix="个" /></Card></Col>
-        <Col xs={24} md={6}><Card size="small"><Statistic title="AI 版本" value={ai?.modelVersion ?? '-'} /></Card></Col>
-        <Col xs={24} md={6}><Card size="small"><Statistic title="AI 推理延迟" value={ai ? `${ai.latencyMs}ms` : '-'} /></Card></Col>
+        <Col xs={24} md={6}><MetricCard label="暴力检测器" value={detectors.filter((d) => d.kind === 'violent').length ?? '-'} hint="个" accent="var(--kpi-blue)" /></Col>
+        <Col xs={24} md={6}><MetricCard label="隐身检测器" value={detectors.filter((d) => d.kind === 'stealth').length ?? '-'} hint="个" accent="var(--kpi-purple)" /></Col>
+        <Col xs={24} md={6}><MetricCard label="AI 版本" value={ai?.modelVersion ?? '-'} accent="var(--kpi-green)" /></Col>
+        <Col xs={24} md={6}><MetricCard label="AI 推理延迟" value={ai ? `${ai.latencyMs}ms` : '-'} accent="var(--kpi-muted)" /></Col>
       </Row>
 
       <Row gutter={[14, 14]} style={{ marginTop: 14 }}>

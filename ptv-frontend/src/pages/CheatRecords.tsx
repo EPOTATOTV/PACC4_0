@@ -4,7 +4,7 @@ import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
 import type { CheatRecord } from '../types'
 
-const { Title } = Typography
+const { Title, Text } = Typography
 
 export default function CheatRecords() {
   const [records, setRecords] = useState<CheatRecord[]>([])
@@ -57,7 +57,13 @@ export default function CheatRecords() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>作弊记录</Title>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>作弊记录</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          按 PTEID 检索作弊命中记录，支持撤销（撤销后不再参与后续判定）
+        </Text>
+        <div style={{ flex: 1 }} />
+      </div>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
 

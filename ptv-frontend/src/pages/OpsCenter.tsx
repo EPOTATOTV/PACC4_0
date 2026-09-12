@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Col, Form, Input, Modal, Row, Select, Statistic, Switch, Table, Tabs, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Col, Form, Input, Modal, Row, Select, Switch, Table, Tabs, Tag, Typography, message } from 'antd'
 import type { TableColumnsType } from 'antd'
+import MetricCard from '../components/MetricCard'
 
 const { Title, Text } = Typography
 
@@ -220,51 +221,48 @@ export default function OpsCenter() {
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
 
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }} className="pacc-stagger">
         <Col span={6}>
-          <Card>
-            <Statistic title="服务状态" value={health?.status ?? '-'} valueStyle={{ color: dbUp ? '#3fb950' : '#f85149' }} />
-            <div style={{ marginTop: 4 }}>
-              DB：<Tag color={dbUp ? 'success' : 'error'}>{health?.db ?? '-'}</Tag>
-              {health?.db_error && <Text type="secondary" style={{ fontSize: 12 }}>{health.db_error}</Text>}
-            </div>
-          </Card>
+          <MetricCard
+            label="服务状态"
+            value={health?.status ?? '-'}
+            accent={dbUp ? 'var(--kpi-green)' : 'var(--kpi-red)'}
+            hint={
+              <>
+                DB：<Tag color={dbUp ? 'success' : 'error'}>{health?.db ?? '-'}</Tag>
+                {health?.db_error && <Text type="secondary" style={{ fontSize: 12 }}>{health.db_error}</Text>}
+              </>
+            }
+          />
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic
-              title="JVM 内存"
-              value={mem ? `${mem.used_mb ?? 0} / ${mem.max_mb ?? 0}` : '-'}
-              suffix="MB"
-            />
-            <div style={{ marginTop: 4 }}><Text type="secondary" style={{ fontSize: 12 }}>已用 / 上限</Text></div>
-          </Card>
+          <MetricCard
+            label="JVM 内存"
+            value={mem ? `${mem.used_mb ?? 0} / ${mem.max_mb ?? 0}` : '-'}
+            accent="var(--kpi-blue)"
+            hint={<Text type="secondary" style={{ fontSize: 12 }}>已用 / 上限 (MB)</Text>}
+          />
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic
-              title="运行时长"
-              value={health?.uptime_seconds ? `${Math.floor(health.uptime_seconds / 86400)}天 ${Math.floor((health.uptime_seconds % 86400) / 3600)}h` : '-'}
-            />
-          </Card>
+          <MetricCard
+            label="运行时长"
+            value={health?.uptime_seconds ? `${Math.floor(health.uptime_seconds / 86400)}天 ${Math.floor((health.uptime_seconds % 86400) / 3600)}h` : '-'}
+            accent="var(--kpi-muted)"
+          />
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="近24h崩溃" value={overview ? (overview.crash_count_last_24h ?? 0) : '-'} />
-          </Card>
+          <MetricCard
+            label="近24h崩溃"
+            value={overview ? (overview.crash_count_last_24h ?? 0) : '-'}
+            accent={(overview?.crash_count_last_24h ?? 0) > 0 ? 'var(--kpi-red)' : 'var(--kpi-green)'}
+          />
         </Col>
       </Row>
 
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col span={8}>
-          <Card><Statistic title="平均 CPU %" value={overview?.avg_cpu ?? '-'} precision={overview?.avg_cpu != null ? 2 : undefined} /></Card>
-        </Col>
-        <Col span={8}>
-          <Card><Statistic title="平均内存 MB" value={overview?.avg_mem_mb ?? '-'} precision={overview?.avg_mem_mb != null ? 1 : undefined} /></Card>
-        </Col>
-        <Col span={8}>
-          <Card><Statistic title="性能采样 / 崩溃总数" value={`${overview?.sample_telemetry_count ?? '-'} / ${overview?.total_crashes ?? '-'}`} /></Card>
-        </Col>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }} className="pacc-stagger">
+        <Col span={8}><MetricCard label="平均 CPU %" value={overview?.avg_cpu ?? '-'} accent="var(--kpi-muted)" /></Col>
+        <Col span={8}><MetricCard label="平均内存 MB" value={overview?.avg_mem_mb ?? '-'} accent="var(--kpi-muted)" /></Col>
+        <Col span={8}><MetricCard label="性能采样 / 崩溃总数" value={`${overview?.sample_telemetry_count ?? '-'} / ${overview?.total_crashes ?? '-'}`} accent="var(--kpi-muted)" /></Col>
       </Row>
 
       <Card style={{ marginBottom: 16 }}>

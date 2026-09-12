@@ -104,7 +104,9 @@ export default function PlayerScreenShare() {
 
   return (
     <div style={{ padding: 24, maxWidth: 560, margin: '0 auto' }}>
-      <Title level={3} style={{ marginTop: 0 }}>远程查端 · 屏幕共享</Title>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>远程查端 · 屏幕共享</Title>
+      </div>
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
         <Card size="small">
           <Badge

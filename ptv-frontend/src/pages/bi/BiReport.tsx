@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Card, Col, Empty, Row, Select, Statistic, Table, Typography } from 'antd'
+import { Alert, Button, Card, Col, Empty, Row, Select, Table, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { EChartsOption } from 'echarts'
 import { api } from '../../api/client'
 import type { BiCheatTypeRow, BiOverview } from '../../types'
 import EChart from '../../components/EChart'
+import MetricCard from '../../components/MetricCard'
 
 const { Title, Text } = Typography
 
@@ -145,11 +146,11 @@ export default function BiReport() {
 
   const fpRate = data?.redscreen_health.false_positive_rate ?? 0
   const tamperColumns: Items = [
-    { label: '检测趋势', category: 'detection', val: data?.detection_trend.total ?? 0, accent: '#58a6ff' },
-    { label: '红屏事件', category: 'redscreen', val: data?.redscreen_trend.total ?? 0, accent: '#ff3b30' },
-    { label: '误报率', category: 'fp', val: fpRate, accent: '#d29922', pct: true },
-    { label: '待查红屏', category: 'pending', val: data?.redscreen_health.pending ?? 0, accent: '#3fb950' },
-    { label: '申诉总数', category: 'appeal', val: data?.appeal_funnel.total ?? 0, accent: '#a371f7' },
+    { label: '检测趋势', category: 'detection', val: data?.detection_trend.total ?? 0, accent: 'var(--kpi-blue)' },
+    { label: '红屏事件', category: 'redscreen', val: data?.redscreen_trend.total ?? 0, accent: 'var(--kpi-red)' },
+    { label: '误报率', category: 'fp', val: fpRate, accent: 'var(--kpi-amber)', pct: true },
+    { label: '待查红屏', category: 'pending', val: data?.redscreen_health.pending ?? 0, accent: 'var(--kpi-green)' },
+    { label: '申诉总数', category: 'appeal', val: data?.appeal_funnel.total ?? 0, accent: 'var(--kpi-blue)' },
   ]
 
   return (
@@ -176,15 +177,7 @@ export default function BiReport() {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         {tamperColumns.map((c) => (
           <Col xs={12} sm={12} md={8} lg={4} key={c.category}>
-            <Card size="small">
-              <Statistic
-                title={c.label}
-                value={c.val}
-                precision={c.pct ? 2 : 0}
-                suffix={c.pct ? '%' : undefined}
-                valueStyle={{ color: c.accent, fontWeight: 700 }}
-              />
-            </Card>
+            <MetricCard label={c.label} value={c.pct ? Number(c.val.toFixed(2)) : c.val} accent={c.accent} hint={c.pct ? '%' : undefined} />
           </Col>
         ))}
       </Row>

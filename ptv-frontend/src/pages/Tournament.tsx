@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Checkbox, Col, Form, Input, Modal, Progress, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Checkbox, Col, Form, Input, Modal, Progress, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
+import MetricCard from '../components/MetricCard'
 import { ArrowDownOutlined, ArrowUpOutlined, PlusOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 import type { EnrollmentStats, TournamentNotice, TournamentStage } from '../types'
@@ -213,11 +214,11 @@ export default function Tournament() {
               <Card title="报名与队伍统计" style={{ marginBottom: 16 }}>
                 {stats ? (
                   <>
-                    <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-                      <Col xs={12} sm={6}><Statistic title="已报名" value={stats.by_status.APPROVED ?? 0} valueStyle={{ color: '#3fb950', fontWeight: 700 }} /></Col>
-                      <Col xs={12} sm={6}><Statistic title="待审批" value={stats.by_status.PENDING ?? 0} valueStyle={{ color: '#d29922', fontWeight: 700 }} /></Col>
-                      <Col xs={12} sm={6}><Statistic title="已拒绝" value={stats.by_status.REJECTED ?? 0} valueStyle={{ color: '#ff3b30', fontWeight: 700 }} /></Col>
-                      <Col xs={12} sm={6}><Statistic title="队伍数" value={Object.keys(stats.by_team ?? {}).length} valueStyle={{ color: '#58a6ff', fontWeight: 700 }} /></Col>
+                    <Row gutter={[12, 12]} style={{ marginBottom: 20 }} className="pacc-stagger">
+                      <Col xs={12} sm={6}><MetricCard label="已报名" value={stats.by_status.APPROVED ?? 0} accent="var(--kpi-green)" /></Col>
+                      <Col xs={12} sm={6}><MetricCard label="待审批" value={stats.by_status.PENDING ?? 0} accent="var(--kpi-amber)" /></Col>
+                      <Col xs={12} sm={6}><MetricCard label="已拒绝" value={stats.by_status.REJECTED ?? 0} accent="var(--kpi-red)" /></Col>
+                      <Col xs={12} sm={6}><MetricCard label="队伍数" value={Object.keys(stats.by_team ?? {}).length} accent="var(--kpi-blue)" /></Col>
                     </Row>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 10 }}>各队伍人数</Text>
                     {teamEntries.length === 0 ? (

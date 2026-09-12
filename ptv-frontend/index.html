@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.ico" />
     <title>PACC PTV 管控后台</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <style>
       :root {
         --bg: #050608;
@@ -26,7 +23,7 @@
         --green: #3fb950;
         --amber: #e3a437;
         --blue: #5da9ff;
-        --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+        --mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
       }
       * { box-sizing: border-box; }
       @font-face {
@@ -57,6 +54,222 @@
       ::-webkit-scrollbar { width: 8px; height: 8px; }
       ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 99px; }
       ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); }
+
+      /* ———— P1 样式打磨：语义 KPI 色 / 等宽统计 / 焦点环 / KPI 卡 / 克制动效 ———— */
+      :root {
+        --kpi-green: #3fb950;
+        --kpi-blue: #58a6ff;
+        --kpi-red: #ff3b30;
+        --kpi-amber: #d29922;
+        --kpi-muted: #8b949e;
+      }
+      /* 液体玻璃卡片兜底：确保 blur/背景/内高光不被 antd 的 CSS-in-JS 覆盖 */
+      .pacc-glass {
+        -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+        backdrop-filter: blur(22px) saturate(180%) !important;
+      }
+      /* 统计数字统一等宽，强化运营台质感 */
+      .ant-statistic-content { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+      .ant-statistic-title { letter-spacing: .02em; color: var(--muted); }
+      /* 可聚焦控件焦点环 */
+      :focus-visible { outline: 2px solid rgba(255, 107, 94, .6); outline-offset: 1px; }
+      .ant-input:focus-visible, .ant-input-affix-wrapper:focus-within, .ant-btn:focus-visible {
+        outline: 2px solid rgba(255, 107, 94, .5); outline-offset: 1px;
+      }
+      /* KPI 卡：hover 仅提亮边框与加深阴影，不位移、不放大、不做大渐变 */
+      .ant-card.metric-card { transition: border-color .18s ease, box-shadow .18s ease; }
+      .ant-card.metric-card:hover { border-color: var(--border-strong); box-shadow: 0 6px 22px rgba(0, 0, 0, .32); }
+      /* 文字分割线分区块 / 分隔线（非卡片分区，支持克制布局） */
+      .section-title {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+        color: var(--muted); margin: 22px 0 10px;
+      }
+      .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+      .secret-line { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+      /* 入场动效（克制动效，单一交错，非到处悬浮） */
+      @keyframes paccFadeUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+      .pacc-in { animation: paccFadeUp .26s ease both; }
+
+      /* 玻璃背后的光斑极缓漂移：液体感来源，19s 往返，位移小、不打扰 */
+      @keyframes paccDrift {
+        0%   { transform: translate3d(0, 0, 0) scale(1); }
+        50%  { transform: translate3d(16px, 12px, 0) scale(1.06); }
+        100% { transform: translate3d(0, 0, 0) scale(1); }
+      }
+      .pacc-aurora { animation: paccDrift 19s ease-in-out infinite; will-change: transform; }
+
+      /* ———— P2 精致微动效（参考 uiverse.io 取向，简单但处处精致）————
+         原则：位移 ≤2px、时长 ≤180ms、只改 border/background/shadow/transform，
+         全程尊重系统「减弱动态」。不缩放、不旋转、不做无意义循环。 */
+      :root {
+        --motion-fast: 140ms cubic-bezier(.4, 0, .2, 1);
+        --motion-base: 200ms cubic-bezier(.4, 0, .2, 1);
+      }
+
+      /* 按钮：hover 微上浮 + 边框辉光；active 轻按压回弹 */
+      .ant-btn {
+        transition: transform var(--motion-fast), border-color var(--motion-fast),
+          box-shadow var(--motion-fast), background var(--motion-fast), color var(--motion-fast);
+      }
+      .ant-btn:not(:disabled):hover { transform: translateY(-1px); }
+      .ant-btn:not(:disabled):active { transform: translateY(0) scale(.98); }
+      .ant-btn-primary:not(:disabled):hover {
+        box-shadow: 0 4px 16px rgba(255, 77, 61, .28);
+      }
+
+      /* 菜单项：hover 左缘指示条渐现 + 底色过渡，选中态柔和渐变 */
+      .ant-menu-item { transition: background var(--motion-base), color var(--motion-base); }
+      .ant-menu-inline .ant-menu-item::before {
+        content: '';
+        position: absolute; insetInlineStart: 0; insetBlock: 22%;
+        width: 2px; border-radius: 2px;
+        background: var(--red-2);
+        transform: scaleY(0); opacity: 0;
+        transition: transform var(--motion-base), opacity var(--motion-base);
+      }
+      .ant-menu-inline .ant-menu-item:hover::before,
+      .ant-menu-inline .ant-menu-item-selected::before {
+        transform: scaleY(1); opacity: 1;
+      }
+
+      /* 表格行：hover 高亮衔接（只用背景，不用位移） */
+      .ant-table-tbody > tr { transition: background var(--motion-base); }
+
+      /* MetricCard：hover 上浮 1px + 语义条左缘延伸发光，契合下发丝基调 */
+      .ant-card.metric-card { transition: transform var(--motion-base), border-color var(--motion-base), box-shadow var(--motion-base); }
+      .ant-card.metric-card:hover { transform: translateY(-1px); }
+      .ant-card.metric-card > .ant-card-body > span { transition: box-shadow var(--motion-base); }
+      .ant-card.metric-card:hover > .ant-card-body > span { box-shadow: 0 0 12px rgba(255, 77, 61, .35); }
+
+      /* 开关与标签：过渡柔和 */
+      .ant-switch { transition: background var(--motion-base), opacity var(--motion-fast); }
+      .ant-tag { transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast); }
+
+      /* 卡片 hover：仅背景微提，禁止位移（避免“满屏跳动”），边框更亮 */
+      .ant-card:not(.metric-card) { transition: border-color var(--motion-base), background var(--motion-base); }
+      .ant-card:not(.metric-card):hover { border-color: var(--border-strong); }
+
+      /* 入场 stagger：用于 Row 内多个子项顺序浮现，动画简单但序列精致 */
+      .pacc-stagger > * { opacity: 0; animation: paccFadeUp .28s ease both; }
+      .pacc-stagger > *:nth-child(1) { animation-delay: 0ms; }
+      .pacc-stagger > *:nth-child(2) { animation-delay: 40ms; }
+      .pacc-stagger > *:nth-child(3) { animation-delay: 80ms; }
+      .pacc-stagger > *:nth-child(4) { animation-delay: 120ms; }
+      .pacc-stagger > *:nth-child(n+5) { animation-delay: 160ms; }
+
+      /* ———— P3：表格 / 控件的精致化覆盖（作用于全站所有 antd 表格页）————
+         消除 antd 默认观感的「AI 味」：表头发丝底、行分隔线、等宽数字、状态标签、
+         分段控件、标签页、分页器、空态。克制动效，尊重减弱动态。 */
+      /* 卡片内嵌表格：去掉卡片底色干扰，表头更透气 */
+      .ant-card .ant-table { background: transparent; }
+      .ant-card .ant-table-container,
+      .ant-card .ant-table-content { border-inline-start: 0 !important; }
+      /* 表头：发丝底部 + 深一档底色 + 小字距 */
+      .ant-table-thead > tr > th {
+        background: rgba(255, 255, 255, .02) !important;
+        color: var(--muted) !important;
+        font-weight: 500 !important;
+        font-size: 12px !important;
+        letter-spacing: .02em;
+        border-bottom: 1px solid var(--border) !important;
+        padding-block: 10px !important;
+      }
+      /* 表格行：垂直居中 + 行间发丝 + hover 柔和提亮 */
+      .ant-table-tbody > tr > td {
+        padding-block: 11px !important;
+        border-bottom: 1px solid var(--border) !important;
+      }
+      .ant-table-tbody > tr:hover > td { background: rgba(255, 255, 255, .025) !important; }
+      .ant-table-cell-fix-left, .ant-table-cell-fix-right { background: var(--panel); }
+      /* 等宽数字列强化运营感（已含 tabular-nums，这里统一未设 type 的数字列） */
+      .ant-table-tbody .ant-typography { font-variant-numeric: tabular-nums; }
+
+      /* 分段控件：玻璃面板 + 选中项红点标识 */
+      .ant-segmented {
+        background: rgba(255, 255, 255, .03) !important;
+        border: 1px solid var(--border) !important;
+        padding: 3px !important;
+      }
+      .ant-segmented-item { transition: background var(--motion-fast), color var(--motion-fast); }
+      .ant-segmented-item-selected {
+        background: rgba(255, 77, 61, .14) !important;
+        color: var(--red-2) !important;
+        box-shadow: none !important;
+      }
+
+      /* 标签页：底部发丝 + 选中项语义色 */
+      .ant-tabs-nav::before { border-bottom-color: var(--border) !important; }
+      .ant-tabs-tab { transition: color var(--motion-fast); }
+      .ant-tabs-tab:hover { color: var(--text) !important; }
+
+      /* 标签：发丝描边取代实心块，降低噪点 */
+      .ant-tag { border-width: 1px !important; background: transparent !important; border-radius: 5px; }
+
+      /* 分页器：当前页用语义红，禁用态更淡 */
+      .ant-pagination .ant-pagination-item {
+        background: transparent !important; border-color: var(--border) !important;
+      }
+      .ant-pagination .ant-pagination-item-active {
+        border-color: var(--red) !important; background: rgba(255, 77, 61, .14) !important;
+      }
+      .ant-pagination .ant-pagination-item-active a { color: var(--red-2) !important; }
+
+      /* 输入/下拉：聚焦发丝红光，替代默认蓝 */
+      .ant-input, .ant-input-affix-wrapper, .ant-select-selector {
+        border-color: var(--border) !important;
+        transition: border-color var(--motion-fast), box-shadow var(--motion-fast) !important;
+      }
+      .ant-input:hover, .ant-input-affix-wrapper:hover, .ant-select-selector:hover { border-color: var(--border-strong) !important; }
+      .ant-input-focused, .ant-input:focus,
+      .ant-input-affix-wrapper-focused .ant-input-affix-wrapper,
+      .ant-select-focused .ant-select-selector {
+        border-color: var(--red-2) !important;
+        box-shadow: 0 0 0 2px rgba(255, 77, 61, .12) !important;
+      }
+
+      /* 空态：文案更淡但保留图标 */
+      .ant-empty-description { color: var(--dim) !important; }
+
+      /* ———— P4：弹层 / 高阶控件的精致化覆盖 ———— */
+      /* Modal / Drawer：深底 + 细边框 + 发丝分隔，去默认圆角感 */
+      .ant-modal-content, .ant-drawer-content {
+        background: var(--panel) !important;
+        border: 1px solid var(--border-strong);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, .5);
+      }
+      .ant-modal-header, .ant-drawer-header { background: transparent !important; border-bottom: 1px solid var(--border) !important; }
+      .ant-modal-footer { border-top: 1px solid var(--border) !important; padding-top: 12px; }
+      .ant-modal-title, .ant-drawer-title { color: var(--text) !important; letter-spacing: .02em; }
+      .ant-modal-close, .ant-drawer-close { color: var(--muted) !important; }
+      .ant-modal-close:hover, .ant-drawer-close:hover { color: var(--text) !important; }
+
+      /* 徽标：发丝描边，降低实心噪点 */
+      .ant-badge-count { box-shadow: none !important; background: rgba(255, 77, 61, .9) !important; }
+
+      /* 气泡确认 / 提示：深底 + 细边框 */
+      .ant-popover-inner, .ant-message-notice-content, .ant-tooltip-inner {
+        background: var(--panel-2) !important;
+        border: 1px solid var(--border-strong);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+      }
+
+      /* 描述列表：发丝分隔，标签更淡 */
+      .ant-descriptions-item-label { color: var(--muted) !important; }
+      .ant-descriptions-bordered.ant-descriptions { background: transparent !important; }
+      .ant-descriptions-bordered .ant-descriptions-item-label,
+      .ant-descriptions-bordered .ant-descriptions-item-content {
+        border-color: var(--border) !important;
+      }
+
+      /* 表单：表单项间距柔和，label 更清晰 */
+      .ant-form-item-label > label { color: var(--muted) !important; letter-spacing: .02em; }
+
+      /* 尊重系统「减弱动态」：关闭位移/辉光/交错 */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+        .ant-btn:not(:disabled):hover, .ant-card.metric-card:hover { transform: none; }
+      }
     </style>
   </head>
   <body>

@@ -1,9 +1,9 @@
 package com.potatotv.pacc.mobile.plugin;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
 import android.os.PowerManager;
 
 import com.getcapacitor.JSObject;
@@ -28,6 +28,7 @@ public class PaccAutoStartPlugin extends Plugin {
 
     /** 拉起系统设置页申请白名单（需要用户手动确认）。 */
     @PluginMethod
+    @SuppressLint("BatteryLife")
     public void requestIgnoreBatteryOptimizations(PluginCall call) {
         if (isIgnoring(getContext())) {
             call.resolve();
@@ -45,7 +46,6 @@ public class PaccAutoStartPlugin extends Plugin {
     }
 
     private boolean isIgnoring(Context context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         return pm != null && pm.isIgnoringBatteryOptimizations(context.getPackageName());
     }

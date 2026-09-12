@@ -115,9 +115,22 @@ export default function SignatureLibrary() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>特征库管理</Title>
-
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>特征库管理</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          特征码灰度发布与自动回滚（BEDROCK / JAVA 双版本，草稿经灰度放量后生效）
+        </Text>
+        <div style={{ flex: 1 }} />
+        <Space wrap size={6}>
+          <Button onClick={() => gray(10)}>灰度 10%</Button>
+          <Button onClick={() => gray(50)}>灰度 50%</Button>
+          <Button onClick={() => gray(100)}>全量发布</Button>
+          <Button danger onClick={rollback}>回滚</Button>
+          <Button loading={diffLoading} onClick={openDiff}>查看增量</Button>
+          <Button loading={rolling} onClick={autoRollback}>自动回滚(误报&gt;0.5%)</Button>
+        </Space>
+        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable />}
+      </div>
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Segmented
@@ -135,12 +148,6 @@ export default function SignatureLibrary() {
             { label: '草稿', value: 'DRAFT' },
           ]}
         />
-        <Button onClick={() => gray(10)}>灰度 10%</Button>
-        <Button onClick={() => gray(50)}>灰度 50%</Button>
-        <Button onClick={() => gray(100)}>全量发布</Button>
-        <Button danger onClick={rollback}>回滚</Button>
-        <Button loading={diffLoading} onClick={openDiff}>查看增量</Button>
-        <Button loading={rolling} onClick={autoRollback}>自动回滚(误报&gt;0.5%)</Button>
       </Space>
 
       <Card title="新增特征（草稿）" style={{ marginBottom: 16 }} styles={{ body: { padding: 20 } }}>

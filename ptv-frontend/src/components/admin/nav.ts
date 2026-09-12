@@ -19,6 +19,8 @@ export interface NavGroup {
   /** i18n 分组键，如 detect → nav.group.detect */
   groupI18nKey: string
   items: NavItem[]
+  /** 仅超级管理员可见（如「文档与协议」等含内部技术资料的入口） */
+  superAdminOnly?: boolean
 }
 
 export const navGroups: NavGroup[] = [
@@ -35,10 +37,6 @@ export const navGroups: NavGroup[] = [
     items: [
       { key: '/redscreen', to: '/redscreen', label: '红屏管理', i18nKey: 'nav.redscreen' },
       { key: '/inspect', to: '/inspect', label: '查端控制台', i18nKey: 'nav.inspect' },
-      { key: '/detection41', to: '/detection41', label: 'v4.1 检测引擎', i18nKey: 'nav.detection41' },
-      { key: '/countermeasure', to: '/countermeasure', label: '对抗巡检', i18nKey: 'nav.countermeasure' },
-      { key: '/v46', to: '/v46', label: '检测深化', i18nKey: 'nav.v46' },
-      { key: '/v47', to: '/v47', label: '情报运营中台', i18nKey: 'nav.v47' },
       { key: '/records', to: '/records', label: '作弊记录', i18nKey: 'nav.records' },
     ],
   },
@@ -77,9 +75,7 @@ export const navGroups: NavGroup[] = [
       { key: '/login-logs', to: '/login-logs', label: '登录日志', i18nKey: 'nav.loginLogs' },
       { key: '/audit', to: '/audit', label: '审计日志', i18nKey: 'nav.audit' },
       { key: '/tenant', to: '/tenant', label: '租户管理', i18nKey: 'nav.tenant' },
-      { key: '/bi', to: '/bi', label: 'BI 报表', i18nKey: 'nav.bi' },
       { key: '/system', to: '/system', label: '系统设置', i18nKey: 'nav.system' },
-      { key: '/openapi', to: '/openapi', label: '开放 API', i18nKey: 'nav.openapi' },
     ],
   },
   {
@@ -92,6 +88,20 @@ export const navGroups: NavGroup[] = [
       { key: '/support', to: '/support', label: '客服工单', i18nKey: 'nav.support' },
     ],
   },
+  {
+    groupKey: 'docs',
+    groupLabel: '文档与协议',
+    groupI18nKey: 'nav.group.docs',
+    superAdminOnly: true,
+    items: [
+      { key: '/detection41', to: '/detection41', label: 'v4.1 检测引擎', i18nKey: 'nav.detection41' },
+      { key: '/countermeasure', to: '/countermeasure', label: '对抗巡检', i18nKey: 'nav.countermeasure' },
+      { key: '/v46', to: '/v46', label: '检测深化', i18nKey: 'nav.v46' },
+      { key: '/v47', to: '/v47', label: '情报运营中台', i18nKey: 'nav.v47' },
+      { key: '/openapi', to: '/openapi', label: '开放 API', i18nKey: 'nav.openapi' },
+      { key: '/bi', to: '/bi', label: 'BI 报表', i18nKey: 'nav.bi' },
+    ],
+  },
 ]
 
 /** 路由 → 页面标题 i18n 键 + 所属分组 i18n 键，供面包屑使用 */
@@ -99,10 +109,10 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/': { titleKey: 'nav.dashboard', groupKey: 'nav.group.overview' },
   '/redscreen': { titleKey: 'nav.redscreen', groupKey: 'nav.group.detect' },
   '/inspect': { titleKey: 'nav.inspect', groupKey: 'nav.group.detect' },
-  '/detection41': { titleKey: 'nav.detection41', groupKey: 'nav.group.detect' },
-  '/countermeasure': { titleKey: 'nav.countermeasure', groupKey: 'nav.group.detect' },
-  '/v46': { titleKey: 'nav.v46', groupKey: 'nav.group.detect' },
-  '/v47': { titleKey: 'nav.v47', groupKey: 'nav.group.detect' },
+  '/detection41': { titleKey: 'nav.detection41', groupKey: 'nav.group.docs' },
+  '/countermeasure': { titleKey: 'nav.countermeasure', groupKey: 'nav.group.docs' },
+  '/v46': { titleKey: 'nav.v46', groupKey: 'nav.group.docs' },
+  '/v47': { titleKey: 'nav.v47', groupKey: 'nav.group.docs' },
   '/records': { titleKey: 'nav.records', groupKey: 'nav.group.detect' },
   '/accounts': { titleKey: 'nav.accounts', groupKey: 'nav.group.account' },
   '/admins': { titleKey: 'nav.admins', groupKey: 'nav.group.account' },
@@ -113,9 +123,9 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/login-logs': { titleKey: 'nav.loginLogs', groupKey: 'nav.group.system' },
   '/audit': { titleKey: 'nav.audit', groupKey: 'nav.group.system' },
   '/tenant': { titleKey: 'nav.tenant', groupKey: 'nav.group.system' },
-  '/bi': { titleKey: 'nav.bi', groupKey: 'nav.group.system' },
   '/system': { titleKey: 'nav.system', groupKey: 'nav.group.system' },
-  '/openapi': { titleKey: 'nav.openapi', groupKey: 'nav.group.system' },
+  '/openapi': { titleKey: 'nav.openapi', groupKey: 'nav.group.docs' },
+  '/bi': { titleKey: 'nav.bi', groupKey: 'nav.group.docs' },
   '/ab': { titleKey: 'nav.ab', groupKey: 'nav.group.ops' },
   '/ops': { titleKey: 'nav.ops', groupKey: 'nav.group.ops' },
   '/support': { titleKey: 'nav.support', groupKey: 'nav.group.ops' },

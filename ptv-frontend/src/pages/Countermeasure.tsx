@@ -66,9 +66,9 @@ export default function Countermeasure() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>DMA / IOMMU 环境巡检</Title>
+      <Title level={3} style={{ marginTop: 0 }}>DMA / 外设环境巡检</Title>
       <Text type="secondary" style={{ display: 'block', marginBottom: 18 }}>
-        玩家端上报 IOMMU / ACPI / PCIe 可疑设备 / 内核调试 / 反调试矩阵，服务端打分分级并固化。客户端采集，此处只做判定与审计。
+        玩家端上报硬件与系统环境特征，服务端打分分级并固化。客户端采集，此处只做判定与审计。
       </Text>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 18 }} closable />}

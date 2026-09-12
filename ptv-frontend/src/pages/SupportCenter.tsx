@@ -10,13 +10,13 @@ import {
   Modal,
   Popconfirm,
   Select,
-  Statistic,
   Table,
   Tabs,
   Tag,
   Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import MetricCard from '../components/MetricCard'
 
 const { Title, Text } = Typography
 
@@ -264,21 +264,17 @@ export default function SupportCenter() {
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 18 }} closable />}
 
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 20 }}>
-        <Card size="small" style={{ minWidth: 160 }}>
-          <Statistic title="开放工单" value={dash?.open_count ?? 0} valueStyle={{ color: '#ff6b5e', fontWeight: 700 }} />
+        <Card style={{ minWidth: 160 }}>
+          <MetricCard label="开放工单" value={dash?.open_count ?? 0} accent="var(--kpi-red)" />
         </Card>
-        <Card size="small" style={{ minWidth: 160 }}>
-          <Statistic title="平均首响" value={fmtSec(dash?.avg_first_reply_seconds)} />
+        <Card style={{ minWidth: 160 }}>
+          <MetricCard label="平均首响" value={fmtSec(dash?.avg_first_reply_seconds)} />
         </Card>
-        <Card size="small" style={{ minWidth: 160 }}>
-          <Statistic title="智能命中率" value={dash ? (dash.smart_hit_rate * 100).toFixed(1) : '0'} suffix="%" />
+        <Card style={{ minWidth: 160 }}>
+          <MetricCard label="智能命中率" value={dash ? (dash.smart_hit_rate * 100).toFixed(1) : '0'} hint="%" />
         </Card>
-        <Card size="small" style={{ minWidth: 220 }}>
-          <Statistic
-            title="各优先级计数"
-            value={PRIORITIES.map((p) => `${p}:${prio[p] ?? 0}`).join('  ')}
-            valueStyle={{ fontSize: 14 }}
-          />
+        <Card style={{ minWidth: 220 }}>
+          <MetricCard label="各优先级计数" value={PRIORITIES.map((p) => `${p}:${prio[p] ?? 0}`).join('  ')} />
         </Card>
       </div>
 

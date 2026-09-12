@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Alert, Badge, Button, Card, Space, Switch, Tag, Typography, message } from 'antd'
+import { Alert, Badge, Button, Card, Space, Tag, Tooltip, Typography, message } from 'antd'
+import { LockFilled } from '@ant-design/icons'
 import { desktopBridge, type DetectionStatus } from '../../services/desktopBridge'
 import { createDetectionApi, type DetectionApi } from '../../services/pacc-api'
 
@@ -21,7 +22,6 @@ export default function PlayerDetectionPanel() {
   const [st, setSt] = useState<DetectionStatus | null>(null)
   const [list, setList] = useState<Item[]>([])
   const [busy, setBusy] = useState(false)
-  const [autostart, setAutostart] = useState(true)
 
   const isDesktop = desktopBridge.isDesktop()
 
@@ -86,13 +86,17 @@ export default function PlayerDetectionPanel() {
       </Space>
       {isDesktop && st && (
         <Space size={12} wrap>
-          <span>
-            <Text type="secondary">自启动</Text>
-            <Switch
-              size="small" style={{ marginLeft: 6 }} checked={autostart}
-              onChange={(v) => desktopBridge.setAutostart(v).then(() => setAutostart(v))}
-            />
-          </span>
+          <Tooltip title="反作弊守护随客户端启动自动运行，强制开启，不可关闭。">
+            <span>
+              <Text type="secondary">自启动</Text>
+              <Tag
+                color="success"
+                style={{ marginLeft: 6, cursor: 'help' }}
+              >
+                <LockFilled style={{ marginRight: 4 }} />已启用 · 强制
+              </Tag>
+            </span>
+          </Tooltip>
         </Space>
       )}
       {list.length > 0 && (

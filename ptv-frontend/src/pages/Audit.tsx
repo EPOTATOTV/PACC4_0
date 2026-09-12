@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
-  Alert, Button, Card, DatePicker, Input, Space, Statistic, Table, Tabs, Tag, Typography,
+  Alert, Button, Card, DatePicker, Input, Space, Table, Tabs, Tag, Typography,
 } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
 import type { AdminLoginLog, CheatRecord, InspectSession } from '../types'
+import MetricCard from '../components/MetricCard'
 
 const { Title, Text } = Typography
 
@@ -159,9 +160,9 @@ export default function Audit() {
                   {overview && (
                     <Card size="small" styles={{ body: { paddingLeft: 20 } }}>
                       <Space size={48} wrap>
-                        <Statistic title="近 30 天敏感操作" value={overview.total} />
-                        <Statistic title="失败操作" value={overview.error_count} valueStyle={{ color: overview.error_rate > 5 ? '#cf1322' : '#3f8600' }} />
-                        <Statistic title="失败率" value={overview.error_rate} precision={2} suffix="%" valueStyle={{ color: overview.error_rate > 5 ? '#cf1322' : '#3f8600' }} />
+                        <MetricCard label="近 30 天敏感操作" value={overview.total} accent="var(--kpi-blue)" />
+                        <MetricCard label="失败操作" value={overview.error_count} accent={overview.error_rate > 5 ? 'var(--kpi-red)' : 'var(--kpi-green)'} />
+                        <MetricCard label="失败率" value={overview.error_rate.toFixed(2)} hint="%" accent={overview.error_rate > 5 ? 'var(--kpi-red)' : 'var(--kpi-green)'} />
                         <div>
                           <Text type="secondary" style={{ fontSize: 12 }}>状态码分布</Text>
                           <div style={{ marginTop: 4 }}>

@@ -71,8 +71,8 @@ export default function PlayerAppealDetail() {
 
   return (
     <div>
-      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/portal/appeals')} style={{ marginBottom: 16 }}>返回申诉</Button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/portal/appeals')}>返回申诉</Button>
         <Title level={3} style={{ margin: 0 }}>申诉详情</Title>
         {statusTag(detail.status)}
         <Text type="secondary">{fmt(detail.createdAt)}</Text>
@@ -96,7 +96,7 @@ export default function PlayerAppealDetail() {
             {detail.reviewComment && (
               <div style={{ marginTop: 8 }}>
                 <Text type="secondary">审核备注</Text>
-                <div style={{ fontSize: 13, marginTop: 4, color: '#3fb950' }}>{detail.reviewComment}</div>
+                <div style={{ fontSize: 13, marginTop: 4, color: 'var(--kpi-green)' }}>{detail.reviewComment}</div>
               </div>
             )}
           </Card>

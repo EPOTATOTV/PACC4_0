@@ -73,7 +73,7 @@ function FamilyGraph({ graph }: { graph: AnyRec | null }) {
         })}
       </svg>
       <div style={{ color: '#8b949e', fontSize: 12, marginTop: 8 }}>
-        节点 = AI 家族（面积对应样本数），连线 = 静态指纹相似度（Jaccard ≥ 0.05）
+        节点 = AI 家族（面积对应样本数），连线 = 样本间的相似度关系
       </div>
     </div>
   )

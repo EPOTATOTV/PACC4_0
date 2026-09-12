@@ -62,8 +62,11 @@ export default function PlayerTournament() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>赛事中心</Title>
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>赛事中心</Title>
+        <div style={{ flex: 1 }} />
+        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable />}
+      </div>
 
       {/* 报名引导 */}
       <Card style={{ marginBottom: 16 }}>
@@ -118,7 +121,7 @@ export default function PlayerTournament() {
             onClick={submit}
             disabled={!canSubmit || submitting}
             loading={submitting}
-            style={{ background: '#3fb950' }}
+            style={{ background: 'var(--kpi-green)' }}
           >
             提交参赛申请
           </Button>
@@ -133,16 +136,16 @@ export default function PlayerTournament() {
             {enrollment?.teamName ? (
               <Space align="center" style={{ marginBottom: 8 }} size={12}>
                 <Avatar
-                  style={{ background: enrollment.teamColor ?? '#3fb950', color: '#0d1117', fontWeight: 700 }}
+                  style={{ background: enrollment.teamColor ?? 'var(--kpi-green)', color: '#0d1117', fontWeight: 700 }}
                 >
                   {(enrollment.teamName[0] || 'T').toUpperCase()}
                 </Avatar>
                 <div>
                   <Space size={6}>
                     <Text strong>{enrollment.teamName}</Text>
-                    <Tag color={enrollment.teamColor ?? '#3fb950'} style={{ color: '#0d1117' }}>队伍成员</Tag>
+                    <Tag color={enrollment.teamColor ?? 'var(--kpi-green)'} style={{ color: '#0d1117' }}>队伍成员</Tag>
                   </Space>
-                  <div style={{ fontSize: 11, color: '#8b949e', marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: 'var(--kpi-muted)', marginTop: 2 }}>
                     {enrollment.displayName || '你'} · 已绑定参赛设备
                   </div>
                 </div>
@@ -150,9 +153,9 @@ export default function PlayerTournament() {
             ) : (
               <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>主办方尚未为你分配队伍。</Text>
             )}
-            {regStatus === 'APPROVED' && <div style={{ color: '#3fb950' }}>已通过，你已获得参赛资格。</div>}
-            {regStatus === 'PENDING' && <div style={{ color: '#d29922' }}>待审批，请等待主办方审核。</div>}
-            {regStatus === 'REJECTED' && <div style={{ color: '#ff3b30' }}>已拒绝{enrollment?.note ? `：${enrollment.note}` : ''}。</div>}
+            {regStatus === 'APPROVED' && <div style={{ color: 'var(--kpi-green)' }}>已通过，你已获得参赛资格。</div>}
+            {regStatus === 'PENDING' && <div style={{ color: 'var(--kpi-amber)' }}>待审批，请等待主办方审核。</div>}
+            {regStatus === 'REJECTED' && <div style={{ color: 'var(--kpi-red)' }}>已拒绝{enrollment?.note ? `：${enrollment.note}` : ''}。</div>}
           </div>
         )}
       </Card>
@@ -174,17 +177,17 @@ export default function PlayerTournament() {
                   <div
                     style={{
                       width: 6, height: 40, borderRadius: 4, alignSelf: 'stretch',
-                      background: isDone ? '#3fb950' : isActive ? '#d29922' : '#ff6b5e',
+                      background: isDone ? 'var(--kpi-green)' : isActive ? 'var(--kpi-amber)' : 'var(--kpi-red)',
                     }}
                   />
                   <Tag>{kindNames[s.kind] ?? s.kind}</Tag>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{s.title}</div>
-                    <div style={{ fontSize: 11, color: '#8b949e', marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: 'var(--kpi-muted)', marginTop: 2 }}>
                       {s.startTime && <span>{fmt(s.startTime)}</span>}
                       {s.startTime && s.endTime && <span> 至 </span>}
                       {s.endTime && <span>{fmt(s.endTime)}</span>}
-                      {s.resultNote && <span style={{ color: '#3fb950' }}> · {s.resultNote}</span>}
+                      {s.resultNote && <span style={{ color: 'var(--kpi-green)' }}> · {s.resultNote}</span>}
                     </div>
                   </div>
                   {stageTag(s.status)}
@@ -194,7 +197,7 @@ export default function PlayerTournament() {
           </div>
         )}
         {active && (
-          <div style={{ fontSize: 13, color: '#d29922', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 13, color: 'var(--kpi-amber)', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
             当前正处于「{active.title}」，请使用已许可设备、凭对局令牌入场。
           </div>
         )}

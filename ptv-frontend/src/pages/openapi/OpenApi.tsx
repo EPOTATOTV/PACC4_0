@@ -132,10 +132,13 @@ export default function OpenApi() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>开放 API · 密钥与调用审计</Title>
-      <Text type="secondary" style={{ display: 'block', marginBottom: 18 }}>
-        为第三方/租户签发 API 密钥，以 HMAC-SHA256 签名调用 /api/v1/**，并记录每次调用的调用方/接口/IP/返回码。密钥明文仅创建与轮换时显示一次。
-      </Text>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 18, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>开放 API · 密钥与调用审计</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          为第三方/租户签发 API 密钥（HMAC-SHA256 签名调用 /api/v1/**），并记录每次调用方/接口/IP/返回码
+        </Text>
+        <div style={{ flex: 1 }} />
+      </div>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 18 }} closable onClose={() => setErr('')} />}
 

@@ -1,6 +1,7 @@
 package com.potatotv.pacc.mobile.plugin;
 
 import android.os.Bundle;
+import android.annotation.SuppressLint;
 import android.view.Gravity;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
@@ -24,6 +25,7 @@ public final class RedscreenActivity extends AppCompatActivity {
     }
 
     @Override
+    @SuppressLint("SetTextI18n")
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         active = this;
@@ -65,7 +67,8 @@ public final class RedscreenActivity extends AppCompatActivity {
 
     /** 阻断返回键：用户无法自行退出红屏页（交由管理员远程解除）。 */
     @Override
+    @SuppressLint("MissingSuperCall")
     public void onBackPressed() {
-        // 有意留空：仅桌面端/管理员可解除。
+        // 有意不调用 super：红屏页为强警示页，禁止用户自行退出。
     }
 }

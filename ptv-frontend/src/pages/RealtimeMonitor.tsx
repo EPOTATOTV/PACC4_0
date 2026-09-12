@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Card, Col, Row, Statistic, Tag, Typography } from 'antd'
+import { Button, Card, Col, Row, Space, Tag, Typography } from 'antd'
 import { FullscreenOutlined, ReloadOutlined } from '@ant-design/icons'
 import type { EChartsOption } from 'echarts'
 import { api } from '../api/client'
 import type { RealtimeAlert, RealtimeOverview, RuntimeStat } from '../types'
 import EChart from '../components/EChart'
+import MetricCard from '../components/MetricCard'
+import PageHeader from '../components/PageHeader'
 
-const { Title, Text } = Typography
+const { Text } = Typography
 
 /**
  * 实时监控大屏：无侧边栏的全屏运营视图。
@@ -98,34 +100,26 @@ export default function RealtimeMonitor() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'radial-gradient(1200px 640px at 84% -200px, rgba(255,77,61,.10), transparent 55%), var(--bg)', padding: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <Title level={3} style={{ margin: 0 }}>实时监控大屏</Title>
-        <Tag color="green" style={{ marginLeft: 4 }}>自动刷新 · 5s</Tag>
-        <div style={{ flex: 1 }} />
-        <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
-        <Button icon={<FullscreenOutlined />} onClick={enterFullscreen}>全屏</Button>
-        {err && <Text type="secondary" style={{ fontSize: 12 }}>{err}</Text>}
-      </div>
+      <PageHeader
+        title="实时监控大屏"
+        description={<Tag color="green" style={{ marginLeft: 2 }}>自动刷新 · 5s</Tag>}
+        error={err || undefined}
+        onCloseError={() => setErr('')}
+        extra={
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
+            <Button icon={<FullscreenOutlined />} onClick={enterFullscreen}>全屏</Button>
+          </Space>
+        }
+      />
 
-      <Row gutter={[12, 12]}>
-        <Col xs={12} sm={8} md={4}>
-          <Card size="small"><Statistic title="在线玩家" value={overview?.online ?? '-'} valueStyle={{ color: '#3fb950' }} /></Card>
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <Card size="small"><Statistic title="今日检测" value={overview?.detections ?? '-'} valueStyle={{ color: '#58a6ff' }} /></Card>
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <Card size="small"><Statistic title="今日红屏" value={overview?.redscreenToday ?? '-'} valueStyle={{ color: '#ff3b30' }} /></Card>
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <Card size="small"><Statistic title="待查端" value={overview?.pendingInspect ?? '-'} /></Card>
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <Card size="small"><Statistic title="平均风险" value={overview?.avgRisk ?? '-'} valueStyle={{ color: (overview?.avgRisk ?? 0) >= 70 ? '#d29922' : undefined }} /></Card>
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <Card size="small"><Statistic title="进行中查端" value={overview?.activeInspect ?? '-'} /></Card>
-        </Col>
+      <Row gutter={[12, 12]} className="pacc-stagger">
+        <Col xs={12} sm={8} md={4}><MetricCard label="在线玩家" value={overview?.online ?? '-'} accent="var(--kpi-green)" /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard label="今日检测" value={overview?.detections ?? '-'} accent="var(--kpi-blue)" /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard label="今日红屏" value={overview?.redscreenToday ?? '-'} accent="var(--kpi-red)" /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard label="待查端" value={overview?.pendingInspect ?? '-'} accent="var(--kpi-amber)" /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard label="平均风险" value={overview?.avgRisk ?? '-'} accent={(overview?.avgRisk ?? 0) >= 70 ? 'var(--kpi-amber)' : 'var(--kpi-muted)'} /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard label="进行中查端" value={overview?.activeInspect ?? '-'} accent="var(--kpi-muted)" /></Col>
       </Row>
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>

@@ -66,9 +66,14 @@ export default function PlayerSettings() {
         </Text>
       </Card>
 
-      <Card title="反作弊能力（客户端内置，由服务端策略统一控制）" variant="borderless">
+      <Card title="反作弊守护（客户端自动启动 · 强制运行）" variant="borderless">
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="客户端启动即自动加载反作弊守护，全程强制运行，无手动开关，玩家不可关闭或调整。"
+        />
         <Descriptions column={2} size="small" labelStyle={{ width: 150 }}>
-          <Descriptions.Item label="检测灵敏度" span={2}>低 / 正常 / 高（默认「正常」，敏感时由云端策略下发）</Descriptions.Item>
           {moduleSwitches.map(([k, v]) => (
             <Descriptions.Item key={k} label={k} span={2}>{v} · 已启用</Descriptions.Item>
           ))}

@@ -12,6 +12,7 @@ import { api } from '../../api/client'
 import { desktopBridge, isDesktop } from '../../services/desktopBridge'
 import type { DetectionEvent, ProtectionResource, ProtectionStatus, ProtectionStat } from '../../types'
 import EChart from '../../components/EChart'
+import MetricCard from '../../components/MetricCard'
 
 const { Title, Text } = Typography
 
@@ -223,18 +224,10 @@ export default function PlayerProtection() {
 
         <Col xs={24} lg={16}>
           <Row gutter={[14, 14]}>
-            <Col xs={12} sm={6}>
-              <Card size="small"><StatTile label="今日检测" value={stat?.detections_today ?? 0} color="#58a6ff" /></Card>
-            </Col>
-            <Col xs={12} sm={6}>
-              <Card size="small"><StatTile label="高风险事件" value={stat?.high_risk_today ?? 0} color="#ff3b30" /></Card>
-            </Col>
-            <Col xs={12} sm={6}>
-              <Card size="small"><StatTile label="今日红屏" value={stat?.redscreen_today ?? 0} color="#d29922" /></Card>
-            </Col>
-            <Col xs={12} sm={6}>
-              <Card size="small"><StatTile label="误报" value={stat?.false_positive_today ?? 0} color="#8b949e" /></Card>
-            </Col>
+            <Col xs={12} sm={6}><MetricCard label="今日检测" value={stat?.detections_today ?? 0} accent="var(--kpi-blue)" /></Col>
+            <Col xs={12} sm={6}><MetricCard label="高风险事件" value={stat?.high_risk_today ?? 0} accent="var(--kpi-red)" /></Col>
+            <Col xs={12} sm={6}><MetricCard label="今日红屏" value={stat?.redscreen_today ?? 0} accent="var(--kpi-amber)" /></Col>
+            <Col xs={12} sm={6}><MetricCard label="误报" value={stat?.false_positive_today ?? 0} accent="var(--kpi-muted)" /></Col>
             <Col xs={24}>
               <Card title="实时资源占用（近 1 分钟）" size="small">
                 <EChart option={resourceOption} height={200} />
@@ -264,15 +257,6 @@ export default function PlayerProtection() {
           </div>
         )}
       </Card>
-    </div>
-  )
-}
-
-function StatTile({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div>
-      <Text type="secondary">{label}</Text>
-      <div style={{ fontSize: 24, fontWeight: 700, color, marginTop: 2 }}>{value}</div>
     </div>
   )
 }

@@ -9,6 +9,7 @@ const en: Record<string, string> = {
   'nav.group.event': 'Tournaments',
   'nav.group.system': 'System',
   'nav.group.ops': 'Operations',
+  'nav.group.docs': 'Docs & Protocols',
   'nav.dashboard': 'Dashboard',
   'nav.redscreen': 'Red Screen',
   'nav.inspect': 'Inspect Console',
@@ -32,6 +33,10 @@ const en: Record<string, string> = {
   'nav.support': 'Support Ticketing',
 
   'player.overview': 'My Overview',
+  'player.group.protection': 'Protection & Monitor',
+  'player.group.event': 'Tournaments',
+  'player.group.records': 'Records & Appeals',
+  'player.group.account': 'Account Center',
   'player.protection': 'Real-time Protection',
   'player.monitor': 'Live Monitor',
   'player.notifications': 'Notifications',

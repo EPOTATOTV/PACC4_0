@@ -15,10 +15,13 @@ export default function Admins() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>管理员管理</Title>
-      <Text type="secondary">
-        管理员由部署侧配置固化（静态授权密钥 + 飞书 SSO 白名单），本页只读展示，不在此处做增删改。
-      </Text>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>管理员管理</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          管理员由部署侧配置固化（静态授权密钥 + 飞书 SSO 白名单），本页只读展示
+        </Text>
+        <div style={{ flex: 1 }} />
+      </div>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
       {data?.note && (
@@ -31,7 +34,7 @@ export default function Admins() {
             key={a.identity + a.method}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 20px', borderBottom: '1px solid #f0f0f0',
+              padding: '14px 20px', borderBottom: '1px solid var(--border)',
             }}
           >
             <div>

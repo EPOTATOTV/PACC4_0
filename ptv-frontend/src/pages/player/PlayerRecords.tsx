@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Card, Col, Input, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd'
+import { Alert, Card, Col, Input, Row, Select, Space, Table, Tag, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { CheatRecord } from '../../types'
 import EChart from '../../components/EChart'
 import type { EChartsOption } from 'echarts'
+import MetricCard from '../../components/MetricCard'
 
 const { Title, Text } = Typography
 
@@ -157,11 +158,11 @@ export default function PlayerRecords() {
 }
 
 function Metric({ label, value, color }: { label: string; value: number; color?: string }) {
-  return (
-    <Card size="small">
-      <Statistic title={label} value={value} valueStyle={{ color: color ?? '#58a6ff', fontWeight: 700 }} />
-    </Card>
-  )
+  const accent =
+    color === '#ff3b30' ? 'var(--kpi-red)'
+    : color === '#3fb950' ? 'var(--kpi-green)'
+    : 'var(--kpi-blue)'
+  return <MetricCard label={label} value={value} accent={accent} />
 }
 
 function fmt(s?: string): string {

@@ -161,8 +161,13 @@ export default function TenantPage() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>租户管理</Title>
-      <Text type="secondary">管理平台租户分级（免费 / 专业 / 企业）与功能矩阵，绑定租户管理员。数据隔离由开放 API 密钥的租户维度承载。</Text>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>租户管理</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          管理平台租户分级（免费 / 专业 / 企业）与功能矩阵，绑定租户管理员；数据隔离由 API 密钥的租户维度承载
+        </Text>
+        <div style={{ flex: 1 }} />
+      </div>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
 

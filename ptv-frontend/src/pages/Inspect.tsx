@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Badge, Button, Card, Drawer, List, Modal, Space, Table, Tag, Typography, message } from 'antd'
+import { SyncOutlined } from '@ant-design/icons'
 import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
 import type { InspectSession } from '../types'
@@ -135,11 +136,13 @@ export default function Inspect() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>查端控制台</Title>
-
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
-
-      <Button onClick={load} style={{ marginBottom: 16 }}>刷新</Button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>查端控制台</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>待查端实时取证 · 屏幕共享 · 结论判定</Text>
+        <div style={{ flex: 1 }} />
+        <Button icon={<SyncOutlined />} onClick={load}>刷新</Button>
+        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+      </div>
 
       <Card title="待处理队列" style={{ marginBottom: 16 }} styles={{ body: { padding: 0 } }}>
         <Table<InspectSession> rowKey="sessionId" columns={pendingCols} dataSource={pending} pagination={false} scroll={{ x: 640 }} locale={{ emptyText: '队列为空' }} />

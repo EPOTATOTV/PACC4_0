@@ -54,8 +54,8 @@ export default function PlayerRedScreenDetail() {
 
   return (
     <div>
-      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/portal/records')} style={{ marginBottom: 16 }}>返回记录</Button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/portal/records')}>返回记录</Button>
         <Title level={3} style={{ margin: 0 }}>红屏事件详情</Title>
         <Tag color={level.color}>{level.label}</Tag>
         <Tag>{detail.state}</Tag>
@@ -70,7 +70,7 @@ export default function PlayerRedScreenDetail() {
               <Descriptions.Item label="触发时间">{new Date(detail.triggeredAt).toLocaleString('zh-CN', { hour12: false })}</Descriptions.Item>
               <Descriptions.Item label="检测类型">{detail.cheatType}</Descriptions.Item>
               <Descriptions.Item label="风险分">
-                <Text style={{ color: detail.riskScore >= 80 ? '#ff3b30' : detail.riskScore >= 60 ? '#d29922' : '#3fb950', fontWeight: 700 }}>
+                <Text style={{ color: detail.riskScore >= 80 ? 'var(--kpi-red)' : detail.riskScore >= 60 ? 'var(--kpi-amber)' : 'var(--kpi-green)', fontWeight: 700 }}>
                   {detail.riskScore}
                 </Text>
               </Descriptions.Item>

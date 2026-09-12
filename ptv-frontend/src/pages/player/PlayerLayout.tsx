@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Layout, Menu } from 'antd'
 import { LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
@@ -10,19 +10,40 @@ import type { ReactNode } from 'react'
 
 const { Sider, Content, Footer, Header } = Layout
 
-const navItems = [
-  { key: '/portal', to: '/portal', i18nKey: 'player.overview' },
-  { key: '/portal/protection', to: '/portal/protection', i18nKey: 'player.protection' },
-  { key: '/portal/monitor', to: '/portal/monitor', i18nKey: 'player.monitor' },
-  { key: '/portal/tournament', to: '/portal/tournament', i18nKey: 'player.tournament' },
-  { key: '/portal/records', to: '/portal/records', i18nKey: 'player.records' },
-  { key: '/portal/devices', to: '/portal/devices', i18nKey: 'player.devices' },
-  { key: '/portal/appeals', to: '/portal/appeals', i18nKey: 'player.appeals' },
-  { key: '/portal/tickets', to: '/portal/tickets', i18nKey: 'player.tickets' },
-  { key: '/portal/notifications', to: '/portal/notifications', i18nKey: 'player.notifications' },
-  { key: '/portal/security', to: '/portal/security', i18nKey: 'player.security' },
-  { key: '/portal/settings', to: '/portal/settings', i18nKey: 'player.settings' },
-  { key: '/portal/diagnostics', to: '/portal/diagnostics', i18nKey: 'player.diagnostics' },
+const navGroups = [
+  {
+    groupKey: 'player.group.protection',
+    groupI18nKey: 'player.group.protection',
+    items: [
+      { key: '/portal/protection', to: '/portal/protection', i18nKey: 'player.protection' },
+      { key: '/portal/monitor', to: '/portal/monitor', i18nKey: 'player.monitor' },
+      { key: '/portal/devices', to: '/portal/devices', i18nKey: 'player.devices' },
+      { key: '/portal/diagnostics', to: '/portal/diagnostics', i18nKey: 'player.diagnostics' },
+    ],
+  },
+  {
+    groupKey: 'player.group.event',
+    groupI18nKey: 'player.group.event',
+    items: [{ key: '/portal/tournament', to: '/portal/tournament', i18nKey: 'player.tournament' }],
+  },
+  {
+    groupKey: 'player.group.records',
+    groupI18nKey: 'player.group.records',
+    items: [
+      { key: '/portal/records', to: '/portal/records', i18nKey: 'player.records' },
+      { key: '/portal/appeals', to: '/portal/appeals', i18nKey: 'player.appeals' },
+      { key: '/portal/tickets', to: '/portal/tickets', i18nKey: 'player.tickets' },
+    ],
+  },
+  {
+    groupKey: 'player.group.account',
+    groupI18nKey: 'player.group.account',
+    items: [
+      { key: '/portal/notifications', to: '/portal/notifications', i18nKey: 'player.notifications' },
+      { key: '/portal/security', to: '/portal/security', i18nKey: 'player.security' },
+      { key: '/portal/settings', to: '/portal/settings', i18nKey: 'player.settings' },
+    ],
+  },
 ]
 
 export default function PlayerLayout({ children }: { children: ReactNode }) {
@@ -30,11 +51,20 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
   const location = useLocation()
   const { t } = useI18n()
   const [collapsed, setCollapsed] = useState(false)
-  const selected = navItems.find((i) =>
+  const allNav = navGroups.flatMap((g) => g.items)
+  const selected = allNav.find((i) =>
     i.to === '/portal'
       ? location.pathname === '/portal'
       : location.pathname.startsWith(i.to),
   )?.key
+  // 路由所在分组自动展开，其余可手动收起/展开
+  const selectedGroup = navGroups.find((g) => g.items.some((i) => i.key === selected))?.groupKey
+  const [openKeys, setOpenKeys] = useState<string[]>([])
+  useEffect(() => {
+    if (selectedGroup && !openKeys.includes(selectedGroup)) {
+      setOpenKeys((prev) => (prev.includes(selectedGroup) ? prev : [...prev, selectedGroup]))
+    }
+  }, [selectedGroup])
 
   return (
     <Layout
@@ -90,8 +120,21 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
             theme="dark"
             mode="inline"
             selectedKeys={selected ? [selected] : []}
+            openKeys={openKeys}
+            onOpenChange={(keys) => setOpenKeys(keys as string[])}
             style={{ background: 'transparent', borderInlineEnd: 'none', paddingTop: 8 }}
-            items={navItems.map((i) => ({ key: i.key, label: t(i.i18nKey), onClick: () => navigate(i.to) }))}
+            items={[
+              { key: '/portal', label: t('player.overview'), onClick: () => navigate('/portal') },
+              ...navGroups.map((g) => ({
+                key: g.groupKey,
+                label: t(g.groupI18nKey),
+                children: g.items.map((i) => ({
+                  key: i.key,
+                  label: t(i.i18nKey),
+                  onClick: () => navigate(i.to),
+                })),
+              })),
+            ]}
           />
           <div style={{ padding: '16px' }}>
             <Button
@@ -107,11 +150,13 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
           </div>
         </Sider>
         <Layout>
-          <Content style={{ padding: 24, overflow: 'auto' }}>{children}</Content>
+          <Content style={{ padding: '24px 20px', overflow: 'auto' }}>
+            <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>{children}</div>
+          </Content>
           <Footer style={{ textAlign: 'center', padding: '12px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <Brand size="xs" title="PACC" />
-              <span style={{ fontSize: 12, color: '#8b949e' }}>© 2026 POTATOTV · {t('player.portal')}</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>© 2026 POTATOTV · {t('player.portal')}</span>
             </div>
           </Footer>
         </Layout>

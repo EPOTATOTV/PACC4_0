@@ -62,13 +62,24 @@ export default function Login() {
         minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 12px',
       }}
     >
-      {/* 环境氛围：顶部微光 + 细网格 */}
+      {/* 环境氛围：顶部微光 + 底部彩色光斑（给玻璃提供可模糊的色彩） */}
       <div
         aria-hidden
         style={{
           position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden',
           background:
-            'radial-gradient(760px 430px at 50% -120px, rgba(255,77,61,.16), transparent 62%), var(--bg)',
+            'radial-gradient(680px 420px at 50% -120px, rgba(255,77,61,.24), transparent 62%), var(--bg)',
+        }}
+      />
+      <div
+        aria-hidden
+        className="pacc-aurora"
+        style={{
+          position: 'fixed', inset: 0, zIndex: 0, opacity: .88,
+          background:
+            'radial-gradient(440px 310px at 80% 86%, rgba(93,169,255,.28), transparent 66%),' +
+            'radial-gradient(400px 290px at 14% 84%, rgba(63,185,80,.20), transparent 66%),' +
+            'radial-gradient(280px 250px at 84% 16%, rgba(255,77,61,.20), transparent 60%)',
         }}
       />
       <div
@@ -83,15 +94,31 @@ export default function Login() {
         }}
       />
       <Card
+        className="pacc-glass"
         style={{
-          position: 'relative', zIndex: 1, width: '100%', maxWidth: 400,
-          background: 'rgba(17,20,27,.72)',
-          backdropFilter: 'blur(16px) saturate(140%)',
-          border: '1px solid var(--border-strong)',
-          boxShadow: '0 24px 80px rgba(0,0,0,.5)',
+          position: 'relative', overflow: 'hidden', zIndex: 1, width: '100%', maxWidth: 400,
+          background: 'linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%), rgba(13,16,22,.42)',
+          backdropFilter: 'blur(22px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+          boxShadow:
+            'inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.04), 0 24px 80px rgba(0,0,0,.5)',
         }}
         styles={{ body: { padding: 30 } }}
       >
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent)',
+          }}
+        />
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+            background: 'linear-gradient(90deg, #ff3b30, rgba(255,59,48,0))',
+          }}
+        />
         <Brand size="md" subtitle={t('login.title')} />
 
         <Segmented

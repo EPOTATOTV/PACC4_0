@@ -73,7 +73,7 @@ public class PaccAppScannerPlugin extends Plugin {
 
     private boolean isBlacklisted(String pkg) {
         for (String b : BLACKLIST) {
-            if (pkg.equalsIgnoreCase(b) || pkg.toLowerCase().startsWith(b.toLowerCase())) return true;
+            if (pkg.equalsIgnoreCase(b) || pkg.toLowerCase(java.util.Locale.ROOT).startsWith(b.toLowerCase(java.util.Locale.ROOT))) return true;
         }
         return false;
     }

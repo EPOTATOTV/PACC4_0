@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Card, Col, Empty, Input, Modal, Row, Space, Statistic, Table, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Col, Empty, Input, Modal, Row, Space, Table, Tag, Typography, message } from 'antd'
 import type { TableColumnsType } from 'antd'
+import MetricCard from '../components/MetricCard'
 import { api } from '../api/client'
 import type { CompetitionOverview, Enrollment, IpCluster, MatchSession, SuspicionFlag } from '../types'
 
@@ -127,13 +128,13 @@ export default function Competition() {
   const overviewCards = useMemo(() => {
     if (!overview) return null
     return (
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }} className="pacc-stagger">
         <Col xs={12} sm={8} md={4}>
-          <Card size="small"><Statistic title="累计嫌疑" value={overview.total_flags} valueStyle={{ color: '#ff6b5e', fontWeight: 700 }} /></Card>
+          <MetricCard label="累计嫌疑" value={overview.total_flags} accent="var(--kpi-red)" />
         </Col>
         {Object.entries(overview.by_kind).map(([k, v]) => (
           <Col key={k} xs={12} sm={8} md={4}>
-            <Card size="small"><Statistic title={kindNames[k] ?? k} value={v} /></Card>
+            <MetricCard label={kindNames[k] ?? k} value={v} accent="var(--kpi-muted)" />
           </Col>
         ))}
       </Row>

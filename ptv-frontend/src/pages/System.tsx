@@ -27,8 +27,13 @@ export default function System() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>系统设置</Title>
-      <Text type="secondary">服务运行状态与检测策略快照（只读）。配置调整需由运维在部署侧修改后重启。</Text>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>系统设置</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          服务运行状态与检测策略快照（只读），配置调整需由运维在部署侧修改后重启
+        </Text>
+        <div style={{ flex: 1 }} />
+      </div>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
 

@@ -50,7 +50,7 @@ export default function Detection41() {
     <div>
       <Title level={3} style={{ marginTop: 0 }}>v4.1 检测分析引擎</Title>
       <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-        融合三层引擎：暴力外挂四层递进（信号→时序→物理→语义）· 隐身外挂五层对抗（硬件→内核→内存→网络→行为）· AI 行为画像（128 维）。
+        多层级行为分析引擎：对疑似作弊与正常操作分别输出判定与置信度，供特征团队复核迭代。
       </Text>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}

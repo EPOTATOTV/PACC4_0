@@ -80,6 +80,8 @@ public class DataSeeder implements CommandLineRunner {
                 {"player@ptv.dev", "13800138001", "PlayerOne", "ECID005001", "1001001", "1a2b3c4d-5e6f-7a8b-9c0d-123456789abc", "DemoPass123!", "demo-device-001"},
                 {"demo@ptv.dev", "13800138002", "DemoTwo", "ECID005002", "1001002", null, "DemoPass123!", "demo-device-002"},
                 {"ops@ptv.dev", "13800138003", "OpsThree", "ECID005003", "1001003", null, "DemoPass123!", "demo-device-003"},
+                // 专用测试账号：玩家门户登录用 tester@ptv.dev 或手机号，密码含大小写+数字+符号
+                {"tester@ptv.dev", "13900139000", "Tester", "ECID009001", "9009001", "0f8c1a2b-3d4e-5f60-7a8b-9c0d1e2f3a4b", "Tester@2026!", "demo-device-tester"},
         };
         for (String[] a : accounts) {
             try {

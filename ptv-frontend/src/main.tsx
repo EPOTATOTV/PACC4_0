@@ -35,7 +35,7 @@ function Root() {
           colorTextTertiary: '#626b7a',
           borderRadius: 8,
           fontSize: 13,
-          fontFamily: "'JetBrains Mono',ui-monospace,'SimHei','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',monospace",
+          fontFamily: "'SimHei','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',ui-monospace,Menlo,Consolas,monospace",
           boxShadow: '0 8px 30px rgba(0,0,0,.45)',
           boxShadowSecondary: '0 4px 16px rgba(0,0,0,.4)',
         },

@@ -61,15 +61,18 @@ export default function AdminLoginLogs() {
   ]
 
   return (
-    <div>
-      <Title level={3} style={{ marginTop: 0 }}>管理员登录日志</Title>
-      <Text type="secondary">
-        审计记录管理后台登录行为（只存来源、方式与结果，不落任何密钥/密码明文），仅超级管理员授权可访问。
-      </Text>
+    <div style={{ maxWidth: 1180 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <Title level={3} style={{ margin: 0 }}>管理员登录日志</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          审计管理后台登录行为（只存来源、方式与结果，不落任何密钥/密码明文）
+        </Text>
+        <div style={{ flex: 1 }} />
+        <Tag color="volcano" style={{ margin: 0 }}>仅超级管理员可访问</Tag>
+        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+      </div>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
-
-      <Card style={{ marginTop: 20 }} styles={{ body: { padding: 0 } }}>
+      <Card styles={{ body: { padding: 0 } }}>
         <Table<AdminLoginLog>
           rowKey="id"
           columns={columns}

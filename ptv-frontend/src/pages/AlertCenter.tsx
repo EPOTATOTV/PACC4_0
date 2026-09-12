@@ -4,6 +4,7 @@ import type { TableColumnsType } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 import type { AlertRule } from '../types'
+import MetricCard from '../components/MetricCard'
 
 const { Title, Text } = Typography
 
@@ -100,11 +101,11 @@ export default function AlertCenter() {
         {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
       </div>
 
-      <Row gutter={[14, 14]} style={{ marginBottom: 14 }}>
-        <Col xs={24} sm={12} md={6}><StatTile label="告警总数" value={list.length} /></Col>
-        <Col xs={24} sm={12} md={6}><StatTile label="未确认" value={openCount} color="#ff3b30" /></Col>
-        <Col xs={24} sm={12} md={6}><StatTile label="已确认" value={list.filter((a) => a.status === 'acknowledged').length} color="#d29922" /></Col>
-        <Col xs={24} sm={12} md={6}><StatTile label="已解决" value={list.filter((a) => a.status === 'resolved').length} color="#3fb950" /></Col>
+      <Row gutter={[12, 12]} style={{ marginBottom: 14 }} className="pacc-stagger">
+        <Col xs={24} sm={12} md={6}><MetricCard label="告警总数" value={list.length} accent="var(--kpi-blue)" /></Col>
+        <Col xs={24} sm={12} md={6}><MetricCard label="未确认" value={openCount} accent={openCount > 0 ? 'var(--kpi-red)' : 'var(--kpi-green)'} /></Col>
+        <Col xs={24} sm={12} md={6}><MetricCard label="已确认" value={list.filter((a) => a.status === 'acknowledged').length} accent="var(--kpi-amber)" /></Col>
+        <Col xs={24} sm={12} md={6}><MetricCard label="已解决" value={list.filter((a) => a.status === 'resolved').length} accent="var(--kpi-green)" /></Col>
       </Row>
 
       <Card
@@ -137,15 +138,6 @@ export default function AlertCenter() {
         </Space>
       </Modal>
     </div>
-  )
-}
-
-function StatTile({ label, value, color }: { label: string; value: number; color?: string }) {
-  return (
-    <Card size="small">
-      <Text type="secondary">{label}</Text>
-      <div style={{ fontSize: 22, fontWeight: 700, color: color ?? '#58a6ff', marginTop: 2 }}>{value}</div>
-    </Card>
   )
 }
 

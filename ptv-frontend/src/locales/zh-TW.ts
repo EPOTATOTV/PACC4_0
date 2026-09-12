@@ -9,6 +9,7 @@ const zhTW: Record<string, string> = {
   'nav.group.event': '賽事風控',
   'nav.group.system': '系統管理',
   'nav.group.ops': '運營自動化',
+  'nav.group.docs': '文檔與協議',
   'nav.dashboard': '數據大盤',
   'nav.redscreen': '紅屏管理',
   'nav.inspect': '查端控制台',
@@ -32,6 +33,10 @@ const zhTW: Record<string, string> = {
   'nav.support': '客服工單',
 
   'player.overview': '我的概覽',
+  'player.group.protection': '防護與監控',
+  'player.group.event': '賽事',
+  'player.group.records': '紀錄與申訴',
+  'player.group.account': '帳號中心',
   'player.protection': '即時保護',
   'player.monitor': '即時監控',
   'player.notifications': '通知中心',

@@ -42,12 +42,13 @@ export default function App() {
   }
 
   const [authed, setAuthed] = useState<boolean | null>(null)
+  const [role, setRole] = useState<string>('')
 
   useEffect(() => {
     let alive = true
     api.adminSession
       .me()
-      .then(() => alive && setAuthed(true))
+      .then((d) => { if (alive) { setAuthed(true); setRole(d.role) } })
       .catch(() => alive && setAuthed(false))
     return () => {
       alive = false
@@ -70,8 +71,15 @@ export default function App() {
     )
   }
 
+  // 「文档与协议」分组（含内部技术资料）仅超级管理员可访问；非超管直接访问时重定向回数据大盘
+  const isSuper = role === 'super-admin'
+  const gatedDocs = ['/detection41', '/countermeasure', '/v46', '/v47', '/openapi', '/bi']
+  if (!isSuper && gatedDocs.some((p) => window.location.pathname === p || window.location.pathname.startsWith(p + '/'))) {
+    return <Navigate to="/" replace />
+  }
+
   return (
-    <Layout>
+    <Layout role={role}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/redscreen" element={<Redscreen />} />
