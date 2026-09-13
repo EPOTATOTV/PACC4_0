@@ -1,0 +1,19 @@
+{
+  "name": "PACC 管控平台",
+  "short_name": "PACC",
+  "description": "PACC 反作弊管控平台 · 管理员后台与玩家门户",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#050608",
+  "theme_color": "#050608",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

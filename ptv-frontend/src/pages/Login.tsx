@@ -75,11 +75,12 @@ export default function Login() {
         aria-hidden
         className="pacc-aurora"
         style={{
-          position: 'fixed', inset: 0, zIndex: 0, opacity: .88,
+          position: 'fixed', inset: 0, zIndex: 0, opacity: .95,
           background:
-            'radial-gradient(440px 310px at 80% 86%, rgba(93,169,255,.28), transparent 66%),' +
-            'radial-gradient(400px 290px at 14% 84%, rgba(63,185,80,.20), transparent 66%),' +
-            'radial-gradient(280px 250px at 84% 16%, rgba(255,77,61,.20), transparent 60%)',
+            'radial-gradient(520px 380px at 80% 86%, rgba(93,169,255,.40), transparent 66%),' +
+            'radial-gradient(460px 340px at 14% 84%, rgba(63,185,80,.34), transparent 66%),' +
+            'radial-gradient(360px 320px at 84% 16%, rgba(255,77,61,.38), transparent 60%),' +
+            'radial-gradient(300px 280px at 18% 18%, rgba(226,162,55,.28), transparent 60%)',
         }}
       />
       <div
@@ -97,7 +98,7 @@ export default function Login() {
         className="pacc-glass"
         style={{
           position: 'relative', overflow: 'hidden', zIndex: 1, width: '100%', maxWidth: 400,
-          background: 'linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%), rgba(13,16,22,.42)',
+          background: 'linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.04) 42%), rgba(11,14,19,.34)',
           backdropFilter: 'blur(22px) saturate(180%)',
           WebkitBackdropFilter: 'blur(22px) saturate(180%)',
           boxShadow:

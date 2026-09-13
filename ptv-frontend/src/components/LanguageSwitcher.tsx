@@ -25,7 +25,7 @@ export default function LanguageSwitcher({ compact }: { compact?: boolean }) {
       <span
         style={{
           cursor: 'pointer',
-          color: '#c9d1d9',
+          color: 'var(--muted)',
           display: 'inline-flex',
           alignItems: 'center',
           gap: 6,

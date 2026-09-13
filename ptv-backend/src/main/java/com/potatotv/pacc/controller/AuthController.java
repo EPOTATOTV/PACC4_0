@@ -240,20 +240,31 @@ public class AuthController {
         }
         try {
             boolean remember = Boolean.parseBoolean(body.getOrDefault("remember", "false"));
+            String deviceFp = body.get("device_fingerprint");
             TokenService.Token token = accountService.login(identity, body.get("password"),
-                    body.get("device_fingerprint"), remember);
-            // 2FA：若该账号已启用两步验证，不直接发主会话 cookie，改发短时 pending 令牌触发第二步
+                    deviceFp, remember);
+            throttle.clear(idScope);
+            throttle.clear(ipScope);
+            // 2FA：若该账号已启用两步验证，先判断当前设备是否已被信任；
+            // 可信设备（30 天内验证过且未过期）免于二次验证，直接签发主会话。
             if (totpService.enabled(token.pteid())) {
-                throttle.clear(idScope);
-                throttle.clear(ipScope);
+                if (totpService.isTrustedDevice(token.pteid(), deviceFp)) {
+                    log.info("玩家可信设备直登 pteid={}", token.pteid());
+                    Account accT = accountService.findByPteidOrNull(token.pteid());
+                    competitionService.recordLogin(token.pteid(),
+                            accT == null ? null : accT.getDeviceFingerprint(), ip);
+                    setPlayerCookie(response, token.accessToken(), token.expiresAt());
+                    Map<String, Object> out = new LinkedHashMap<>();
+                    out.put("pteid", token.pteid());
+                    out.put("expires_at", token.expiresAt());
+                    return ResponseEntity.ok(out);
+                }
                 log.info("玩家开启 2FA，要求第二步验证 pteid={}", token.pteid());
                 Map<String, Object> pending = new LinkedHashMap<>();
                 pending.put("twofa_required", true);
                 pending.put("pending", totpService.issuePending(token.pteid()));
                 return ResponseEntity.ok(pending);
             }
-            throttle.clear(idScope);
-            throttle.clear(ipScope);
             log.info("玩家登录成功 pteid={}", token.pteid());
             // 记账并触发代练/共享聚合检测
             Account acc = accountService.findByPteidOrNull(token.pteid());
@@ -299,6 +310,12 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("error", "验证码不正确或已失效"));
         }
         boolean remember = Boolean.parseBoolean(body.getOrDefault("remember", "false"));
+        // 信任此设备：勾选且提交真实 TOTP（非恢复码）时记录设备指纹，30 天内免再次二次验证。
+        boolean trust = Boolean.parseBoolean(body.getOrDefault("trust_device", "false"));
+        String deviceFp = body.get("device_fingerprint");
+        if (trust && deviceFp != null && !deviceFp.isBlank() && totpService.isValidTotp(pteid, code)) {
+            totpService.trustDevice(pteid, deviceFp, 30L);
+        }
         TokenService.Token token = accountService.issueToken(pteid, remember);
         competitionService.recordLogin(pteid, accountFingerprint(pteid), clientIp(request));
         log.info("2FA 第二步验证成功 pteid={}", pteid);
@@ -325,7 +342,32 @@ public class AuthController {
             }
         }
         boolean enabled = !pteid.isBlank() && totpService.enabled(pteid);
-        return ResponseEntity.ok(Map.of("enabled", enabled));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("enabled", enabled);
+        if (enabled) {
+            out.put("trusted_devices", totpService.trustedDeviceCount(pteid));
+        }
+        return ResponseEntity.ok(out);
+    }
+
+    /** 撤销某可信设备（需已登录，携带需要移除的设备指纹）。 */
+    @PostMapping("/2fa/trusted/revoke")
+    public ResponseEntity<?> revokeTrustedDevice(@RequestBody Map<String, String> body,
+                                                HttpServletRequest req) {
+        Object v = req.getAttribute("pteid");
+        String pteid = v == null ? "" : v.toString();
+        if (pteid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("error", "未登录"));
+        }
+        String deviceFp = body.get("device_fingerprint");
+        if (deviceFp == null || deviceFp.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "缺少设备指纹"));
+        }
+        boolean removed = totpService.revokeTrustedDevice(pteid, deviceFp);
+        if (!removed) {
+            return ResponseEntity.status(404).body(Map.of("error", "未找到该可信设备"));
+        }
+        return ResponseEntity.ok(Map.of("removed", true, "trusted_devices", totpService.trustedDeviceCount(pteid)));
     }
 
     private String accountFingerprint(String pteid) {

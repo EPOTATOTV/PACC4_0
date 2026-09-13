@@ -37,18 +37,19 @@ export default function PlayerAuthShell({
         style={{
           position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden',
           background:
-            'radial-gradient(680px 420px at 50% -120px, rgba(255,77,61,.28), transparent 62%), var(--bg)',
+            'radial-gradient(680px 420px at 50% -120px, rgba(255,77,61,.34), transparent 62%), var(--bg)',
         }}
       />
       <div
         aria-hidden
         className="pacc-aurora"
         style={{
-          position: 'fixed', inset: 0, zIndex: 0, opacity: .9,
+          position: 'fixed', inset: 0, zIndex: 0, opacity: .95,
           background:
-            'radial-gradient(460px 320px at 78% 88%, rgba(93,169,255,.28), transparent 66%),' +
-            'radial-gradient(420px 300px at 12% 82%, rgba(63,185,80,.20), transparent 66%),' +
-            'radial-gradient(300px 260px at 82% 18%, rgba(255,77,61,.20), transparent 60%)',
+            'radial-gradient(520px 360px at 78% 88%, rgba(93,169,255,.40), transparent 66%),' +
+            'radial-gradient(460px 340px at 12% 82%, rgba(63,185,80,.34), transparent 66%),' +
+            'radial-gradient(360px 320px at 82% 18%, rgba(255,77,61,.38), transparent 60%),' +
+            'radial-gradient(300px 280px at 22% 18%, rgba(226,162,55,.28), transparent 60%)',
           filter: 'blur(0px)',
         }}
       />
@@ -68,7 +69,7 @@ export default function PlayerAuthShell({
         className="pacc-glass"
         style={{
           position: 'relative', overflow: 'hidden', zIndex: 1, width: '100%', maxWidth: width ?? 400,
-          background: 'linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%), rgba(13,16,22,.42)',
+          background: 'linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.04) 42%), rgba(11,14,19,.34)',
           backdropFilter: 'blur(22px) saturate(180%)',
           WebkitBackdropFilter: 'blur(22px) saturate(180%)',
           boxShadow:

@@ -22,6 +22,7 @@ import com.potatotv.pacc.repository.DetectionEventRepository;
 import com.potatotv.pacc.security.RequirePermission;
 import com.potatotv.pacc.service.AlertService;
 import com.potatotv.pacc.service.OnlineStatusService;
+import com.potatotv.pacc.service.RbacService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -75,6 +76,7 @@ public class AdminP0Controller {
     private final AdminRoleRepository roleRepository;
     private final OnlineStatusService onlineStatusService;
     private final AlertService alertService;
+    private final RbacService rbacService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** 已确认告警 id 集合（确认状态为瞬态，进程内承载即可）。 */
@@ -89,12 +91,18 @@ public class AdminP0Controller {
                     alertRule("r3", "查端积压", "QUEUE", "pending_inspect", 20, 15, true, "email"),
                     alertRule("r4", "误报率超标", "SIGNATURE", "false_positive_rate", 2, 30, false, "dashboard")));
         }
+        // 权限目录空表播种（RBAC 三表权威来源）
+        rbacService.seedPermissionsIfEmpty();
         if (roleRepository.count() == 0) {
             roleRepository.saveAll(List.of(
                     adminRole("role-super", "超级管理员", "SUPER_ADMIN", "全部模块与操作", true, 1, toJson(grantAll(true))),
                     adminRole("role-operator", "运营", "OPERATOR", "检测与运营操作", true, 1, toJson(grantOperator())),
                     adminRole("role-analyst", "分析师", "ANALYST", "查端与情报分析", true, 1, toJson(grantAnalyst())),
                     adminRole("role-viewer", "只读", "VIEWER", "只读浏览", true, 1, toJson(grantAll(false)))));
+        }
+        // 将各角色的 JSON 矩阵 granted 项同步到 t_admin_role_permission（与 UI 矩阵归一）
+        for (AdminRole r : roleRepository.findAll()) {
+            rbacService.syncRolePermissions(r.getRoleKey(), r.getPermissions());
         }
     }
 
@@ -447,6 +455,7 @@ public class AdminP0Controller {
                 .memberCount(0)
                 .permissions(toJson(body.getOrDefault("permissions", buildPermissionMatrix(false))))
                 .build());
+        rbacService.syncRolePermissions(key, saved.getPermissions());
         return ResponseEntity.ok(roleView(saved));
     }
 
@@ -461,6 +470,7 @@ public class AdminP0Controller {
         if (body.containsKey("description")) r.setDescription(String.valueOf(body.get("description")));
         if (body.containsKey("permissions")) r.setPermissions(toJson(fromPermissions(body.get("permissions"))));
         roleRepository.save(r);
+        rbacService.syncRolePermissions(r.getRoleKey(), r.getPermissions());
         return ResponseEntity.ok(roleView(r));
     }
 

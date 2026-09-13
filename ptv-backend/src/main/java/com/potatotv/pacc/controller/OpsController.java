@@ -2,6 +2,7 @@ package com.potatotv.pacc.controller;
 
 import com.potatotv.pacc.domain.RemoteConfig;
 import com.potatotv.pacc.service.OpsService;
+import com.potatotv.pacc.service.OnlineStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,8 +32,9 @@ public class OpsController {
 
     private final OpsService opsService;
     private final JdbcTemplate jdbcTemplate;
+    private final OnlineStatusService onlineStatusService;
 
-    /** 服务健康：DB 连通性 + 内存 + 运行时长。 */
+    /** 服务健康：DB 连通性 + 内存 + 运行时长 + WSS 在玩家在线数。 */
     @GetMapping("/health")
     public Map<String, Object> health() {
         String db = "UP";
@@ -54,6 +56,11 @@ public class OpsController {
         if (dbErr != null) m.put("db_error", dbErr);
         m.put("memory", Map.of("used_mb", usedMb, "max_mb", maxMb));
         m.put("uptime_seconds", uptimeSec);
+        try {
+            m.put("players_online", onlineStatusService.onlineCount());
+        } catch (Exception e) {
+            m.put("players_online", -1);
+        }
         return m;
     }
 

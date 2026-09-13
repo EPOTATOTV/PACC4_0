@@ -24,6 +24,10 @@ import PlayerTicketDetail from './PlayerTicketDetail'
 import PlayerStreamLive from './PlayerStreamLive'
 import PlayerMapPools from './PlayerMapPools'
 import PlayerMapBp from './PlayerMapBp'
+import PlayerReputation from './PlayerReputation'
+import PlayerHelp from './PlayerHelp'
+import PlayerDownload from './PlayerDownload'
+import PlayerAbout from './PlayerAbout'
 
 /**
  * 玩家自助门户入口：未登录显示登录页，已登录进入带侧边栏的多页布局。
@@ -73,6 +77,10 @@ export default function PlayerPortal() {
         <Route path="/portal/security" element={<PlayerSecurity />} />
         <Route path="/portal/settings" element={<PlayerSettings />} />
         <Route path="/portal/diagnostics" element={<PlayerDiagnostics />} />
+        <Route path="/portal/reputation" element={<PlayerReputation />} />
+        <Route path="/portal/help" element={<PlayerHelp />} />
+        <Route path="/portal/download" element={<PlayerDownload />} />
+        <Route path="/portal/about" element={<PlayerAbout />} />
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Routes>
     </PlayerLayout>

@@ -26,7 +26,7 @@ npm run open:ios
 
 ## 原生搭建要点
 - **Android**：`google-services.json`（FCM）放入 `android/app/`；查看 `@capacitor/push-notifications` 说明。
-- **iOS**：Xcode 配 APNs，App Transport Security 允许 `api.potatotv.asia`；生物识别需 `NSFaceIDUsageDescription`。
+- **iOS**：Xcode 配 APNs，App Transport Security 允许你的 `api` 子域（`api.your-domain.com`）；生物识别需 `NSFaceIDUsageDescription`。
 - **构建期镜像**：客观限制，Android 需 Android SDK、iOS 需 macOS+Xcode、HarmonyOS 需 DevEco，均需各自原生工具链机器，无法在当前 Windows 环境交叉编译。
 
 ## 接入向导（可复用 PlayerPortal）

@@ -25,6 +25,7 @@ import com.potatotv.pacc.repository.TicketMessageRepository;
 import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.NotificationService;
 import com.potatotv.pacc.service.TotpService;
+import com.potatotv.pacc.service.ReputationService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -77,10 +78,17 @@ public class PlayerP0Controller {
     private final BroadcastRepository broadcastRepository;
     private final NotificationService notificationService;
     private final TotpService totpService;
+    private final ReputationService reputationService;
 
     private String pteidOf(HttpServletRequest req) {
         Object v = req.getAttribute("pteid");
         return v == null ? "" : v.toString();
+    }
+
+    /** 玩家信誉：当前分 + 等级 + 权益 + 近 30 天趋势。 */
+    @GetMapping("/reputation")
+    public Map<String, Object> reputation(HttpServletRequest req) {
+        return reputationService.playerSummary(pteidOf(req));
     }
 
     // -------------------------------- 赛事直播转播（只读） --------------------------------
@@ -469,10 +477,32 @@ public class PlayerP0Controller {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
-    /** 2FA 状态（安全中心只读展示）。 */
+    /** 2FA 状态（安全中心只读展示 + 可信设备列表）。 */
     @GetMapping("/security/totp/status")
-    public Map<String, Object> totpStatus(HttpServletRequest req) {
-        return totpService.status(pteidOf(req));
+    public ResponseEntity<?> totpStatus(HttpServletRequest req) {
+        String pteid = pteidOf(req);
+        Map<String, Object> out = new LinkedHashMap<>(totpService.status(pteid));
+        if (Boolean.TRUE.equals(out.get("enabled"))) {
+            out.put("trusted_devices", totpService.trustedDeviceList(pteid));
+        } else {
+            out.put("trusted_devices", List.of());
+        }
+        return ResponseEntity.ok(out);
+    }
+
+    /** 撤销某可信设备：传入安全中心列表中的设备 id（指纹哈希）。 */
+    @PostMapping("/security/totp/trusted/revoke")
+    public ResponseEntity<?> revokeTrustedDevice(@RequestBody Map<String, String> body, HttpServletRequest req) {
+        String pteid = pteidOf(req);
+        String deviceId = body.get("device_id");
+        if (deviceId == null || deviceId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "缺少设备 id"));
+        }
+        boolean removed = totpService.revokeTrustedDeviceByHash(pteid, deviceId);
+        if (!removed) {
+            return ResponseEntity.status(404).body(Map.of("error", "未找到该可信设备"));
+        }
+        return ResponseEntity.ok(Map.of("removed", true, "trusted_devices", totpService.trustedDeviceList(pteid)));
     }
 
     /** 生成一次性恢复码（明文仅此刻返回一次，务必立即保存）。 */

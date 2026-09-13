@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#050608" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>PACC PTV 管控后台</title>
     <style>
       :root {
@@ -25,6 +29,36 @@
         --blue: #5da9ff;
         --mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
       }
+      /* 顶栏/侧栏的半透明玻璃底：随主题切换（浅色下换成白色半透明，保证可读性） */
+      :root { --glass-bar: rgba(5, 6, 8, .55); }
+      /* ———— 浅色主题变量覆盖：切换由 <html data-theme> 驱动，配合 antd lightAlgorithm ———— */
+      html[data-theme='light'] {
+        --bg: #eceef4;
+        --bg-wash: #e2e6ee;
+        --panel: #ffffff;
+        --panel-2: #f6f8fb;
+        --panel-3: #eef1f6;
+        --border: rgba(15, 23, 42, .10);
+        --border-strong: rgba(15, 23, 42, .20);
+        --text: #101828;
+        --muted: #4f5a70;
+        --dim: #8a93a6;
+        --red: #d6342a;
+        --red-2: #ff5a50;
+        --red-soft: rgba(214, 52, 42, .10);
+        --green: #1d9e48;
+        --amber: #b97a13;
+        --blue: #1f6bdb;
+        --kpi-green: #1d9e48;
+        --kpi-blue: #0d6efd;
+        --kpi-red: #d6342a;
+        --kpi-amber: #b97a13;
+        --kpi-muted: #8a93a6;
+        --glass-bar: rgba(255, 255, 255, .72);
+      }
+      /* 玻璃底光斑在浅色下整体压淡，避免过艳 */
+      html[data-theme='light'] .pacc-backdrop-a { opacity: .55; filter: saturate(120%); }
+      html[data-theme='light'] .pacc-backdrop-b { opacity: .6; }
       * { box-sizing: border-box; }
       @font-face {
         font-family: 'Russo One';
@@ -45,7 +79,34 @@
         background: var(--bg);
         color: var(--text);
         -webkit-font-smoothing: antialiased;
+        line-height: 1.66;
       }
+      /* ———— 排版层级强烈区分（去 AI：禁止全站统一行高/统一灰/统一字距）————
+         大标题紧凑厚重、正文舒展、小字辅助更紧；标题加宽、正文与小字不加宽。 */
+      :root {
+        --lh-title: 1.14;
+        --lh-body: 1.66;
+        --lh-small: 1.32;
+        --ls-title: .02em;
+      }
+      h1, h2, h3, h4, h5, h6, .ant-typography-heading {
+        line-height: var(--lh-title);
+        letter-spacing: var(--ls-title);
+        font-weight: 700;
+      }
+      p, .ant-typography { line-height: var(--lh-body); }
+      /* 弱化文本优先用透明度，少用灰（避免全是 #9aa 灰味） */
+      .ant-typography-secondary, .ant-form-item-label, .section-title {
+        color: var(--text) !important;
+        opacity: .7;
+      }
+      /* 全局极低透明度噪点：消除 AI 干净塑料感（不挡交互，浅色下更淡） */
+      body::after {
+        content: ''; position: fixed; inset: 0; z-index: 9997; pointer-events: none;
+        background-image: radial-gradient(rgba(255, 255, 255, .5) 1px, transparent 1px);
+        background-size: 3px 3px; opacity: .055; mix-blend-mode: overlay;
+      }
+      html[data-theme='light'] body::after { opacity: .04; }
       ::selection { background: rgba(255, 77, 61, .30); }
       a { color: var(--blue); text-decoration: none; }
       /* 数字/代码统一用 JetBrains Mono，界面统计更有质感 */
@@ -63,11 +124,36 @@
         --kpi-amber: #d29922;
         --kpi-muted: #8b949e;
       }
-      /* 液体玻璃卡片兜底：确保 blur/背景/内高光不被 antd 的 CSS-in-JS 覆盖 */
+      /* —— 液态玻璃三层结构（禁止单层敷衍玻璃）——
+         1) 基底：半透明底（inline）+ backdrop 模糊/饱和，让背后光斑透入
+         2) 光影：顶部高光细描边、底部更暗、内侧微弱折射柔光、整体投深远影（inset box-shadow）
+         3) 高光层：左上内弧折射光晕（::before 径向），模拟液滴厚度与曲面折射 */
       .pacc-glass {
-        -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
-        backdrop-filter: blur(22px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+        backdrop-filter: blur(28px) saturate(200%) !important;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, .22),
+          inset 0 -1px 0 rgba(255, 255, 255, .05),
+          inset 2px 0 12px rgba(255, 255, 255, .05),
+          inset -2px 0 12px rgba(255, 255, 255, .02),
+          inset 0 0 46px rgba(255, 255, 255, .045),
+          0 44px 100px rgba(0, 0, 0, .48) !important;
+        position: relative;
       }
+      .pacc-glass::before {
+        content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+        background: radial-gradient(120% 72% at 14% 0%, rgba(255, 255, 255, .13), transparent 52%);
+      }
+      /* —— 卡片分级差异化（去 AI：大板块/中面板/小组件的圆角、投影、内距分级，
+            严禁全站同一个圆角/同一套阴影；内距用非 4px 整数，跨组件故意不统一） —— */
+      .pacc-glass { border-radius: 18px; }
+      .pacc-glass-lg { border-radius: 24px; }  /* 页级大板块：更圆、投影更深更散 */
+      .pacc-glass-md { border-radius: 14px; }  /* 中点面板：数据卡/表单容器 */
+      .pacc-glass-sm { border-radius: 9px; }   /* 小组件/KPI/内嵌标签：小圆、克制动效 */
+      /* antd 默认卡原样太统一，按层级做差异化：顶层面板 > 表格内嵌 > KPI 小件 */
+      .ant-card { border-radius: 15px; }
+      .ant-card .ant-card { border-radius: 11px; box-shadow: inset 0 1px 0 rgba(255,255,255,.10); }
+      .ant-card.metric-card { border-radius: 10px; }
       /* 统计数字统一等宽，强化运营台质感 */
       .ant-statistic-content { font-family: var(--mono); font-variant-numeric: tabular-nums; }
       .ant-statistic-title { letter-spacing: .02em; color: var(--muted); }
@@ -87,17 +173,58 @@
       }
       .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
       .secret-line { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
-      /* 入场动效（克制动效，单一交错，非到处悬浮） */
-      @keyframes paccFadeUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-      .pacc-in { animation: paccFadeUp .26s ease both; }
+      /* 入场动效：分「快·小控件」与「阻尼·大面板」两种节奏，杜绝全站同速 */
+      @keyframes paccFadeUp {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: none; }
+      }
+      @keyframes paccRise {
+        from { opacity: 0; transform: translateY(18px); }
+        to   { opacity: 1; transform: none; }
+      }
+      .pacc-in { animation: paccFadeUp .26s cubic-bezier(.3, .7, .35, 1) both; }
+      /* 大面板入场：阻尼慢、位移大（>180ms、灵动又克制） */
+      .pacc-in-slow { animation: paccRise .8s cubic-bezier(.22, 1, .36, 1) both; }
 
-      /* 玻璃背后的光斑极缓漂移：液体感来源，19s 往返，位移小、不打扰 */
+      /* —— 背景流动：长周期 22s 超慢、柔和宏大，且视差分层 ——
+         背景层移动最大（paccDrift / ~24s）、玻璃层其次（paccDriftB / ~32s）、
+         文字完全不参与变换 = 明确的「背景 > 玻璃 > 文字」纵深。禁用闪烁/频闪。 */
       @keyframes paccDrift {
         0%   { transform: translate3d(0, 0, 0) scale(1); }
-        50%  { transform: translate3d(16px, 12px, 0) scale(1.06); }
+        33%  { transform: translate3d(52px, 40px, 0) scale(1.12); }
+        66%  { transform: translate3d(-28px, 34px, 0) scale(1.06); }
         100% { transform: translate3d(0, 0, 0) scale(1); }
       }
-      .pacc-aurora { animation: paccDrift 19s ease-in-out infinite; will-change: transform; }
+      @keyframes paccDriftB {
+        0%   { transform: translate3d(0, 0, 0) rotate(0deg); }
+        50%  { transform: translate3d(-30px, -20px, 0) rotate(3deg); }
+        100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+      }
+      .pacc-aurora { animation: paccDrift 24s cubic-bezier(.45, 0, .55, 1) infinite; will-change: transform; }
+
+      /* ———— 全站液态玻璃底光斑层 ————
+         色彩克制：主色唯一（深红）+ 单个辅助（深蓝），降饱和、加深空深邃；
+         避免五颜六色高饱和堆砌。背景透明、不遮字。穿透布局（Layout z-index:1）。 */
+      .pacc-backdrop-a,
+      .pacc-backdrop-b {
+        position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+      }
+      .pacc-backdrop-a {
+        background:
+          radial-gradient(56vw 52vh at 16% 10%, rgba(255, 77, 61, .26), transparent 64%),
+          radial-gradient(44vw 40vh at 86% 30%, rgba(56, 96, 180, .22), transparent 64%),
+          radial-gradient(38vw 36vh at 60% 96%, rgba(30, 40, 60, .55), transparent 66%),
+          radial-gradient(30vw 28vh at 8% 88%, rgba(58, 78, 120, .16), transparent 62%);
+        animation: paccDrift 24s cubic-bezier(.45, 0, .55, 1) infinite;
+        will-change: transform;
+      }
+      .pacc-backdrop-b {
+        background:
+          radial-gradient(30vw 32vh at 64% 34%, rgba(200, 216, 255, .10), transparent 64%),
+          radial-gradient(26vw 28vh at 26% 70%, rgba(255, 107, 94, .08), transparent 64%);
+        animation: paccDriftB 32s cubic-bezier(.45, 0, .55, 1) infinite;
+        will-change: transform;
+      }
 
       /* ———— P2 精致微动效（参考 uiverse.io 取向，简单但处处精致）————
          原则：位移 ≤2px、时长 ≤180ms、只改 border/background/shadow/transform，

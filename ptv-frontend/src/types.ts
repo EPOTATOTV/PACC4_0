@@ -1075,3 +1075,96 @@ export interface MapPoolStats {
   pick_total: number
   by_type: Record<string, number>
 }
+
+// ---- P1（v5.0）：版本发布 / 黑白名单 / 数据导出 / 反作弊效果 / 检测配置 ----
+
+export interface ReleaseInfoRow {
+  id: string
+  platform: string
+  channel: string
+  version: string
+  build_no: number
+  notes?: string
+  download_url?: string
+  sha256?: string
+  min_app_version?: string
+  manual_enabled: boolean
+  forced_enabled: boolean
+  crash_rate_pct: number
+  status: string
+  published_at?: string
+  created_by?: string
+  created_at: string
+}
+
+export interface ListEntryRow {
+  id: string
+  list_type: string
+  entry_type: string
+  value: string
+  reason: string
+  status: string
+  created_by?: string
+  created_at: string
+  expires_at?: string
+}
+
+export interface ExportTaskRow {
+  id: string
+  subject: string
+  filters: string
+  status: string
+  requestedBy: string
+  format: string
+  filePath: string
+  downloadKey?: string
+  rowCount: number
+  errorMsg?: string
+  requestedAt: string
+  completedAt?: string
+  expiresAt?: string
+}
+
+export interface EffectivenessSummary {
+  total_cheat_records: number
+  confirmed_cheats: number
+  false_positives: number
+  appeals_approved: number
+  total_redscreens: number
+  total_suspicion_flags: number
+  precision_pct: number
+  false_positive_pct: number
+  healthy: boolean
+}
+
+export interface CheatTypeDistRow {
+  cheat_type: string
+  count: number
+}
+
+export interface DetectorConfigRow {
+  detector_key: string
+  name: string
+  enabled: boolean
+  meta: string
+  updated_by?: string
+  updated_at: string
+  configured: boolean
+}
+
+export interface ReputationTrendPoint {
+  date: string
+  score: number
+}
+
+export interface ReputationSummary {
+  score: number
+  tier: string
+  equities: string[]
+  trend: ReputationTrendPoint[]
+}
+
+export interface ExportSubmitResult {
+  task_id: string
+  status: string
+}

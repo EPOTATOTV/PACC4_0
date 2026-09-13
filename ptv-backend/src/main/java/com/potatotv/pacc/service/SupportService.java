@@ -5,6 +5,7 @@ import com.potatotv.pacc.domain.SupportTicket;
 import com.potatotv.pacc.repository.FaqEntryRepository;
 import com.potatotv.pacc.repository.SupportTicketRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ import java.util.regex.Pattern;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SupportService {
 
     /** 各优先级首响 SLA 预算（秒）：P0=2h, P1=8h, P2=24h, P3=48h。 */
@@ -33,6 +35,7 @@ public class SupportService {
 
     private final SupportTicketRepository ticketRepository;
     private final FaqEntryRepository faqRepository;
+    private final NotificationService notificationService;
 
     /** 智能回复命中统计（进程内近似，用于 hit_rate 展示）。 */
     private final AtomicLong smartHits = new AtomicLong();
@@ -85,6 +88,18 @@ public class SupportService {
         t.setStatus("RESPONDED");
         t.setUpdatedAt(Instant.now());
         ticketRepository.save(t);
+
+        // 通知玩家：工单（编号由 id 缩短展示）已收到客服回复
+        try {
+            String shortId = t.getId();
+            if (shortId != null && shortId.length() > 8) shortId = shortId.substring(0, 8);
+            notificationService.sendToOne(t.getPteid(), "客服回复",
+                    "您的工单 #" + shortId + " 有新的客服回复，请查看。",
+                    "SUPPORT", "TICKET_REPLY", "NORMAL",
+                    java.util.EnumSet.of(NotificationService.Channel.IN_APP, NotificationService.Channel.EMAIL));
+        } catch (Exception e) {
+            log.warn("写入工单回复通知失败 ticket={} err={}", id, e.getMessage());
+        }
 
         long firstReplySeconds = t.getCreatedAt() == null ? 0L
                 : Duration.between(t.getCreatedAt(), t.getFirstReplyAt()).getSeconds();

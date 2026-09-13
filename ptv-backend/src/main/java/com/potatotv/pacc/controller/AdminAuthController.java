@@ -185,8 +185,9 @@ public class AdminAuthController {
         if (role == null) {
             return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED).body(Map.of("error", "会话失效，请重新登录"));
         }
-        return ResponseEntity.ok(Map.of("ok", true, "role", role,
-                "permissions", permissionInterceptor.permissionSet(role)));
+        String adminId = adminTokenService.identityOf(token);
+        return ResponseEntity.ok(Map.of("ok", true, "role", role, "admin_id", adminId == null ? "" : adminId,
+                "permissions", permissionInterceptor.permissionSet(adminId, role)));
     }
 
     /** 管理端登出：清除 HttpOnly 会话 cookie。 */

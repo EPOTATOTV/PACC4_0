@@ -35,7 +35,7 @@ class SupportServiceTest {
     void setUp() {
         ticketRepo = mock(SupportTicketRepository.class);
         faqRepo = mock(FaqEntryRepository.class);
-        service = new SupportService(ticketRepo, faqRepo);
+        service = new SupportService(ticketRepo, faqRepo, mock(NotificationService.class));
     }
 
     @Test

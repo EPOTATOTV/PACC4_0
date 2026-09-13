@@ -1,29 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Alert, Card, Descriptions, Divider, Segmented, Space, Tag, Typography } from 'antd'
 import { api } from '../../api/client'
+import { useI18n, type LocaleCode } from '../../i18n'
+import { useTheme, type ThemeMode } from '../../theme'
 
 const { Title, Text } = Typography
 
 export default function PlayerSettings() {
   const [pteid, setPteid] = useState('')
   const [err, setErr] = useState('')
-  const [theme, setTheme] = useState<string>(() => localStorage.getItem('pacc_theme') || 'light')
-  const [lang, setLang] = useState<string>(() => localStorage.getItem('pacc_lang') || 'zh')
+  // 主题 / 语言统一走上下文：真正驱动 antd 算法与本机偏好
+  const { mode: theme, setMode: setTheme } = useTheme()
+  const { locale: lang, setLocale: setLang, locales } = useI18n()
 
   useEffect(() => {
     api.player.me().then((m) => setPteid(m.pteid)).catch((e) => setErr(String(e.message || e)))
   }, [])
-
-  function changeTheme(v: string) {
-    setTheme(v)
-    localStorage.setItem('pacc_theme', v)
-    document.documentElement.dataset.theme = v
-  }
-
-  function changeLang(v: string) {
-    setLang(v)
-    localStorage.setItem('pacc_lang', v)
-  }
 
   const moduleSwitches = [
     ['内存与进程检测', '内存篡改、进程注入'],
@@ -49,20 +41,25 @@ export default function PlayerSettings() {
           <Text style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>主题</Text>
           <Segmented
             value={theme}
-            options={[{ label: '浅色', value: 'light' }, { label: '深色', value: 'dark' }, { label: '跟随系统', value: 'system' }]}
-            onChange={(v) => changeTheme(String(v))}
+            options={[
+              { label: '浅色', value: 'light' },
+              { label: '深色', value: 'dark' },
+              { label: '跟随系统', value: 'system' },
+            ]}
+            onChange={(v) => setTheme(v as ThemeMode)}
           />
         </div>
         <div>
           <Text style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>语言</Text>
           <Segmented
             value={lang}
-            options={[{ label: '简体中文', value: 'zh' }, { label: 'English', value: 'en' }, { label: '日本語', value: 'ja' }, { label: '한국어', value: 'ko' }]}
-            onChange={(v) => changeLang(String(v))}
+            options={locales.map((l) => ({ label: l.label, value: l.code }))}
+            onChange={(v) => setLang(v as LocaleCode)}
+            style={{ overflowX: 'auto' }}
           />
         </div>
         <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
-          偏好保存在本机，桌面端客户端壳据此渲染对应外观。
+          偏好保存在本机；浅色 / 深色即时生效，「跟随系统」随系统深浅色自动切换。桌面端客户端壳据此渲染对应外观。
         </Text>
       </Card>
 

@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -144,6 +145,139 @@ public class TotpService {
                     .parseSignedClaims(pending).getPayload().getSubject();
         } catch (JwtException | IllegalArgumentException e) {
             throw new SecurityException("两步验证会话已失效，请重新登录");
+        }
+    }
+
+    /** 是否命中真实 TOTP 验证码（不消费恢复码状态）。用于判定能否建立设备信任。 */
+    public boolean isValidTotp(String pteid, String code) {
+        SecurityTotp t = totpRepository.findById(pteid).orElse(null);
+        if (t == null || !t.isEnabled()) {
+            return false;
+        }
+        return verifyTotpCode(t.getSecret(), code);
+    }
+
+    // -------------------------------- 可信设备 --------------------------------
+
+    /** 判断该设备指纹是否为某 PTEID 的有效可信设备（未过期）。指纹只存 SHA-256 摘要。 */
+    public boolean isTrustedDevice(String pteid, String deviceFp) {
+        if (deviceFp == null || deviceFp.isBlank()) {
+            return false;
+        }
+        SecurityTotp t = totpRepository.findById(pteid).orElse(null);
+        Map<String, Long> map = trustedMap(t);
+        if (map.isEmpty()) {
+            return false;
+        }
+        Long exp = map.get(sha256Hex("trust:" + deviceFp));
+        return exp != null && exp > System.currentTimeMillis();
+    }
+
+    /** 记录可信设备（默认 30 天）。指纹以摘要形式存储，避免明文设备标识落库。 */
+    @Transactional
+    public boolean trustDevice(String pteid, String deviceFp, long days) {
+        if (deviceFp == null || deviceFp.isBlank()) {
+            return false;
+        }
+        SecurityTotp t = totpRepository.findById(pteid).orElse(null);
+        if (t == null) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        Map<String, Long> map = trustedMap(t);
+        long cap = days <= 0 ? 30L : days;
+        long exp = now + cap * 24L * 3600L * 1000L;
+        map.put(sha256Hex("trust:" + deviceFp), exp);
+        // 保留最近 10 台，避免无限膨胀
+        if (map.size() > 10) {
+            map.entrySet().stream()
+                    .sorted(Map.Entry.comparingByValue())
+                    .limit(map.size() - 10)
+                    .forEach(e -> map.remove(e.getKey()));
+        }
+        t.setTrustedDevices(toJson(map));
+        t.setUpdatedAt(Instant.now());
+        totpRepository.save(t);
+        log.info("新增可信设备 days={} pteid={}", cap, pteid);
+        return true;
+    }
+
+    /** 撤销某可信设备。 */
+    @Transactional
+    public boolean revokeTrustedDevice(String pteid, String deviceFp) {
+        if (deviceFp == null || deviceFp.isBlank()) {
+            return false;
+        }
+        SecurityTotp t = totpRepository.findById(pteid).orElse(null);
+        if (t == null) {
+            return false;
+        }
+        Map<String, Long> map = trustedMap(t);
+        boolean removed = map.remove(sha256Hex("trust:" + deviceFp)) != null;
+        if (removed) {
+            t.setTrustedDevices(toJson(map));
+            t.setUpdatedAt(Instant.now());
+            totpRepository.save(t);
+            log.info("撤销可信设备 pteid={}", pteid);
+        }
+        return removed;
+    }
+
+    /** 按存储的可信设备 id（指纹哈希）撤销，供安全中心列表操作使用。 */
+    @Transactional
+    public boolean revokeTrustedDeviceByHash(String pteid, String deviceHash) {
+        if (deviceHash == null || deviceHash.isBlank()) {
+            return false;
+        }
+        SecurityTotp t = totpRepository.findById(pteid).orElse(null);
+        if (t == null) {
+            return false;
+        }
+        Map<String, Long> map = trustedMap(t);
+        boolean removed = map.remove(deviceHash) != null;
+        if (removed) {
+            t.setTrustedDevices(toJson(map));
+            t.setUpdatedAt(Instant.now());
+            totpRepository.save(t);
+            log.info("按 id 撤销可信设备 pteid={}", pteid);
+        }
+        return removed;
+    }
+
+    /** 返回某 PTEID 的可信设备数量（供安全中心展示，不含具体指纹）。 */
+    public int trustedDeviceCount(String pteid) {
+        SecurityTotp t = totpRepository.findById(pteid).orElse(null);
+        return trustedMap(t).size();
+    }
+
+    /** 可信设备列表（仅暴露指纹前缀 + 过期时间，不落明文指纹）。 */
+    public List<Map<String, Object>> trustedDeviceList(String pteid) {
+        SecurityTotp t = totpRepository.findById(pteid).orElse(null);
+        Map<String, Long> map = trustedMap(t);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        long now = System.currentTimeMillis();
+        for (Map.Entry<String, Long> e : map.entrySet()) {
+            if (e.getValue() <= now) {
+                continue;
+            }
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("id", e.getKey());
+            r.put("prefix", e.getKey().substring(0, Math.min(10, e.getKey().length())));
+            r.put("expires_at", Instant.ofEpochMilli(e.getValue()).toString());
+            rows.add(r);
+        }
+        return rows;
+    }
+
+    private Map<String, Long> trustedMap(SecurityTotp t) {
+        if (t == null || t.getTrustedDevices() == null || t.getTrustedDevices().isBlank()) {
+            return new java.util.HashMap<>();
+        }
+        try {
+            return new java.util.HashMap<>(
+                    objectMapper.readValue(t.getTrustedDevices(), new TypeReference<Map<String, Long>>() {}));
+        } catch (JsonProcessingException e) {
+            return new java.util.HashMap<>();
         }
     }
 

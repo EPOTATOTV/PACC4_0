@@ -54,13 +54,17 @@ export default function AdminLayout({ children, role }: { children: ReactNode; r
   }, [selectedGroup])
 
   return (
-    <Layout
-      style={{
-        minHeight: '100vh',
-        background:
-          'radial-gradient(1000px 520px at 82% -160px, rgba(255,77,61,.10), transparent 60%), var(--bg)',
-      }}
-    >
+    <div style={{ position: 'relative', minHeight: '100vh' }}>
+      {/* 全站液态玻璃底光斑层：置于内容之下，玻璃面板可对其透光折射 */}
+      <div aria-hidden className="pacc-backdrop-a" />
+      <div aria-hidden className="pacc-backdrop-b" />
+      <Layout
+        style={{
+          position: 'relative', zIndex: 1,
+          minHeight: '100vh',
+          background: 'transparent',
+        }}
+      >
       <AdminHeader collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} onSearch={setSearch} />
       <Layout style={{ background: 'transparent' }}>
         <Sider
@@ -72,7 +76,7 @@ export default function AdminLayout({ children, role }: { children: ReactNode; r
           collapsedWidth={0}
           onBreakpoint={(broken) => setCollapsed(broken)}
           style={{
-            background: 'rgba(5,6,8,.45)',
+            background: 'var(--glass-bar)',
             borderRight: '1px solid var(--border)',
             backdropFilter: 'blur(6px)',
           }}
@@ -90,14 +94,14 @@ export default function AdminLayout({ children, role }: { children: ReactNode; r
         <Layout>
           <Content style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <Breadcrumb
-              style={{ padding: '14px 24px 0', fontSize: 13 }}
+              style={{ padding: '17px 26px 9px', fontSize: 12.5, letterSpacing: '.02em' }}
               items={
                 [navGroups.find((g) => g.items.some((i) => i.key === selected))?.groupI18nKey, navGroups.flatMap((g) => g.items).find((i) => i.key === selected)?.i18nKey]
                   .filter((k): k is string => !!k)
                   .map((k) => ({ title: t(k) }))
               }
             />
-            <div style={{ padding: '16px 20px', flex: 1, overflow: 'auto' }}>
+            <div style={{ padding: '21px 23px 34px', flex: 1, overflow: 'auto' }}>
               <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>{children}</div>
             </div>
           </Content>
@@ -112,5 +116,6 @@ export default function AdminLayout({ children, role }: { children: ReactNode; r
         </Layout>
       </Layout>
     </Layout>
+    </div>
   )
 }

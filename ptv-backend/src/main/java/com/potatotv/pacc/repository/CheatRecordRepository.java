@@ -27,6 +27,10 @@ public interface CheatRecordRepository extends JpaRepository<CheatRecord, String
 
     long countByAlertIdAndRevokedFalse(String alertId);
 
+    /** 有效（未撤销）作弊记录按类型分组统计，供反作弊效果分析。 */
+    @Query("select c.cheatType, count(c) from CheatRecord c where c.revoked = false group by c.cheatType")
+    java.util.List<Object[]> countGroupByCheatType();
+
     /** 查端误报：按告警撤销对应作弊记录（保留原始行，仅标记撤销 + 结论）。 */
     @Modifying
     @Query("update CheatRecord c set c.revoked = true, c.inspectConclusion = 'FALSE_POSITIVE' where c.alertId = :alertId")

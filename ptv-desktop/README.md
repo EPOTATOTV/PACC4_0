@@ -29,7 +29,7 @@ npm run build                      # 自动先构建 ptv-frontend，再 tauri bu
 - **Java 服务进程**：启动时在资源目录查找 `ptv-client-*.jar`（经 `bundle.resources` 附带），`spawn` 该进程，日志重定向到 `%ProgramData%\PACC\logs\client-tauri.log`；后台线程轮询，崩溃自动重启。
 - **系统托盘**：显示主窗口 / 导出诊断 / 退出。
 - **开机自启**：安装时默认开启，前端设置页可切换。
-- **自动更新**：指向 `dl.potatotv.asia`，发布前需生成 Tauri 签名密钥并把 `pubkey` 填入 `tauri.conf.json`。
+- **自动更新**：指向下载站域名（`dl.your-domain.com`），发布前需生成 Tauri 签名密钥并把 `pubkey` 填入 `tauri.conf.json`。
 
 ## 与 v5.0 移动端的关系
 移动端（`../ptv-mobile`）为远程查看/管理角色，不内嵌本地检测引擎；桌面壳才承载本地 Java 检测引擎与红屏强制覆盖。

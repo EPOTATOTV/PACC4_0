@@ -62,7 +62,7 @@ export default function AdminHeader({
         zIndex: 20,
         height: 56,
         lineHeight: '56px',
-        background: 'rgba(5,6,8,.55)',
+        background: 'var(--glass-bar)',
         backdropFilter: 'blur(14px) saturate(140%)',
         borderBottom: '1px solid var(--border)',
         padding: '0 16px',

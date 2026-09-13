@@ -48,6 +48,16 @@ const navGroups = [
       { key: '/portal/settings', to: '/portal/settings', i18nKey: 'player.settings' },
     ],
   },
+  {
+    groupKey: 'player.group.service',
+    groupI18nKey: 'player.group.service',
+    items: [
+      { key: '/portal/reputation', to: '/portal/reputation', i18nKey: 'player.reputation' },
+      { key: '/portal/help', to: '/portal/help', i18nKey: 'player.help' },
+      { key: '/portal/download', to: '/portal/download', i18nKey: 'player.download' },
+      { key: '/portal/about', to: '/portal/about', i18nKey: 'player.about' },
+    ],
+  },
 ]
 
 export default function PlayerLayout({ children }: { children: ReactNode }) {
@@ -70,13 +80,17 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
   }, [selectedGroup])
 
   return (
-    <Layout
-      style={{
-        minHeight: '100vh',
-        background:
-          'radial-gradient(1000px 520px at 82% -160px, rgba(255,77,61,.10), transparent 60%), var(--bg)',
-      }}
-    >
+    <div style={{ position: 'relative', minHeight: '100vh' }}>
+      {/* 全站液态玻璃底光斑层：置于内容之下，玻璃面板可对其透光折射 */}
+      <div aria-hidden className="pacc-backdrop-a" />
+      <div aria-hidden className="pacc-backdrop-b" />
+      <Layout
+        style={{
+          position: 'relative', zIndex: 1,
+          minHeight: '100vh',
+          background: 'transparent',
+        }}
+      >
       <Header
         style={{
           position: 'sticky',
@@ -84,7 +98,7 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
           zIndex: 20,
           height: 56,
           lineHeight: '56px',
-          background: 'rgba(5,6,8,.55)',
+          background: 'var(--glass-bar)',
           backdropFilter: 'blur(14px) saturate(140%)',
           borderBottom: '1px solid var(--border)',
           padding: '0 16px',
@@ -114,7 +128,7 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
           collapsedWidth={0}
           onBreakpoint={(broken) => setCollapsed(broken)}
           style={{
-            background: 'rgba(5,6,8,.45)',
+            background: 'var(--glass-bar)',
             borderRight: '1px solid var(--border)',
             backdropFilter: 'blur(6px)',
           }}
@@ -153,8 +167,8 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
           </div>
         </Sider>
         <Layout>
-          <Content style={{ padding: '24px 20px', overflow: 'auto' }}>
-            <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>{children}</div>
+          <Content style={{ padding: '24px 22px', overflow: 'auto' }}>
+            <div style={{ maxWidth: 1320, margin: '0 auto', width: '100%' }}>{children}</div>
           </Content>
           <Footer style={{ textAlign: 'center', padding: '12px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -165,5 +179,6 @@ export default function PlayerLayout({ children }: { children: ReactNode }) {
         </Layout>
       </Layout>
     </Layout>
+    </div>
   )
 }

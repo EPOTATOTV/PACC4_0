@@ -44,4 +44,8 @@ public class SecurityTotp {
     /** 已使用的恢复码摘要集合 JSON。 */
     @Column(name = "recovery_used", columnDefinition = "LONGTEXT")
     private String recoveryUsed;
+
+    /** 可信设备表 JSON：{deviceFp: expiresAtEpochMillis}，deviceFp 为设备指纹的 SHA-256 摘要。 */
+    @Column(name = "trusted_devices", columnDefinition = "LONGTEXT")
+    private String trustedDevices;
 }

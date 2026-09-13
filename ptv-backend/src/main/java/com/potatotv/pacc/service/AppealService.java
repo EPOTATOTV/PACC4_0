@@ -31,7 +31,7 @@ public class AppealService {
     private final AppealRepository appealRepository;
     private final CheatRecordRepository cheatRecordRepository;
     private final AccountRepository accountRepository;
-    private final MailerService mailerService;
+    private final NotificationService notificationService;
     private final ObjectMapper mapper;
 
     /**
@@ -133,18 +133,18 @@ public class AppealService {
     }
 
     private void notifyPlayer(Appeal a, boolean approved) {
-        String email = accountRepository.findById(a.getPteid()).map(Account::getEmail).orElse(null);
-        if (email == null) {
-            log.info("玩家邮箱未知，跳过申诉结果通知 pteid={}", a.getPteid());
-            return;
-        }
-        String subject = approved ? "PACC 申诉处理结果：已通过" : "PACC 申诉处理结果：未通过";
+        String title = approved ? "申诉已通过" : "申诉未通过";
         String body = approved
-                ? "<p>您好，您提交的申诉 <b>" + a.getAppealId() + "</b> 已审核通过。</p>"
-                + "<p>如关联的作弊记录为误报，已被撤销；相关信誉已恢复。</p>"
-                : "<p>您好，您提交的申诉 <b>" + a.getAppealId() + "</b> 经审核未通过。</p>"
-                + "<p>说明：" + (a.getReviewComment() == null ? "" : a.getReviewComment()) + "</p>";
-        mailerService.send(email, subject, body);
+                ? "您的申诉 " + a.getAppealId() + " 已审核通过，关联的误报作弊记录已撤销，信誉已恢复。"
+                : "您的申诉 " + a.getAppealId() + " 经审核未通过。说明：" + (a.getReviewComment() == null ? "" : a.getReviewComment());
+        // 统一通知：写入通知中心（站内）并按其设置投递邮件
+        try {
+            notificationService.sendToOne(a.getPteid(), title, body, "SUPPORT", "APPEAL_RESULT",
+                    approved ? "NORMAL" : "NORMAL",
+                    java.util.EnumSet.of(NotificationService.Channel.IN_APP, NotificationService.Channel.EMAIL));
+        } catch (Exception e) {
+            log.warn("写入申诉结果通知失败 appeal={} err={}", a.getAppealId(), e.getMessage());
+        }
     }
 
     /** 抓取关联作弊记录生成证据快照 JSON。 */

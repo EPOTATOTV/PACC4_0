@@ -92,6 +92,18 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    groupKey: 'p1',
+    groupLabel: '反作弊运营',
+    groupI18nKey: 'nav.group.p1',
+    items: [
+      { key: '/effectiveness', to: '/effectiveness', label: '效果分析', i18nKey: 'nav.effectiveness' },
+      { key: '/lists', to: '/lists', label: '黑白名单', i18nKey: 'nav.lists' },
+      { key: '/config', to: '/config', label: '检测配置', i18nKey: 'nav.detectorConfig' },
+      { key: '/releases', to: '/releases', label: '版本发布', i18nKey: 'nav.releases' },
+      { key: '/export', to: '/export', label: '数据导出', i18nKey: 'nav.exportCenter' },
+    ],
+  },
+  {
     groupKey: 'docs',
     groupLabel: '文档与协议',
     groupI18nKey: 'nav.group.docs',
@@ -135,6 +147,11 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/ab': { titleKey: 'nav.ab', groupKey: 'nav.group.ops' },
   '/ops': { titleKey: 'nav.ops', groupKey: 'nav.group.ops' },
   '/support': { titleKey: 'nav.support', groupKey: 'nav.group.ops' },
+  '/effectiveness': { titleKey: 'nav.effectiveness', groupKey: 'nav.group.p1' },
+  '/lists': { titleKey: 'nav.lists', groupKey: 'nav.group.p1' },
+  '/config': { titleKey: 'nav.detectorConfig', groupKey: 'nav.group.p1' },
+  '/releases': { titleKey: 'nav.releases', groupKey: 'nav.group.p1' },
+  '/export': { titleKey: 'nav.exportCenter', groupKey: 'nav.group.p1' },
 }
 
 /** 根据当前路径匹配选中的菜单 key */

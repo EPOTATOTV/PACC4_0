@@ -13,7 +13,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * 全局异常处理（统一脱敏 + 不泄露内部细节）：
@@ -28,9 +33,15 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    private final MessageSource messageSource;
+
+    public GlobalExceptionHandler(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
+
     @ExceptionHandler({IllegalArgumentException.class})
     public ResponseEntity<?> badRequest(IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(Map.of("error", safe(e.getMessage(), "非法请求参数")));
+        return ResponseEntity.badRequest().body(error("error.badRequest", safe(e.getMessage(), null), "BAD_REQUEST"));
     }
 
     @ExceptionHandler({
@@ -40,14 +51,15 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException.class,
             MismatchedInputException.class})
     public ResponseEntity<?> validation(Exception e) {
-        String msg = "请求参数不合法";
+        String key = "error.validation";
         if (e instanceof BindException be && be.getBindingResult() != null) {
             FieldError fe = be.getBindingResult().getFieldError();
             if (fe != null) {
-                msg = "字段不合法: " + fe.getField();
+                key = "error.field.invalid";
+                return ResponseEntity.badRequest().body(error(key, resolve("error.field.invalid", fe.getField()), "VALIDATION"));
             }
         }
-        return ResponseEntity.badRequest().body(Map.of("error", msg));
+        return ResponseEntity.badRequest().body(error(key, null, "VALIDATION"));
     }
 
     @ExceptionHandler(Exception.class)
@@ -55,7 +67,24 @@ public class GlobalExceptionHandler {
         // 服务端日志：记录完整堆栈与请求上下文；客户端只拿到通用提示
         log.error("未处理异常: class={} msg={}", e.getClass().getName(), safe(e.getMessage(), ""), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "服务器内部错误，请稍后重试"));
+                .body(error("error.internal", "服务器内部错误，请稍后重试", "INTERNAL"));
+    }
+
+    /** 统一错误响应：error 为展示文案，errorKey 为可编程的错误键（i18n 外键）。 */
+    private Map<String, Object> error(String key, String fallback, String code) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("error", fallback != null ? fallback : resolve(key));
+        m.put("errorKey", key);
+        m.put("code", code);
+        return m;
+    }
+
+    private String resolve(String key, String... args) {
+        try {
+            return messageSource.getMessage(key, args, key, LocaleContextHolder.getLocale());
+        } catch (Exception e) {
+            return key;
+        }
     }
 
     /** 过滤可能含敏感信息（SQL、堆栈片段、换行）的错误文案。 */

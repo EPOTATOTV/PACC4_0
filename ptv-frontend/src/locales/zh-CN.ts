@@ -10,6 +10,7 @@ const zhCN = {
   'nav.group.event': '赛事风控',
   'nav.group.system': '系统管理',
   'nav.group.ops': '运营自动化',
+  'nav.group.p1': '反作弊运营',
   'nav.group.docs': '文档与协议',
   // 管理端导航项
   'nav.dashboard': '数据大盘',
@@ -36,6 +37,11 @@ const zhCN = {
   'nav.ab': 'A/B 实验',
   'nav.ops': '运维中心',
   'nav.support': '客服工单',
+  'nav.effectiveness': '效果分析',
+  'nav.lists': '黑白名单',
+  'nav.detectorConfig': '检测配置',
+  'nav.releases': '版本发布',
+  'nav.exportCenter': '数据导出',
 
   // 玩家门户导航
   'player.overview': '我的概览',
@@ -43,6 +49,11 @@ const zhCN = {
   'player.group.event': '赛事',
   'player.group.records': '记录与申诉',
   'player.group.account': '账号中心',
+  'player.group.service': '服务中心',
+  'player.reputation': '信誉分',
+  'player.help': '帮助中心',
+  'player.download': '下载与更新',
+  'player.about': '关于 PACC',
   'player.protection': '实时保护',
   'player.monitor': '实时监控',
   'player.notifications': '通知中心',

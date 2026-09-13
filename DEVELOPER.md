@@ -1,240 +1,321 @@
-# PACC 开发者文档（API 与整体）
+# PACC 开发者文档
 
-> 供前后端开发、第三方接入方查阅。本文只描述**功能与调用方式**，不涉及内部检测逻辑与敏感配置。
-> 生产请以实际部署环境与 `.env` 配置为准；本地联调默认 `localhost:8080`（后端）、`localhost:8081`（管理后台前端）、`localhost:5173`（前端 dev server）。
+> 这份文档写给**刚接触或经验不多**的开发者。会从「这项目是啥」「要装什么」「怎么跑起来」「怎么加接口 / 加页面」一路讲到更深入的话题。不涉及内部检测算法等敏感内容——那些内容不适合公开，也没必要为了开发而掌握。
 
-## 目录
+---
 
-- [系统组成](#系统组成)
-- [本地开发环境](#本地开发环境)
-- [鉴权方式](#鉴权方式)
-  - [玩家端](#玩家端)
-  - [管理后台](#管理后台)
-  - [开放 API（/api/v1）](#开放-api-apiv1)
-- [API 参考](#api-参考)
-- [分页与错误约定](#分页与错误约定)
-- [Webhook](#webhook)
-- [前端开发](#前端开发)
-- [部署概述](#部署概述)
-- [安全提示](#安全提示)
+## 1. 先说人话：这个项目是什么
 
-## 系统组成
+PACC 是一套「玩家本地检测 + PTV 管控」的反作弊系统。你可以把它理解成两个部分：
 
-| 模块 | 路径 | 技术栈 | 说明 |
-|---|---|---|---|
-| PTV 管控后端 | `ptv-backend` | Java 21 / Spring Boot 3 | REST + WebSocket，管理端与玩家端 API |
-| 管理后台前端 | `ptv-frontend` | TypeScript / React / Vite | 管理后台 UI |
-| 玩家端服务 | `ptv-client` | Java 21 | 玩家侧用户态服务 |
-| 通信协议 | `proto/pacc.proto` | Protocol Buffers | 玩家长连接消息结构 |
-| 部署编排 | `docker-compose.yml` + `deploy/` | Docker / Helm / K8s | 容器化部署 |
+1. **玩家端**：装在被检玩家的设备上，在本地采集检测数据、出警告。
+2. **管控端（PTV）**：管理后台 + 后端服务，管理员在这里查看记录、远程查端、发红屏警告。
 
-## 本地开发环境
+里面的数据流大概是：
 
-前置：**JDK 21 + Maven**、**Node.js 18+**。
-
-```bash
-# 后端（默认 H2 内存库，无需 MySQL）
-cd ptv-backend
-mvn spring-boot:run
-
-# 管理后台前端
-cd ptv-frontend
-npm install
-npm run dev
+```
+玩家设备 → 玩家端服务(ptv-client) → 后端(ptv-backend) → 管理后台/小程序/桌面壳查看
 ```
 
-- 后端健康检查：`GET http://localhost:8080/actuator/health`
-- 数据库：生产用 MySQL 8（Flyway 迁移，脚本在 `ptv-backend/src/main/resources/db/migration/`）；本地 profile 用 H2。
-- 演示数据：本地以 `PACC_SEED=true` 启动可预置反作弊演示账号（见启动日志，仅本地）。
+作为开发者，你绝大多数时候打交道的是**后端**（`ptv-backend`，Java）和**前端**（`ptv-frontend`，React），以及把两者串起来的**通信协议**和**部署编排**（Docker）。
 
-## 鉴权方式
+## 2. 需要先装的东西（英文名词 + 人话解释）
 
-系统有三套隔离的鉴权，按路由前缀区分。
-
-### 玩家端
-
-- 路由前缀：`/api/auth`（注册/登录）、`/api/player`（玩家自助门户）。
-- 登录/注册成功后，服务端通过**会话 Cookie**（HttpOnly）下发登录态；后续 `/api/player/**` 请求自动携带 Cookie 即通过鉴权。
-- 未登录访问 `/api/player/**` 返回 `401`。
-
-关键接口（`POST /api/auth`）：
-
-| 接口 | 说明 | 关键字段 |
+| 工具 | 用于 | 装机说明 |
 |---|---|---|
-| `POST /api/auth/code/send` | 发送验证码 | `target`, `scene` |
-| `POST /api/auth/code/verify` | 校验验证码 | `target`, `scene`, `code` |
-| `POST /api/auth/register` | 玩家注册 | 账号邮箱、验证码、密码、设备指纹等 |
-| `POST /api/auth/login` | 玩家登录 | 邮箱 + 密码 |
-| `POST /api/auth/reset` | 重置密码 | `token`, `new_password` |
-| `POST /api/auth/logout` / `GET /api/auth/me` | 退出 / 查看登录态 | — |
+| **JDK 21** | 跑 Java 后端、玩家端 | Java 的运行时 + 编译工具，装 LTS 21 版 |
+| **Maven** | 管理 Java 依赖和构建 | 类似「Java 的包管理器」，帮你下载库、编译、打包 |
+| **Node.js 18+** | 跑前端 | 前端 JavaScript 运行的运行时 |
+| **npm** | 前端依赖管理 | Node 自带的「包管理器」 |
+| **Docker** | 一键跑整套服务（可选，但要部署就得装） | 把服务打包成容器，隔离开来跑 |
 
-### 管理后台
+> 你不需要一开始就懂 Docker。本地开发可以直接用命令跑后端和前端，不碰 Docker 也行。只有「部署到服务器」才需要 Docker。
 
-- 路由前缀：`/api/admin/**`。
-- 认证方式：请求头 `X-Admin-Key` 或登录后下发的**会话 Cookie**，二选一。
-- 除 `login`、`me`、`logout`、`feishu` 入口外，其余 `/api/admin/**` 均要求已认证，否则返回 `401`。
+## 3. 目录结构速览
 
-| 接口 | 说明 |
-|---|---|
-| `POST /api/admin/login` | 管理后台登录（`admin_key`），成功后写会话 Cookie |
-| `GET /api/admin/me` / `POST /api/admin/logout` | 查看登录态 / 退出 |
-| `GET /api/admin/feishu/oauth/url` | 获取飞书授权跳转地址 |
-| `POST /api/admin/feishu/oauth/callback` | 飞书登录回调（OAuth code + state） |
+```
+d:\pacc\
+├── proto/              # 通信协议定义（Protocol Buffers，偏高级，先了解即可）
+├── ptv-backend/        # 管控后端（Java 21 + Spring Boot 3）★ 后端开发主战场
+├── ptv-frontend/       # 管理后台/玩家门户前端（TypeScript + React + Vite）★ 前端主战场
+├── ptv-client/         # 玩家端用户态服务（Java 21）
+├── platform/           # 平台相关（内核/Java Agent/移动端/Linux 探针，偏硬件/底层）
+├── deploy/             # 部署相关（网关、下载站、监控、单机脚本）
+├── tools/
+│   ├── windows-gui/    # Windows 管理工具（C#/.NET：装探针、诊断、更新）
+│   └── installer/      # 安装向导（Inno Setup）
+├── docker-compose.yml  # 一键部署整套服务的编排文件
+├── .env.example        # 环境变量模板（把想要的密钥填进去）
+└── README.md           # 入口说明，先读它
+```
 
-### 开放 API（/api/v1）
+**给新手的最短路径**：先看 `README.md`，然后把 `ptv-backend` 和 `ptv-frontend` 跑起来，其它目录先放着。
 
-- 供第三方以 **API Key + HMAC-SHA256 签名** 调用，隔离于玩家/管理会话。
-- 需服务端先为租户签发 API Key（见 `POST /api/admin/api/...`，多租户节点）。
+## 4. 本地把后端跑起来（逐步）
 
-**必带请求头**：
+### 4.1 确认环境
+
+```bash
+java -version         # 应显示 21 或更高
+mvn -version          # 应显示 Maven 3.8+
+```
+
+### 4.2 启动后端
+
+```bash
+cd ptv-backend
+mvn clean package          # 编译 + 打包（第一次会比较久，因为要下载依赖）
+mvn spring-boot:run        # 或者用这条直接跑，省去上面手动打包
+```
+
+启动成功后，后端默认监听 **8080** 端口。验证：
+
+```bash
+curl http://localhost:8080/actuator/health
+# 返回 {"status":"UP"} 之类的就说明起来了
+```
+
+**重要**：本地默认用的是 **H2 内存数据库**，不需要你额外安装 MySQL，数据关机就没了，非常适合开发。
+
+### 4.3 想启动后自带演示数据
+
+```bash
+# 在 ptv-backend 目录，把环境变量设上再启动
+set PACC_SEED=true    # Windows（PowerShell 用 $env:PACC_SEED="true"）
+mvn spring-boot:run
+```
+
+这样会预置演示账号、设备、赛事等数据，方便你点一点就有效果。
+
+## 5. 本地把前端跑起来（逐步）
+
+```bash
+cd ptv-frontend
+npm install          # 安装依赖（第一次较久）
+npm run dev          # 启动开发服务器
+```
+
+- 默认地址：**http://localhost:5173**（Vite 的默认端口）
+- 开发时前端会把自己的请求代理到后端 8080（代理配置在 `vite.config.ts`）。
+- 所以开发模式你**不需要手动启动 nginx**，前端 dev server 自己会把 `/api` 请求转发到后端。
+
+> 如果前端一直报「请求失败 / 连接被拒」，先确认后端是不是真的在 8080 跑起来了。
+
+## 6. 前端要连哪个后端？聊聊「代理」
+
+浏览器里的页面出于安全**不能随便跨域**。开发时最常见的坑就是：前端在 5173，后端在 8080，直接请求会被「跨域」拦下。
+
+解决方式是**代理**：让前端开发服务器（Vite）把 `/api/**` 的请求原样转发给 `http://localhost:8080`。你写前端代码时只需要请求 `/api/...` 的**相对路径**，Vite 帮你转发，浏览器以为请求的就是同源地址，就不会报跨域。
+
+> 生产环境里，这个「代理」的角色由部署层的网关（nginx）扮演。原理一样：按域名/路径把请求分发给对应服务。
+
+## 7. 鉴权：三套系统各管各的
+
+这项目有三套「登录/授权」，用**路由前缀**区分：
+
+| 前缀 | 给谁 | 认证方式 | 最简单的理解 |
+|---|---|---|---|
+| `/api/auth`、`/api/player` | 玩家 | 登录后下发 **Cookie**（HttpOnly） | 浏览器自动带 Cookie，服务端认出是谁 |
+| `/api/admin/**` | 管理员 | 请求头 `X-Admin-Key` **或**登录后的 Cookie | 管理员登录后也走 Cookie |
+| `/api/v1/**` | 第三方接入方 | API Key + **HMAC-SHA256 签名** | 靠「签名」证明请求是真的、没被改 |
+
+关键记忆点：
+
+- **Cookie 是浏览器自动的**：玩家/管理员登录成功后，浏览器自动持有会话，后续请求自动带上，前端代码基本不用管。
+- **别再手动把 token 存 localStorage**：这项目设计要求走 Cookie，更安全。
+- **开放 API 要自己算签名**：`X-PTV-Signature = HMAC-SHA256(secret, 规范化字符串)`。你只要保证「时间戳在窗口内、nonce 唯一、用同一个 secret 算」，签名就对得上。具体算法见下文 API 参考。
+
+> 安全性要求里有一条：**登录/鉴权失败一律返回通用提示**，不告诉你「这个账号存在不存在」或「账号被锁了」，这是防爆破。你测接口时别惊讶为什么错误都一样。
+
+## 8. 我最想加一个新接口，怎么加（后端）
+
+以「给后端加一个返回版本号的接口」为例，讲清楚套路（Spring Boot）：
+
+1. 找到放接口的包路径：`ptv-backend/src/main/java/com/potatotv/pacc/controller/`。
+2. 新建或打开一个 Controller（Java 类，用 `@RestController` 标注）。
+3. 写一个方法，用注解挂到路径上：
+
+```java
+@RestController
+public class DemoController {
+
+    @GetMapping("/api/demo/version")
+    public Map<String, String> version() {
+        return Map.of("version", "5.0.0");
+    }
+}
+```
+
+4. 重启后端，访问 `http://localhost:8080/api/demo/version` 就能看到结果。
+
+**几个 Spring Boot 要点**：
+
+- `@RestController`：这个类的方法返回的是纯数据（自动转成 JSON），不是页面。
+- `@GetMapping("/路径")`：把方法绑到「GET + 该路径」。还有 `@PostMapping`、`@PutMapping`、`@DeleteMapping`。
+- 方法的返回值会被自动转成 JSON 发给调用方（Map、自定义对象的字段都能转）。
+- 想接路径里的参数用 `@PathVariable`，想接查询参数用 `@RequestParam`，想接请求体用 `@RequestBody`。
+
+> 别把内部逻辑一股脑写进 Controller。复杂业务放 `service/` 目录，数据存取放 `repository/` 目录，Controller 只负责「收请求、调服务、返结果」。这样代码好维护，也是这项目的分层约定。
+
+## 9. 我想加一个新页面（前端）
+
+以「加一个 /about 页面」为例：
+
+1. 在 `ptv-frontend/src/pages/` 下新建 `About.tsx`（一个新的 React 组件）。
+2. 在路由配置里加一条 `/about → About`。（路由/菜单相关文件在 `src/` 的导航配置里，一般是 `App.tsx` 或单独的路由文件。）
+3. 打开前端：`http://localhost:5173/about` 就能看到。
+
+**前端常用结构**：
+
+- `src/pages/`：页面级组件，一页一个。
+- `src/components/`：可复用的小组件。
+- `src/api/`：封装了请求后端函数的地方，统一走这里，**别在页面里裸写 fetch**。这样改接口地址、加统一请求头都只动一处。
+- `src/locales/`：多语言文案（中文/英文/日/韩等）。加了新文案记得同步多语言，不然切换语言会缺字。
+
+**两个开发习惯**（代码规约里明确要求）：
+
+- 组件里用 `useCallback` 稳定函数引用，避免依赖数组导致重复渲染（也避免 ESLint 的 `exhaustive-deps` 报错）。
+- 请求响应别用 `any`，用真正的 TypeScript 类型，类型更安全、编辑器补全更好用。
+
+## 10. 部署到服务器（一句话版，详细见 deploy/server/README.md）
+
+```bash
+cp .env.example .env    # 把里面的占位符换成你的真实密码/密钥
+docker compose up -d --build   # 一键构建并启动整套服务
+docker compose ps        # 看是否全部 healthy
+```
+
+- 优点：一套命令把所有服务（MySQL + 后端 + 前端 + 网关）都跑起来，还带健康检查和自动重启。
+- 密钥从哪来：`.env.example` 只是模板，真正的 `.env` 文件是被 git 忽略的，不会提交到仓库。
+- 生产要配 HTTPS、要把四个子域解析到服务器等，具体看部署教程。
+
+> `.env` 是「环境变量」概念的落地：把密码、密钥、各家服务的开关放在一个文件里，程序启动时读，**不写进源码**。好处是：换环境（本地/测试/生产）只改文件不改代码，也避免把密码不小心提交到 git。
+
+## 11. 常用命令速查
+
+**后端**：
+```bash
+cd ptv-backend
+mvn clean package                 # 编译打包
+mvn spring-boot:run               # 直接运行
+mvn test                          # 跑单元测试
+```
+
+**前端**：
+```bash
+cd ptv-frontend
+npm install                       # 装依赖
+npm run dev                       # 开发模式
+npm run lint                      # 检查代码规范
+npm run build                     # 生产构建（tsc 类型检查 + vite 打包）
+```
+
+**部署**：
+```bash
+docker compose ps                 # 各容器状态
+docker compose logs -f ptv-backend  # 看后端日志
+docker compose down               # 停止（数据保留）
+```
+
+## 12. 数据类型备忘：字节 / 端口 / 端口命名
+
+- 后端 REST 默认 `8080`，前端 dev 默认 `5173`，前端生产容器里用 `80`（由 nginx 托管）。
+- 玩家长连接是 WebSocket，地址形如 `ws://localhost:8080/ws/ptv`。
+- 绝大多数接口返回 JSON，错误用 **HTTP 状态码**表达（见下面状态码表）。
+
+## 13. 状态码速查
+
+| 状态码 | 含义 | 常见场景 |
+|---|---|---|
+| `200` | 成功 | 请求处理完成 |
+| `400` | 请求参数不对 | 缺字段、格式错 |
+| `401` | 未登录 / token 无效 / 签名错 | 没带 Cookie，或开放 API 签名不对 |
+| `403` | 有身份但没权限 | 角色不够、来源受限 |
+| `404` | 路径/资源不存在 | 拼错接口路径 |
+| `429` | 触发限流 | 请求太频繁 |
+| `5xx` | 服务器内部出错 | 后端异常（响应只给通用提示，不泄露堆栈） |
+
+## 14. 开放 API 怎么调（第三方接入）
+
+这是给「想用 PACC 提供数据」的第三方看的。需要服务端先给你签发一个 API Key（含 `key id` 和 `secret`）。每次请求带四个请求头：
 
 | 请求头 | 含义 |
 |---|---|
-| `X-PTV-Key` | API Key ID |
-| `X-PTV-Timestamp` | 请求时间（毫秒时间戳），与服务端时钟差须在允许窗口内 |
-| `X-PTV-Nonce` | 一次性随机串，防重放（重复 nonce 会被拒绝） |
-| `X-PTV-Signature` | 签名（十六进制小写） |
+| `X-PTV-Key` | 你的 Key ID（告诉服务端用哪把钥匙） |
+| `X-PTV-Timestamp` | 毫秒时间戳，和服务端时钟差要小 |
+| `X-PTV-Nonce` | 一次性随机串，防重放 |
+| `X-PTV-Signature` | `HMAC-SHA256(secret, 规范化字符串)` 的十六进制 |
 
-**签名算法**：
+**规范化和签名的原理（一步步教你）**：
 
-```text
-canonical   = "{METHOD}\n{PATH}\n{TIMESTAMP}\n{BODY_SHA256_HEX}"
-signature   = HEX( HMAC-SHA256( secret, canonical ) )
+```
+1. 拼一段规范字符串 canonical：
+   "{方法}\n{路径}\n{时间戳}\n{请求体SHA256的十六进制}"
+   例： "GET\n/api/v1/detections\n1710000000123\n<空串的sha256>"
+
+2. 用 secret 对 canonical 做 HMAC-SHA256，结果转十六进制，放进 X-PTV-Signature。
 ```
 
-其中 `PATH` 为请求路径（不含 query），`BODY_SHA256_HEX` 为请求体原始字节的 SHA-256 十六进制（GET 无体时为空，空串的 SHA-256）。`secret` 为与该 Key 配套的密钥，双方预先约定，**仅存在服务端加密存储**，勿下发到客户端。
+**为什么这么设计（面试/理解用）**：
 
-**curl 示例**（伪代码示意字段）：
+- 带上方法、路径、时间戳、请求体，是为了「请求的每一部分都不能被偷偷改」——改了签名就配不上。
+- 带时间戳 + nonce，是为了「同一份请求不能被人录下来重放」。
+- `secret` 只有服务端和你手里有，所以别人不知道就伪造不出签名。
 
-```bash
-TS=$(date +%s%3N)
-BODY=""                                  # GET 场景
-COMP=${BODY:+$(printf %s "$BODY" | sha256sum | awk '{print $1}')}
-CANON="$METHOD\n$PATH\n$TS\n$COMP"
-SIG=$(printf %b "$CANON" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print $2}')
-curl -i "http://localhost:8080/api/v1/detections?page=0&size=10" \
-  -H "X-PTV-Key: $KEY" \
-  -H "X-PTV-Timestamp: $TS" \
-  -H "X-PTV-Nonce: $(uuidgen)" \
-  -H "X-PTV-Signature: $SIG"
-```
+伪造/乱来的结果：`401`（签名/时间戳/nonce 校不过）、`403`（IP 不在白名单）、`429`（限流）。
 
-拦截结果：
+## 15. 数据库
 
-- `401` 签名/时间戳/nonce 校验失败
-- `403` 调用方 IP 不在白名单，或写权限不足
-- `429` 超出限流
+- **生产**：MySQL 8。表结构由 **Flyway** 管理——就是一堆有编号的 SQL 脚本（`ptv-backend/src/main/resources/db/migration/`），启动时会按编号自动按顺序执行，保证数据库迁移可追溯。
+- **本地开发**：H2 内存库，不用装任何东西，关停即清空。跑演示数据用 `PACC_SEED=true`。
 
-## API 参考
+> Flyway 和「改表」：如果你改了实体（Entity），不要手改现成的库，而是去 `db/migration/` 新加一个递增编号的 `.sql` 脚本去改表。这样每个环境的库结构都能一致升级。
 
-按功能域分组。路径前缀以 `RequestMapping` 级注释为准；典型接口如下（非全量，完整以代码为准）。
+## 16. 环境变量总览（配置从哪来）
 
-### 玩家认证与门户
+项目设计的硬约束：**所有密码、密钥、开关一律走环境变量 / `.env`，绝不写死在源码里**。
 
-| 方法/路径 | 说明 |
+- 模板在根目录 `.env.example`。
+- 真正生效的是 `.env`（已被 git 忽略）。
+- 生产环境如果关键密钥缺失，后端会**拒绝启动**（fail-closed），防止带病上线。
+
+常用变量（以 `.env.example` 为准，这里提示几个高频的）：
+
+| 变量 | 作用 |
 |---|---|
-| `POST /api/auth/register` | 玩家注册 |
-| `POST /api/auth/login` | 玩家登录 |
-| `POST /api/auth/code/send` | 发送验证码 |
-| `POST /api/auth/code/verify` | 校验验证码 |
-| `POST /api/auth/reset` | 重置密码 |
-| `GET /api/player/me` | 当前玩家信息 |
-| `GET /api/player/summary` | 玩家概览（检测/信誉/工单等汇总） |
-| `GET /api/player/records` | 检测记录 |
-| `POST /api/player/appeals` / `GET /api/player/appeals` | 提交 / 查询申诉 |
-| `POST /api/player/tickets` | 提交客服工单 |
-| `GET /api/player/tickets` / `GET /api/player/tickets/{id}` | 工单列表 / 详情 |
-| `POST /api/player/countermeasure/integrity` | 上报客户端完整性校验结果 |
-| `POST /api/player/countermeasure/environment` | 上报环境检测结果 |
+| `MYSQL_*` | 数据库账号密码 |
+| `PACC_ADMIN_API_KEY` | 管理后台登录 Key |
+| `PACC_SECURITY_JWT_SECRET` | JWT 签名密钥 |
+| `PACC_SECURITY_WSS_SIGN_SECRET` | WebSocket 消息签名密钥 |
+| `PACC_MAIL_STUB_ENABLED` | 邮件是否用「打桩」模式（本地调试用 true，生产改 false） |
+| `PACC_SEED` | 是否生成演示数据（生产默认 false） |
+| `PACC_FEISHU_*` | 管理员飞书登录相关（可选） |
 
-### 管理后台（/api/admin/**，需 X-Admin-Key 或会话 Cookie）
+## 17. 常见坑（经验之谈）
 
-| 域 | 路径前缀 | 能力 |
-|---|---|---|
-| 管理认证 | `/api/admin` | 登录 / 登出 / 我 / 飞书 SSO |
-| 账号管理 | `/api/admin/accounts` | 反作弊账号查询（敏感字段脱敏）、信誉调整 |
-| 检测记录 | `/api/admin/records` | 检测事件查询 |
-| 红屏 | `/api/admin/redscreens` | 红屏事件列表/查询（`state` 参数，默认待处理） |
-| 检测看板 | `/api/admin/stats` | 统计与大盘数据 |
-| 特征库 | `/api/admin/signatures` | 特征增删改查、灰度发布、回滚 |
-| 规则引擎 | `/api/admin/rules` | 动态检测规则（如 Lua 规则）管理 |
-| 远程查端 | `/api/admin/inspects` | 设备远程检视会话 |
-| 反制策略 | `/api/admin/countermeasure` | 客户端反制/校验 |
-| 赛事风控 | `/api/admin/competition` | 报名、审批、分队、对局、IP 聚类、赛程 |
-| 客服支持 | `/api/admin/support` | 工单/客服闭环 |
-| 运维 | `/api/admin/ops` | 运维相关操作 |
-| A/B 实验 | `/api/admin/ab` | 实验管理 |
-| 多租户 | `/api/admin/tenant` | 租户分级、租户管理员绑定 |
-| 审计 | `/api/admin/audit` | 管理端操作审计（列表/趋势/大盘） |
-| BI | `/api/admin/bi` | 报表数据源聚合 |
-| 合规 | `/api/admin/compliance` | 合规模块 |
-| 威胁情报 v4.6 | `/api/admin/v46` | 零日评估、特征库、主动学习队列 |
-| 威胁情报 v4.7 | `/api/admin/v47` | 家族谱系、主动威慑策略、IOC 管理 |
-| 历史版本 | `/api/admin/v41` | 旧版管理接口 |
-| 开放 API 密钥 | `/api/admin/api` | API Key 签发与 CRUD |
+- **端口占用**：后端/前端起不来，先看是不是 8080/5173 被占了。`netstat -ano | findstr 8080`。
+- **前端代理失效**：看看项目里是不是同时存在 `vite.config.ts` 和 `vite.config.js`——Vite 会优先用 `.js`，可能造成代理目标不对。删掉多余的 `.js/.d.ts`。
+- **改了实体但库没变**：本地 H2 或生产 MySQL 的表结构要靠 Flyway 迁移，别指望 JPA 自动改。参考第 15 节。
+- **启动一次失败、改完还失败**：Java 项目建议 **clean**（`mvn clean package`）而不是增量，避免旧编译缓存掩盖错误。
+- **密钥配了还是不生效**：后端很多配置是启动时读的，改完 `.env` 要**重启服务**。
+- **登录老报「账号不存在或密码错误」**：这是刻意的通用提示（防爆破），不代表你密码真的错。先确认数据有没有（比如有没有用 `PACC_SEED=true` 生成演示账号）。
 
-常见审计接口：
+## 18. 安全红线（每个开发者都该记）
 
-| 方法/路径 | 说明 |
-|---|---|
-| `GET /api/admin/audit/operations` | 操作审计分页查询（可按操作人/动作/时间过滤） |
-| `GET /api/admin/audit/trend` | 审计趋势 |
-| `GET /api/admin/audit/overview` | 大盘（状态码分布、TOP 操作） |
+- 🔴 密钥、证书、私钥、SMTP 密码一律进 `.env`，**绝不写进代码或提交 git**。
+- 🔴 不要提交 `.env`、`*.key`、`*.pem`、`*.p12` 等（`.gitignore` 已拦，别强行 `-f` 加）。
+- 🔴 登录/鉴权失败返回通用提示，不暴露内部细节。
+- 🔴 不要在日志里打印密码、token、Cookie、请求头。
+- 🔴 别把内部设计文档、部署教程里的服务器/域名细节提交到公开仓库。
+- 🟡 写代码时保持分层（Controller / Service / Repository），不混在一坨。
 
-### 玩家端扩展接口
+---
 
-| 域 | 路径前缀 | 能力 |
-|---|---|---|
-| 玩家运维 | `/api/player/ops` | 玩家侧运维行为 |
-| 威胁情报(v4.6) | `/api/player/v46` | 玩家侧情报相关上报 |
-| 赛事 | `/api/player/competition` | 报名状态、赛程查看、入场校验 |
+## 附：进一步阅读
 
-### 开放 API（/api/v1，API Key + HMAC，详见上文）
+- 部署教程：`deploy/server/README.md`
+- 网关证书/HTTPS：`deploy/gateway/certs/README.md`
+- 前端工程细节：`ptv-frontend/` 内各自的 README（若有）
+- 各平台（桌面/移动/Android 探针）说明：`ptv-desktop/README.md`、`ptv-mobile/README.md`、`platform/*/README.md`
 
-| 方法/路径 | 说明 |
-|---|---|
-| `GET /api/v1/detections` | 检测记录分页（`page`/`size`） |
-| `GET /api/v1/detections/{recordId}` | 检测详情 |
-| `GET /api/v1/redscreen/events` | 红屏事件 |
-| `GET /api/v1/redscreen/active` | 当前活跃红屏 |
-| `POST /api/v1/redscreen/{alertId}/unlock` | 远程解锁红屏（需写权限） |
-| `GET /api/v1/players/{pteid}/reputation` | 玩家信誉分 |
-| `GET /api/v1/policy` | 当前策略 |
-| `GET /api/v1/signatures` | 特征列表 |
-| `GET /api/v1/stats/overview` | 概览统计 |
-
-## 分页与错误约定
-
-- 列表接口通用 `page`（从 0 起）+ `size`（每页条数）查询参数。
-- 错误通过 **HTTP 状态码**表达：
-
-| 状态码 | 含义 |
-|---|---|
-| `200` | 成功 |
-| `401` | 未认证 / 令牌无效 / 开放 API 签名错误 |
-| `403` | 无权限 / 来源受限 |
-| `404` | 资源不存在 |
-| `429` | 触发限流 |
-| `5xx` | 服务端错误（响应体为通用错误信息，不含堆栈） |
-
-- 出于安全，鉴权失败与登录失败统一返回通用提示，不暴露账号存在性等内部信息。
-
-## Webhook
-
-开放 API 支持事件推送（如红屏、检测告警）。服务端将事件推送到租户配置的 URL，且对 payload 做 **HMAC-SHA256 签名**（用该租户的 `webhookSecret`），接收方按同样方式复核签名即防篡改、防伪造来源。具体事件类型与字段以实际代码为准。
-
-## 前端开发
-
-- 技术栈：React + TypeScript + Vite，状态与 API 封装见 `ptv-frontend/src/api/`。
-- 路由与菜单在 `src/` 的导航/路由配置中登记；新增页面需同步加路由、菜单与（可选）多语言文案。
-- 管理后台通过 `/api/admin/**` 交互；登录态走 Cookie（浏览器自动带上），前端不再把令牌写 `localStorage`。
-
-## 部署概述
-
-生产建议使用 `docker-compose.yml` 一体化编排，经统一网关对外，按用途分四个子域（管理后台 / API / 下载站 / 玩家连接）。完整步骤与 `.env` 模板见根目录 `README.md` 与 `.env.example`。
-
-## 安全提示
-
-- 所有密钥（JWT、管理密钥、WSS 签名密钥、第三方凭据等）一律经环境变量 / `.env` 注入，**切勿提交**。
-- 生产环境：`ddl-auto=validate`（防表结构漂移），日志默认 `INFO`。
-- 提交前请扫描仓库是否残留证书、私钥、凭据与内部设计文档（见 `.gitignore`）。
+> 遇到不确定的，先读对应子目录的 README，再看代码里的注释和 `README.md` 总入口。开发中要有「先最小复现、再动手改」的习惯，改一处跑一次，别一次性大改。

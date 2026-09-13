@@ -31,6 +31,11 @@ import SupportCenter from './pages/SupportCenter'
 import MapPoolManager from './pages/maps/MapPoolManager'
 import BpSessions from './pages/maps/BpSessions'
 import BpConsole from './pages/maps/BpConsole'
+import Releases from './pages/p1/Releases'
+import Lists from './pages/p1/Lists'
+import Exports from './pages/p1/Exports'
+import Effectiveness from './pages/p1/Effectiveness'
+import DetectorConfig from './pages/p1/DetectorConfig'
 import PlayerPortal from './pages/player/PlayerPortal'
 import PlayerScreenShare from './pages/player/PlayerScreenShare'
 
@@ -113,6 +118,11 @@ export default function App() {
         <Route path="/ab" element={<AbExperiment />} />
         <Route path="/ops" element={<OpsCenter />} />
         <Route path="/support" element={<SupportCenter />} />
+        <Route path="/releases" element={<Releases />} />
+        <Route path="/lists" element={<Lists />} />
+        <Route path="/export" element={<Exports />} />
+        <Route path="/effectiveness" element={<Effectiveness />} />
+        <Route path="/config" element={<DetectorConfig />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

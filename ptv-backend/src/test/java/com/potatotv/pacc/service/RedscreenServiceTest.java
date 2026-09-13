@@ -54,7 +54,7 @@ class RedscreenServiceTest {
         webhook = mock(WebhookDispatcher.class);
         service = new RedscreenService(alertRepo, accountRepo, cheatRepo, suspicionRepo,
                 new ConfidenceService(70, THRESHOLD), online, inspect, webhook,
-                new ObjectMapper(), THRESHOLD, SEVERE, 10);
+                mock(NotificationService.class), new ObjectMapper(), THRESHOLD, SEVERE, 10);
     }
 
     @Test

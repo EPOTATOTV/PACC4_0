@@ -39,6 +39,7 @@ public class RedscreenService {
     private final OnlineStatusService onlineStatusService;
     private final InspectService inspectService;
     private final WebhookDispatcher webhookDispatcher;
+    private final NotificationService notificationService;
     private final ObjectMapper mapper;
 
     private final int redscreenThreshold;
@@ -53,6 +54,7 @@ public class RedscreenService {
                             OnlineStatusService onlineStatusService,
                             InspectService inspectService,
                             WebhookDispatcher webhookDispatcher,
+                            NotificationService notificationService,
                             ObjectMapper mapper,
                             @Value("${pacc.detection.redscreen-threshold:85}") int redscreenThreshold,
                             @Value("${pacc.detection.severe-threshold:95}") int severeThreshold,
@@ -65,6 +67,7 @@ public class RedscreenService {
         this.onlineStatusService = onlineStatusService;
         this.inspectService = inspectService;
         this.webhookDispatcher = webhookDispatcher;
+        this.notificationService = notificationService;
         this.mapper = mapper;
         this.redscreenThreshold = redscreenThreshold;
         this.severeThreshold = severeThreshold;
@@ -113,6 +116,16 @@ public class RedscreenService {
                 .occurredAt(Instant.now())
                 .build();
         alertRepository.save(alert);
+
+        // 写入统一通知主表（站内白名单/定向方式进通知中心，WS 帧由下方 broadcast 派发）
+        try {
+            String title = level >= 3 ? "高危险作弊告警" : "作弊告警";
+            notificationService.sendToAll(title,
+                    "检测到风险操作（" + cheatType + "，置信度 " + riskScore + "%），管理平台已介入查端。",
+                    "SECURITY", "REDSCREEN_ALERT", level >= 3 ? "HIGH" : "NORMAL");
+        } catch (Exception e) {
+            log.warn("写入红屏通知失败 alert={} err={}", alertId, e.getMessage());
+        }
 
         // 永久作弊记录 + 哈希链
         appendCheatRecord(alertId, pteid, cheatType, level, riskScore);

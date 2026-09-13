@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -29,7 +32,7 @@ class AppealServiceTest {
     private AppealRepository appealRepo;
     private CheatRecordRepository cheatRepo;
     private AccountRepository accountRepo;
-    private MailerService mailer;
+    private NotificationService notificationService;
     private AppealService service;
 
     @BeforeEach
@@ -37,8 +40,8 @@ class AppealServiceTest {
         appealRepo = mock(AppealRepository.class);
         cheatRepo = mock(CheatRecordRepository.class);
         accountRepo = mock(AccountRepository.class);
-        mailer = mock(MailerService.class);
-        service = new AppealService(appealRepo, cheatRepo, accountRepo, mailer, new ObjectMapper());
+        notificationService = mock(NotificationService.class);
+        service = new AppealService(appealRepo, cheatRepo, accountRepo, notificationService, new ObjectMapper());
     }
 
     @Test
@@ -106,8 +109,9 @@ class AppealServiceTest {
         assertEquals(100, acc.getReputation());
         assertEquals("normal", acc.getStatus());
         verify(accountRepo).save(acc);
-        verify(mailer).send(org.mockito.ArgumentMatchers.eq("p@x.com"),
-                org.mockito.ArgumentMatchers.anyString(), any());
+        verify(notificationService).sendToOne(eq("PT42"),
+                anyString(), anyString(), anyString(), anyString(),
+                anyString(), anySet());
     }
 
     @Test

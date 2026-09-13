@@ -4,6 +4,7 @@ import com.potatotv.pacc.repository.ApiKeyRepository;
 import com.potatotv.pacc.repository.ApiUsageLogRepository;
 import com.potatotv.pacc.service.AdminTokenService;
 import com.potatotv.pacc.service.ApiKeyService;
+import com.potatotv.pacc.service.RateLimiterService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,15 +42,18 @@ public class SecurityConfig {
     private final ApiKeyRepository apiKeyRepository;
     private final ApiUsageLogRepository apiUsageLogRepository;
     private final ApiKeyService apiKeyService;
+    private final RateLimiterService rateLimiterService;
 
     public SecurityConfig(AdminTokenService adminTokenService,
                           ApiKeyRepository apiKeyRepository,
                           ApiUsageLogRepository apiUsageLogRepository,
-                          ApiKeyService apiKeyService) {
+                          ApiKeyService apiKeyService,
+                          RateLimiterService rateLimiterService) {
         this.adminTokenService = adminTokenService;
         this.apiKeyRepository = apiKeyRepository;
         this.apiUsageLogRepository = apiUsageLogRepository;
         this.apiKeyService = apiKeyService;
+        this.rateLimiterService = rateLimiterService;
     }
 
     @Bean
@@ -70,6 +74,8 @@ public class SecurityConfig {
         http.addFilterBefore(new AdminKeyFilter(adminApiKey, adminTokenService, allowedOrigins), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(new JwtAuthFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(new ApiV1AuthFilter(apiKeyRepository, apiUsageLogRepository, apiKeyService, apiMasterSecret), UsernamePasswordAuthenticationFilter.class);
+        // 全局限流置于认证过滤器之后（需读取 adminActor / PTEID 身份属性）
+        http.addFilterBefore(new RateLimitFilter(rateLimiterService), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
