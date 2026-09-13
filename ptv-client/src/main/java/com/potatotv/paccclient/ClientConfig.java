@@ -54,7 +54,7 @@ public final class ClientConfig {
         this.remember = getBool(p, "pacc.client.remember", "PACC_CLIENT_REMEMBER", false);
         this.reconnectDelaySeconds = getInt(p, "pacc.client.reconnect.delay.seconds", "PACC_CLIENT_RECONNECT_DELAY_SECONDS", 5);
         this.autoReconnect = getBool(p, "pacc.client.reconnect.enabled", "PACC_CLIENT_AUTO_RECONNECT", true);
-        this.signatureVersion = get(p, "pacc.client.signature.version", "PACC_CLIENT_SIGNATURE_VERSION", "v4.2.0");
+        this.signatureVersion = get(p, "pacc.client.signature.version", "PACC_CLIENT_SIGNATURE_VERSION", "v5.0.0");
         this.wssSignSecret = getSecret(p, "pacc.client.wss.sign.secret", "pacc.client.wss-secret",
                 "PACC_CLIENT_WSS_SECRET", "pacc-dev-wss-sign-key-change-me");
         this.sigSecret = getSecret(p, "pacc.client.signature.secret", null,

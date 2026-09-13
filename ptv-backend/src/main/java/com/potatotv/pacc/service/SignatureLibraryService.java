@@ -38,7 +38,7 @@ public class SignatureLibraryService {
                 .pattern(pattern)
                 .riskLevel(riskLevel)
                 .edition(edition)
-                .libraryVersion(libraryVersion == null ? "v4.2.0" : libraryVersion)
+                .libraryVersion(libraryVersion == null ? "v5.0.0" : libraryVersion)
                 .state("DRAFT")
                 .createdBy(operator)
                 .createdAt(Instant.now())
@@ -98,7 +98,7 @@ public class SignatureLibraryService {
                 : repo.findByEditionAndVersionGreaterThan(edition, afterVersion);
         String digest = digest(all);
         String libraryVersion = all.isEmpty()
-                ? "v4.2.0" : all.get(0).getLibraryVersion();
+                ? "v5.0.0" : all.get(0).getLibraryVersion();
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("edition", edition.name());
         resp.put("after_version", afterVersion);

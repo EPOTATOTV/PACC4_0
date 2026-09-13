@@ -47,6 +47,18 @@ public class OnlineStatusService {
         return set.stream().filter(WebSocketSession::isOpen).findFirst();
     }
 
+    /** 向单个会话发送文本（定向通知）。 */
+    public void broadcastTo(WebSocketSession session, String payload) {
+        if (session == null || !session.isOpen()) return;
+        try {
+            synchronized (session) {
+                session.sendMessage(new TextMessage(payload));
+            }
+        } catch (IOException ex) {
+            log.warn("定向发送失败 session={} err={}", session.getId(), ex.getMessage());
+        }
+    }
+
     /** 广播给所有在线玩家会话。返回成功送达数。 */
     public long broadcast(String payload) {
         long ack = 0;

@@ -1,7 +1,7 @@
 [package]
 name = "pacc-desktop"
-version = "4.2.0"
-description = "PACC v4.2 桌面端客户端壳"
+version = "5.0.0"
+description = "PACC v5.0 桌面端客户端壳"
 edition = "2021"
 rust-version = "1.77"
 

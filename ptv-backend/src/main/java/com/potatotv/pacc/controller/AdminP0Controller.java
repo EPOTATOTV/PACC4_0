@@ -2,6 +2,7 @@ package com.potatotv.pacc.controller;
 
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.AdminRole;
+import com.potatotv.pacc.domain.AlertEvent;
 import com.potatotv.pacc.domain.AlertRule;
 import com.potatotv.pacc.domain.Appeal;
 import com.potatotv.pacc.domain.CheatRecord;
@@ -18,10 +19,13 @@ import com.potatotv.pacc.repository.DeviceRecordRepository;
 import com.potatotv.pacc.repository.InspectSessionRepository;
 import com.potatotv.pacc.repository.RedscreenAlertRepository;
 import com.potatotv.pacc.repository.DetectionEventRepository;
+import com.potatotv.pacc.security.RequirePermission;
+import com.potatotv.pacc.service.AlertService;
 import com.potatotv.pacc.service.OnlineStatusService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -70,6 +74,7 @@ public class AdminP0Controller {
     private final AlertRuleRepository alertRuleRepository;
     private final AdminRoleRepository roleRepository;
     private final OnlineStatusService onlineStatusService;
+    private final AlertService alertService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** 已确认告警 id 集合（确认状态为瞬态，进程内承载即可）。 */
@@ -290,6 +295,7 @@ public class AdminP0Controller {
     }
 
     @PostMapping("/alerts/{id}/ack")
+    @RequirePermission("alerts:update")
     public ResponseEntity<?> ackAlert(@PathVariable String id) {
         ACKED_ALERTS.add(id);
         return ResponseEntity.ok(Map.of("ok", true));
@@ -339,6 +345,66 @@ public class AdminP0Controller {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
+    // -------------------------------- 告警事件（规则引擎） --------------------------------
+
+    @GetMapping("/alerts/events")
+    public List<Map<String, Object>> alertEvents(@RequestParam(required = false) String status,
+                                                 @RequestParam(defaultValue = "50") int limit) {
+        return alertService.listEvents(status, limit).stream().map(this::eventView).toList();
+    }
+
+    @PostMapping("/alerts/events/{id}/ack")
+    @RequirePermission("alerts:update")
+    public ResponseEntity<?> ackAlertEvent(@PathVariable String id, HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(eventView(alertService.acknowledge(id, actorOf(request))));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/alerts/events/{id}/resolve")
+    @RequirePermission("alerts:update")
+    public ResponseEntity<?> resolveAlertEvent(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body,
+                                               HttpServletRequest request) {
+        try {
+            String note = body == null ? null : String.valueOf(body.getOrDefault("note", ""));
+            return ResponseEntity.ok(eventView(alertService.resolve(id, note, actorOf(request))));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/alerts/stats")
+    public Map<String, Object> alertStats() {
+        return alertService.stats();
+    }
+
+    private Map<String, Object> eventView(AlertEvent e) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", e.getId());
+        m.put("ruleId", e.getRuleId());
+        m.put("ruleName", e.getRuleName());
+        m.put("severity", e.getSeverity());
+        m.put("metric", e.getMetric());
+        m.put("conditionValue", e.getConditionValue());
+        m.put("threshold", e.getThreshold());
+        m.put("actualValue", e.getActualValue());
+        m.put("status", e.getStatus());
+        m.put("firedAt", e.getFiredAt() == null ? "" : e.getFiredAt().toString());
+        m.put("acknowledgedAt", e.getAcknowledgedAt() == null ? "" : e.getAcknowledgedAt().toString());
+        m.put("acknowledgedBy", e.getAcknowledgedBy());
+        m.put("resolvedAt", e.getResolvedAt() == null ? "" : e.getResolvedAt().toString());
+        m.put("resolutionNote", e.getResolutionNote());
+        return m;
+    }
+
+    /** 操作人：会话令牌身份或静态 Key 指纹（与 AdminKeyFilter 一致）。 */
+    private static String actorOf(HttpServletRequest request) {
+        Object actor = request.getAttribute("adminActor");
+        return actor == null ? "api-key" : actor.toString();
+    }
+
     // -------------------------------- 角色与权限 --------------------------------
 
     @GetMapping("/roles")
@@ -365,6 +431,7 @@ public class AdminP0Controller {
     }
 
     @PostMapping("/roles")
+    @RequirePermission("roles:create")
     public ResponseEntity<?> createRole(@RequestBody Map<String, Object> body) {
         String name = String.valueOf(body.getOrDefault("name", "新角色"));
         String key = String.valueOf(body.getOrDefault("key", "CUSTOM_" + name)).toUpperCase();
@@ -384,6 +451,7 @@ public class AdminP0Controller {
     }
 
     @PutMapping("/roles/{id}")
+    @RequirePermission("roles:update")
     public ResponseEntity<?> updateRole(@PathVariable String id, @RequestBody Map<String, Object> body) {
         AdminRole r = roleRepository.findById(id).orElse(null);
         if (r == null) {
@@ -397,6 +465,7 @@ public class AdminP0Controller {
     }
 
     @DeleteMapping("/roles/{id}")
+    @RequirePermission("roles:delete")
     public ResponseEntity<?> deleteRole(@PathVariable String id) {
         AdminRole r = roleRepository.findById(id).orElse(null);
         if (r == null) {

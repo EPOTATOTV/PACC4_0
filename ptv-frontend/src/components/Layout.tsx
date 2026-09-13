@@ -105,7 +105,7 @@ export default function AdminLayout({ children, role }: { children: ReactNode; r
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <Brand size="xs" title="PACC" />
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                © 2026 POTATOTV · PACC Anti-Cheat · v4.2.0
+                © 2026 POTATOTV · PACC Anti-Cheat · v5.0.0
               </span>
             </div>
           </Footer>

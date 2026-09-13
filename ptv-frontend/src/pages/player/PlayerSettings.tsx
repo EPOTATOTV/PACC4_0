@@ -82,7 +82,7 @@ export default function PlayerSettings() {
       </Card>
 
       <Divider />
-      <Text type="secondary" style={{ fontSize: 12 }}>PACC 玩家端 v4.2 · 本文档客户端页面为管理端同源 Web 门户，桌面客户端外观与覆盖由安装端承接。</Text>
+      <Text type="secondary" style={{ fontSize: 12 }}>PACC 玩家端 v5.0 · 本文档客户端页面为管理端同源 Web 门户，桌面客户端外观与覆盖由安装端承接。</Text>
     </div>
   )
 }

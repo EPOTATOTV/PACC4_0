@@ -1,4 +1,4 @@
-# PACC v4.0 Rust 检测数据管道镜像（多阶段构建）
+# PACC v5.0 Rust 检测数据管道镜像（多阶段构建）
 # 零第三方依赖，离线可构建，产物为静态/动态链接二进制。
 FROM rust:1.82-slim AS build
 WORKDIR /build

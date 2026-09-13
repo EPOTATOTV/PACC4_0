@@ -25,7 +25,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SystemController {
 
-    private static final String APP_VERSION = "4.2.0";
+    private static final String APP_VERSION = "5.0.0";
 
     private final AdminLoginLogRepository loginLogRepository;
     private final JdbcTemplate jdbcTemplate;

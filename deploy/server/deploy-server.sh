@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# PACC v4.0 生产一键部署脚本（Debian/Ubuntu，root 或 sudo 执行）
+# PACC v5.0 生产一键部署脚本（Debian/Ubuntu，root 或 sudo 执行）
 # 用法：
 #   chmod +x deploy/server/deploy-server.sh
 #   ./deploy/server/deploy-server.sh            # 启动并等健康

@@ -28,7 +28,7 @@ public final class PaccJavaAgent {
     public static void premain(String agentArgs, Instrumentation inst) {
         GLOBAL_INST = inst;
         long start = System.currentTimeMillis();
-        System.out.println("[PTV-JavaAgent] premain 注入 pacc v4.2 (args=" + (agentArgs == null ? "" : agentArgs) + ")");
+        System.out.println("[PTV-JavaAgent] premain 注入 pacc v5.0 (args=" + (agentArgs == null ? "" : agentArgs) + ")");
         captureBaseline();
         registerTransformer(inst);
         startReportServer();
@@ -82,7 +82,7 @@ public final class PaccJavaAgent {
                 Map<String, Object> body = new java.util.LinkedHashMap<>();
                 body.put("ok", true);
                 body.put("agent", "ptv-java-agent");
-                body.put("version", "4.2.0");
+                body.put("version", "5.0.0");
                 body.put("loaded_classes", LOADED.get());
                 body.put("pid", ProcessHandle.current().pid());
                 respond(ex, 200, Json.encode(body));

@@ -129,7 +129,7 @@ springdoc:
     path: /swagger-ui.html
   info:
     title: PACC PTV 管控后端 API
-    version: 4.2.0
+    version: 5.0.0
     description: PACC 管理后台 / 玩家门户 / 开放 API 接口文档（仅功能描述，不含内部检测逻辑）
   # 仅扫描控制器包，避免把内部组件卷入文档
   packages-to-scan: com.potatotv.pacc.controller
@@ -159,7 +159,7 @@ pacc:
   security:
     admin-api-key: pacc-admin-secret-key
     super-admin-key: pacc-super-admin-secret-key
-    jwt-secret: "PACC-v4-runtime-secret-key-change-me-in-production-0123456789"
+    jwt-secret: "PACC-v5-runtime-secret-key-change-me-in-production-0123456789"
     wss-sign-secret: "pacc-dev-wss-sign-key-change-me"
     sig-secret: "pacc-sig-test-secret"
   mail:

@@ -91,7 +91,7 @@ class WssMessageGuardTest {
         m.put("memory_region", null);
         m.put("signature_hit", "demo-sig");
         m.put("os_info", "win10_x64");
-        m.put("client_version", "v4.2.0");
+        m.put("client_version", "v5.0.0");
         m.put("detail", "端侧检测: aimbot | 进程=javaw.exe\n含中文与\"引号\"");
         return m;
     }

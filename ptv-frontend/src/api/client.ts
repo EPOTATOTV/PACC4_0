@@ -53,6 +53,8 @@ import type {
   RuntimeStat,
   RealtimeAlert,
   AlertRule,
+  AlertEvent,
+  AlertStats,
   AdminRole,
   AdminPlayerDetail,
   Broadcast,
@@ -167,6 +169,13 @@ export const api = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identity, password, remember }),
+      })
+    },
+    login2fa(pending: string, code: string, remember = false) {
+      return timedFetch('/api/auth/login/2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pending, code, remember }),
       })
     },
     register(body: Record<string, string>) {
@@ -285,6 +294,15 @@ export const api = {
       totpSetup: () => playerRequest<{ secret: string; otpauth: string }>('/security/totp/setup'),
       totpEnable: (body: Record<string, string>) =>
         playerRequest<{ ok: boolean }>('/security/totp/enable', { method: 'POST', body: JSON.stringify(body) }),
+      totpStatus: () =>
+        playerRequest<{ enabled: boolean; recovery_ready: boolean }>('/security/totp/status'),
+      totpRecovery: () =>
+        playerRequest<{ recovery_codes: string[] }>('/security/totp/recovery', { method: 'POST' }),
+      totpDisable: (code: string) =>
+        playerRequest<{ ok: boolean }>('/security/totp/disable', {
+          method: 'POST',
+          body: JSON.stringify({ code }),
+        }),
     },
     // ---- 地图 BP（Ban/Pick）：玩家端浏览与参与 ----
     maps: {
@@ -581,7 +599,7 @@ export const api = {
       request<{ ok: boolean }>(`/support/tickets/${id}/transition`, { method: 'POST', body: JSON.stringify(body) }),
   },
 
-  // ---- v4.2 系统管理 ----
+  // ---- v5.0 系统管理 ----
   system: {
     info: () => request<SystemInfo>('/system/info'),
     config: () => request<SystemConfig>('/system/config'),
@@ -662,6 +680,19 @@ export const api = {
     toggleRule: (id: string, enabled: boolean) =>
       request<{ ok: boolean }>(`/alerts/rules/${id}`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
     ack: (id: string) => request<{ ok: boolean }>(`/alerts/${id}/ack`, { method: 'POST' }),
+    events: (status?: string, limit = 50) => {
+      const p = new URLSearchParams()
+      if (status) p.set('status', status)
+      p.set('limit', String(limit))
+      return request<AlertEvent[]>(`/alerts/events?${p.toString()}`)
+    },
+    ackEvent: (id: string) => request<AlertEvent>(`/alerts/events/${id}/ack`, { method: 'POST' }),
+    resolveEvent: (id: string, note?: string) =>
+      request<AlertEvent>(`/alerts/events/${id}/resolve`, {
+        method: 'POST',
+        body: JSON.stringify({ note: note ?? '' }),
+      }),
+    stats: () => request<AlertStats>('/alerts/stats'),
   },
   roles: {
     list: () => request<AdminRole[]>('/roles'),

@@ -1,4 +1,4 @@
-"""PACC v4.1 AI 行为画像引擎。
+"""PACC v5.0 AI 行为画像引擎。
 
 在轻量评分引擎之上新增 v4.1 专章能力（纯 NumPy，零外部 ML 依赖，生产可替换为
 XGBoost / LSTM / Transformer 真实模型）：

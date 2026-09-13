@@ -61,7 +61,7 @@ class OpsClientTest {
 
     @Test
     void reportsTelemetryWithAuthAndBody() {
-        boolean ok = client().reportTelemetry("v4.2.0", "Windows 11", 23.5, 120, 8L, 42L);
+        boolean ok = client().reportTelemetry("v5.0.0", "Windows 11", 23.5, 120, 8L, 42L);
         assertTrue(ok);
         assertEquals(1, captured.size());
         Captured c = captured.get(0);
@@ -70,12 +70,12 @@ class OpsClientTest {
         assertEquals("Bearer demo-token", c.auth());
         assertTrue(c.body().contains("\"cpu_percent\":23.5"));
         assertTrue(c.body().contains("\"mem_mb\":120"));
-        assertTrue(c.body().contains("\"client_version\":\"v4.2.0\""));
+        assertTrue(c.body().contains("\"client_version\":\"v5.0.0\""));
     }
 
     @Test
     void reportsCrash() {
-        boolean ok = client().reportCrash("v4.2.0", "Windows 11", "amd64", "WINDOWS",
+        boolean ok = client().reportCrash("v5.0.0", "Windows 11", "amd64", "WINDOWS",
                 "java.lang.Error\n\tat Foo.run(Foo.java:1)", null, "IdlePhase");
         assertTrue(ok);
         assertEquals(1, captured.size());

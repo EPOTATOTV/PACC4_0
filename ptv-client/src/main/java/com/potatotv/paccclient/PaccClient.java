@@ -37,11 +37,11 @@ import java.util.concurrent.TimeUnit;
 public final class PaccClient {
 
     /** 与桌面壳/版本元数据保持一致，供本地控制服务状态上报。 */
-    private static final String APP_VERSION = "4.2.0";
+    private static final String APP_VERSION = "5.0.0";
 
     public static void main(String[] args) {
         ClientConfig cfg = ClientConfig.load();
-        System.out.println("[PTV-Client] PACC v4.2 玩家端启动 pteid=" + cfg.pteid
+        System.out.println("[PTV-Client] PACC v5.0 玩家端启动 pteid=" + cfg.pteid
                 + " edition=" + cfg.edition + " signature=" + cfg.signatureVersion);
 
         // 获取访问令牌：演示模式自动登录 PTV 换取真实 JWT，保证 WSS 握手通过

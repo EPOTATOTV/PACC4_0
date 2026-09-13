@@ -295,7 +295,7 @@ export interface AdminLoginLog {
   created_at: string
 }
 
-// ---- v4.2 系统管理 ----
+// ---- v5.0 系统管理 ----
 export interface SystemInfo {
   app: string
   version: string
@@ -578,6 +578,32 @@ export interface AlertRule {
   cooldownMin: number
   enabled: boolean
   channels: string[]
+}
+
+/** 告警中心 - 规则引擎触发的事件（FIRING / ACKNOWLEDGED / RESOLVED） */
+export interface AlertEvent {
+  id: string
+  ruleId?: string
+  ruleName: string
+  severity: number
+  metric?: string
+  conditionValue?: string
+  threshold?: number
+  actualValue?: number
+  status: 'FIRING' | 'ACKNOWLEDGED' | 'RESOLVED'
+  firedAt: string
+  acknowledgedAt?: string
+  acknowledgedBy?: string
+  resolvedAt?: string
+  resolutionNote?: string
+}
+
+/** 告警中心 - 规则引擎统计 */
+export interface AlertStats {
+  firing: number
+  acknowledged: number
+  resolved: number
+  total: number
 }
 
 /** 角色与权限 - 权限项 */

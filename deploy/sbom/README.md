@@ -10,7 +10,7 @@
 > 说明：前端采用 CycloneDX 规范（AGPLv3 兼容，纯格式开放）。后端当前以 `dependency:tree`
 > 文本形式输出，生产交付时建议接入 CycloneDX-Maven 插件生成完整 CycloneDX JSON/XML。
 
-## v4.1 合规自检关联端点
+## v5.0 合规自检关联端点
 
 - 后端 API `GET /api/admin/compliance/sbom` 返回本目录产物索引与再生成命令。
 - 管理后台「合规 · SLA · 客服」页面会显示上述清单路径。

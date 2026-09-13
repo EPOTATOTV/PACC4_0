@@ -23,6 +23,8 @@ import com.potatotv.pacc.repository.SecurityTotpRepository;
 import com.potatotv.pacc.repository.SupportTicketRepository;
 import com.potatotv.pacc.repository.TicketMessageRepository;
 import com.potatotv.pacc.service.AccountService;
+import com.potatotv.pacc.service.NotificationService;
+import com.potatotv.pacc.service.TotpService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -73,6 +75,8 @@ public class PlayerP0Controller {
     private final PlayerNotifReadRepository notifReadRepository;
     private final AccountService accountService;
     private final BroadcastRepository broadcastRepository;
+    private final NotificationService notificationService;
+    private final TotpService totpService;
 
     private String pteidOf(HttpServletRequest req) {
         Object v = req.getAttribute("pteid");
@@ -288,12 +292,14 @@ public class PlayerP0Controller {
             all.add(n);
         }
         List<Map<String, Object>> sorted = all.stream()
+                .filter(m -> kind == null || kind.isBlank() || kind.equals(m.get("kind")))
                 .sorted(Comparator.comparing(m -> String.valueOf(m.get("createdAt")), Comparator.reverseOrder()))
                 .toList();
-        if (kind == null || kind.isBlank()) {
-            return sorted;
-        }
-        return sorted.stream().filter(m -> kind.equals(m.get("kind"))).toList();
+        // 追加统一通知主表公告（广播 + 定向），与派生态并存
+        List<Map<String, Object>> merged = new ArrayList<>(sorted);
+        merged.addAll(notificationService.list(pteid, kind));
+        merged.sort(Comparator.comparing(m -> String.valueOf(m.get("createdAt")), Comparator.reverseOrder()));
+        return merged;
     }
 
     @GetMapping("/notifications/unread-count")
@@ -460,6 +466,34 @@ public class PlayerP0Controller {
         rec.setEnabled(true);
         rec.setUpdatedAt(Instant.now());
         totpRepository.save(rec);
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    /** 2FA 状态（安全中心只读展示）。 */
+    @GetMapping("/security/totp/status")
+    public Map<String, Object> totpStatus(HttpServletRequest req) {
+        return totpService.status(pteidOf(req));
+    }
+
+    /** 生成一次性恢复码（明文仅此刻返回一次，务必立即保存）。 */
+    @PostMapping("/security/totp/recovery")
+    public ResponseEntity<?> totpRecovery(HttpServletRequest req) {
+        String pteid = pteidOf(req);
+        SecurityTotp rec = totpRepository.findById(pteid).orElse(null);
+        if (rec == null || !rec.isEnabled()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "请先启用两步验证"));
+        }
+        return ResponseEntity.ok(Map.of("recovery_codes", totpService.generateRecoveryCodes(pteid)));
+    }
+
+    /** 禁用 2FA：须提供当前 TOTP 或一次性恢复码解锁。 */
+    @PostMapping("/security/totp/disable")
+    public ResponseEntity<?> totpDisable(@RequestBody Map<String, String> body, HttpServletRequest req) {
+        String pteid = pteidOf(req);
+        boolean ok = totpService.disable(pteid, body.get("code"));
+        if (!ok) {
+            return ResponseEntity.badRequest().body(Map.of("error", "验证码不正确，无法禁用两步验证"));
+        }
         return ResponseEntity.ok(Map.of("ok", true));
     }
 

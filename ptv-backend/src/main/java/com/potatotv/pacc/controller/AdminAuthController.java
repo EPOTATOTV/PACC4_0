@@ -45,6 +45,7 @@ public class AdminAuthController {
     private final AdminLoginLogRepository loginLogRepository;
     private final FeishuAuthService feishuAuthService;
     private final AdminTokenService adminTokenService;
+    private final com.potatotv.pacc.config.PermissionInterceptor permissionInterceptor;
 
     @Value("${pacc.security.admin-api-key}")
     private String operatorKey;
@@ -55,11 +56,13 @@ public class AdminAuthController {
     public AdminAuthController(LoginThrottle throttle,
                                AdminLoginLogRepository loginLogRepository,
                                FeishuAuthService feishuAuthService,
-                               AdminTokenService adminTokenService) {
+                               AdminTokenService adminTokenService,
+                               com.potatotv.pacc.config.PermissionInterceptor permissionInterceptor) {
         this.throttle = throttle;
         this.loginLogRepository = loginLogRepository;
         this.feishuAuthService = feishuAuthService;
         this.adminTokenService = adminTokenService;
+        this.permissionInterceptor = permissionInterceptor;
     }
 
     @PostMapping("/login")
@@ -171,7 +174,7 @@ public class AdminAuthController {
         return ResponseEntity.ok(Map.of("ok", true, "role", role, "name", user.get().name()));
     }
 
-    /** 管理端会话探测：cookie 有效时返回角色，供前端判定登录态。 */
+    /** 管理端会话探测：cookie 有效时返回角色与权限集合，供前端判定登录态与按钮级 gating。 */
     @GetMapping("/me")
     public ResponseEntity<?> me(HttpServletRequest request) {
         String token = cookieValue(request, ADMIN_COOKIE);
@@ -182,7 +185,8 @@ public class AdminAuthController {
         if (role == null) {
             return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED).body(Map.of("error", "会话失效，请重新登录"));
         }
-        return ResponseEntity.ok(Map.of("ok", true, "role", role));
+        return ResponseEntity.ok(Map.of("ok", true, "role", role,
+                "permissions", permissionInterceptor.permissionSet(role)));
     }
 
     /** 管理端登出：清除 HttpOnly 会话 cookie。 */

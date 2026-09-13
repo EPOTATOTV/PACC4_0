@@ -224,6 +224,15 @@ public class AccountService {
         return tokenService.createToken(account.getPteid(), remember);
     }
 
+    /** 2FA 第二步通过后直接签发主会话令牌（密码已在前一步校验，不再复核）。 */
+    public TokenService.Token issueToken(String pteid, boolean remember) {
+        Account account = accountRepository.findById(pteid).orElse(null);
+        if (account == null) {
+            throw new IllegalArgumentException("账号不存在或密码错误");
+        }
+        return tokenService.createToken(pteid, remember);
+    }
+
     private String hashDevice(String s) {
         try {
             byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest((s == null ? "" : s).getBytes(StandardCharsets.UTF_8));

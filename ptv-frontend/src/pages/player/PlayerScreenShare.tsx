@@ -1,27 +1,30 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, Badge, Button, Card, Space, Typography, message } from 'antd'
-import { createScreenShare, type SignalTransport } from '../../webrtc/webrtc'
+import { createScreenShare } from '../../webrtc/webrtc'
+import { useWebSocket } from '../../ws/useWebSocket'
 
 const { Title } = Typography
 
 interface Credentials { pteid: string; token: string }
 
+type ScreenStatus = '连接中' | '共享中' | '已断开' | '错误'
+
 /**
  * 玩家端 · 远程查端屏幕共享页（B2）。
  * <p>由桌面壳 WebView 挂载：凭据优先经 Tauri 桥 {@code screen_share_credentials} 注入，
- * 否则回退 URL 参数；随后以 pteid+token 连接 /ws/ptv。收到服务端 {@code inspect_request}
- * 后调用 getDisplayMedia 采集本屏并作为主叫发起 WebRTC（createScreenShare），
- * offer/answer/ice 信令全部复用该 WebSocket 通道。</p>
+ * 否则回退 URL 参数；随后以 pteid+token 连接 /ws/ptv（统一事件总线）。
+ * 收到服务端 {@code inspect_request} 后调用 getDisplayMedia 采集本屏并作为主叫发起
+ * WebRTC（createScreenShare），offer/answer/ice 信令全部复用该 WebSocket 通道。</p>
  */
 export default function PlayerScreenShare() {
-  const [status, setStatus] = useState<'连接中' | '共享中' | '已断开' | '错误'>('连接中')
+  const [status, setStatus] = useState<ScreenStatus>('连接中')
   const [warn, setWarn] = useState('')
-  const wsRef = useRef<WebSocket | null>(null)
+  const [wsUrl, setWsUrl] = useState('')
   const screenRef = useRef<ReturnType<typeof createScreenShare> | null>(null)
   const aliveRef = useRef(true)
 
   /** 先问宿主桥，取不到再回退 URL 参数（纯浏览器联调场景）。 */
-  async function resolveCredentials(params: URLSearchParams): Promise<Credentials | null> {
+  const resolveCredentials = useCallback(async (params: URLSearchParams): Promise<Credentials | null> => {
     const win = window as unknown as { __TAURI__?: { core?: { invoke: (cmd: string) => Promise<{ pteid: string; token: string }> } } }
     if (win.__TAURI__?.core?.invoke) {
       try {
@@ -34,8 +37,9 @@ export default function PlayerScreenShare() {
     const token = params.get('token')
     if (pteid && token) return { pteid, token }
     return null
-  }
+  }, [])
 
+  // 解析凭据并构建 WS 端点（解析完成前不建立连接）
   useEffect(() => {
     aliveRef.current = true
     const params = new URLSearchParams(window.location.search)
@@ -48,58 +52,50 @@ export default function PlayerScreenShare() {
         return
       }
       const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-      const ws = new WebSocket(
-        `${proto}://${window.location.host}/ws/ptv?pteid=${encodeURIComponent(cred.pteid)}&token=${encodeURIComponent(cred.token)}`,
-      )
-      wsRef.current = ws
-
-      const transport: SignalTransport = {
-        send: (p) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)) },
-      }
-
-      ws.onopen = () => setStatus('连接中')
-      ws.onclose = () => setStatus((s) => (s === '共享中' ? '已断开' : '已断开'))
-      ws.onerror = () => setStatus('错误')
-      ws.onmessage = async (ev) => {
-        let msg: unknown
-        try { msg = JSON.parse(ev.data as string) } catch { return }
-        const record = msg as Record<string, unknown>
-        if (record?.type === 'inspect_request') {
-          try {
-            const session = String(record.session_id ?? '')
-            const screen = screenRef.current ?? createScreenShare(transport, session)
-            screenRef.current = screen
-            await screen.start()
-            setStatus('共享中')
-            message.info('已开始屏幕共享，等待管理端接收')
-          } catch (e) {
-            setWarn(`屏幕采集失败：${(e as Error).message}`)
-            setStatus('错误')
-          }
-        } else if (record?.type === 'inspect_answer' || record?.type === 'inspect_ice') {
-          screenRef.current?.onSignal(record)
-        } else if (record?.type === 'inspect_bye') {
-          await stopShared()
-        }
-      }
-
-      async function stopShared() {
-        await screenRef.current?.stop()
-        screenRef.current = null
-        setStatus('已断开')
-      }
+      setWsUrl(`${proto}://${window.location.host}/ws/ptv?pteid=${encodeURIComponent(cred.pteid)}&token=${encodeURIComponent(cred.token)}`)
     })()
-    return () => {
-      aliveRef.current = false
-      wsRef.current?.close()
-      wsRef.current = null
-    }
-  }, [])
+    return () => { aliveRef.current = false }
+  }, [resolveCredentials])
 
-  async function stop() {
+  const stopShared = useCallback(async () => {
     await screenRef.current?.stop()
     screenRef.current = null
     setStatus('已断开')
+  }, [])
+
+  const { status: wsStatus, send } = useWebSocket(wsUrl, {
+    onMessage: async (record) => {
+      if (record?.type === 'inspect_request') {
+        try {
+          const session = String(record.session_id ?? '')
+          const screen = screenRef.current ?? createScreenShare({ send }, session)
+          screenRef.current = screen
+          await screen.start()
+          setStatus('共享中')
+          message.info('已开始屏幕共享，等待管理端接收')
+        } catch (e) {
+          setWarn(`屏幕采集失败：${(e as Error).message}`)
+          setStatus('错误')
+        }
+      } else if (record?.type === 'inspect_answer' || record?.type === 'inspect_ice') {
+        screenRef.current?.onSignal(record)
+      } else if (record?.type === 'inspect_bye') {
+        await stopShared()
+      }
+    },
+  })
+
+  // 连接状态 → 页面展示状态（共享中保持，其余跟随 WS）
+  useEffect(() => {
+    if (wsStatus === 'connected') {
+      setStatus((s) => (s === '共享中' ? s : '连接中'))
+    } else if (wsStatus === 'disconnected' || wsStatus === 'reconnecting') {
+      setStatus((s) => (s === '共享中' ? s : '已断开'))
+    }
+  }, [wsStatus])
+
+  async function stop() {
+    await stopShared()
   }
 
   return (

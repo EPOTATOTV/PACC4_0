@@ -36,4 +36,12 @@ public class SecurityTotp {
     private Instant createdAt;
 
     private Instant updatedAt;
+
+    /** 一次性恢复码（SHA-256 摘要 JSON 数组），仅首次生成时明文展示一次。 */
+    @Column(name = "recovery_codes", columnDefinition = "LONGTEXT")
+    private String recoveryCodes;
+
+    /** 已使用的恢复码摘要集合 JSON。 */
+    @Column(name = "recovery_used", columnDefinition = "LONGTEXT")
+    private String recoveryUsed;
 }

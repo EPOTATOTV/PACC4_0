@@ -116,7 +116,7 @@ public sealed class ConfigManager
     {
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
         var sb = new StringBuilder();
-        sb.AppendLine("# PACC v4.0 客户端配置（由 PaccManager 维护，勿手工删除此行）");
+        sb.AppendLine("# PACC v5.0 客户端配置（由 PaccManager 维护，勿手工删除此行）");
         sb.AppendLine("# 域名配置支持环境变量覆盖：PACC_CLIENT_* 优先于本文件");
         sb.AppendLine();
         foreach (var k in Values.OrderBy(p => Array.IndexOf(KnownKeys, p.Key), Comparer<int>.Default)

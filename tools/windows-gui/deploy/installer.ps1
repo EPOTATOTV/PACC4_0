@@ -1,9 +1,9 @@
-# PACC v4.2 Windows 安装程序脚本
+# PACC v5.0 Windows 安装程序脚本
 # 由 PaccManager GUI 调用，或可独立运行：
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/deploy/installer.ps1
 #
 # 职责：校验权限 -> 安装 Windows 服务 -> 注册底层检测模块 -> 生成配置基线。
-# 需要：PACC 客户端（ptv-client-4.2.0.jar 或原生探针）、所在目录下的 pacc-client.properties。
+# 需要：PACC 客户端（ptv-client-5.0.0.jar 或原生探针）、所在目录下的 pacc-client.properties。
 
 param(
     [string]$ServiceName = "PaccProtect",
@@ -13,7 +13,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-Write-Host "== PACC v4.2 Windows 安装程序 ==" -ForegroundColor Cyan
+Write-Host "== PACC v5.0 Windows 安装程序 ==" -ForegroundColor Cyan
 
 # 1) 管理员权限校验
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).
@@ -38,7 +38,7 @@ Write-Host "源目录: $src"
 $cfg = Join-Path $DataDir "pacc-client.properties"
 if (-not (Test-Path $cfg)) {
     @"
-# PACC v4.2 客户端配置
+# PACC v5.0 客户端配置
 pacc.client.endpoint=wss://pacc.potatotv.asia/ws/ptv
 pacc.client.api-base=https://api.potatotv.asia
 pacc.detection.redscreen-threshold=85
@@ -52,5 +52,5 @@ pacc.log.level=INFO
 
 # 4) 注册 Windows 服务（示例：以 nssm 包装 Java 客户端；部署时替换为真实探针/驱动）
 #    生产环境请使用 WHQL 签名驱动安装器注册底层模块。
-Write-Host "已就绪。请将 ptv-client-4.2.0.jar / 原生探针部署到 $BinDir 并配置服务。" -ForegroundColor Yellow
+Write-Host "已就绪。请将 ptv-client-5.0.0.jar / 原生探针部署到 $BinDir 并配置服务。" -ForegroundColor Yellow
 Write-Host "安装完成。" -ForegroundColor Green

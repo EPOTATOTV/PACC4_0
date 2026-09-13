@@ -1,4 +1,4 @@
-com.potatotv.pacc:ptv-backend:jar:4.0.0
+com.potatotv.pacc:ptv-backend:jar:5.0.0
 +- org.springframework.boot:spring-boot-starter-web:jar:3.2.5:compile
 |  +- org.springframework.boot:spring-boot-starter:jar:3.2.5:compile
 |  |  +- org.springframework.boot:spring-boot:jar:3.2.5:compile

@@ -167,7 +167,7 @@
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "PACC v4.2 服务监控总览",
+  "title": "PACC v5.0 服务监控总览",
   "uid": "pacc-overview",
   "version": 1,
   "weekStart": ""

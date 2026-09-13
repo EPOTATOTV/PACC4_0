@@ -12,6 +12,7 @@ import {
   Modal,
   Popconfirm,
   Row,
+  Space,
   Tag,
   Typography,
   message,
@@ -48,16 +49,24 @@ export default function PlayerSecurity() {
   const [totpOpen, setTotpOpen] = useState(false)
   const [totpSecret, setTotpSecret] = useState('')
   const [totpUri, setTotpUri] = useState('')
+  const [totpEnabled, setTotpEnabled] = useState(false)
+  const [totpRecoveryReady, setTotpRecoveryReady] = useState(false)
+  const [totpUnlockOpen, setTotpUnlockOpen] = useState(false)
+  const [recoveryModal, setRecoveryModal] = useState<string[] | null>(null)
   const [pwdForm] = Form.useForm()
+  const [unlockForm] = Form.useForm()
 
   async function load() {
     try {
-      const [s, d] = await Promise.all([
+      const [s, d, t] = await Promise.all([
         api.player.security.score(),
         api.player.security.devices(),
+        api.player.security.totpStatus().catch(() => ({ enabled: false, recovery_ready: false })),
       ])
       setScore(s)
       setDevices(d)
+      setTotpEnabled(t.enabled)
+      setTotpRecoveryReady(t.recovery_ready)
       setErr('')
     } catch (e) {
       setErr((e as Error).message)
@@ -95,6 +104,36 @@ export default function PlayerSecurity() {
       setTotpSecret(r.secret)
       setTotpUri(r.otpauth)
       setTotpOpen(true)
+    } catch (e) {
+      setErr((e as Error).message)
+    }
+  }
+
+  /** 生成恢复码：生成后仅此一次展示明文，须由用户自行保存。 */
+  async function generateRecovery() {
+    try {
+      const r = await api.player.security.totpRecovery()
+      setRecoveryModal(r.recovery_codes)
+      setTotpRecoveryReady(true)
+    } catch (e) {
+      setErr((e as Error).message)
+    }
+  }
+
+  /** 禁用 2FA：须先输入当前 TOTP 或恢复码解锁。 */
+  async function submitDisable() {
+    const v = await unlockForm.validateFields()
+    try {
+      const r = await api.player.security.totpDisable(v.code)
+      if (!r.ok) {
+        setErr('操作失败，请检查验证码')
+        return
+      }
+      setTotpEnabled(false)
+      setTotpRecoveryReady(false)
+      message.success('两步验证已禁用')
+      setTotpUnlockOpen(false)
+      unlockForm.resetFields()
     } catch (e) {
       setErr((e as Error).message)
     }
@@ -201,10 +240,24 @@ export default function PlayerSecurity() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <ScanOutlined style={{ fontSize: 20 }} />
               <Text>动态口令（TOTP）</Text>
+              <Tag color={totpEnabled ? 'success' : 'default'} style={{ marginLeft: 'auto' }}>
+                {totpEnabled ? '已启用' : '未启用'}
+              </Tag>
             </div>
-            <Button block icon={<KeyOutlined />} onClick={setupTotp}>
-              绑定验证器
-            </Button>
+            {totpEnabled ? (
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Button block icon={<KeyOutlined />} onClick={generateRecovery}>
+                  {totpRecoveryReady ? '重新生成恢复码' : '生成恢复码'}
+                </Button>
+                <Button block danger icon={<LockOutlined />} onClick={() => setTotpUnlockOpen(true)}>
+                  禁用两步验证
+                </Button>
+              </Space>
+            ) : (
+              <Button block icon={<KeyOutlined />} onClick={setupTotp}>
+                绑定验证器
+              </Button>
+            )}
           </Card>
         </Col>
         <Col xs={24} lg={8}>
@@ -255,6 +308,29 @@ export default function PlayerSecurity() {
           )}
           {totpSecret && <Text copyable style={{ fontFamily: 'monospace', textAlign: 'center' }}>{totpSecret}</Text>}
           <Text type="secondary">二维码由 otpauth URI / 密钥生成，后端就绪后可扫码绑定。</Text>
+        </div>
+      </Modal>
+
+      <Modal title="禁用两步验证" open={totpUnlockOpen} onCancel={() => { setTotpUnlockOpen(false); unlockForm.resetFields() }} onOk={submitDisable} okText="禁用" okButtonProps={{ danger: true }} cancelText="取消">
+        <Alert type="warning" showIcon message="请输入当前动态验证码（或一次性恢复码）以解锁禁用操作。" style={{ marginBottom: 16 }} />
+        <Form form={unlockForm} layout="vertical">
+          <Form.Item name="code" label="验证码" rules={[{ required: true, message: '请输入验证码' }]}>
+            <Input maxLength={6} placeholder="6 位动态码 / 恢复码" autoComplete="one-time-code" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="一次性恢复码"
+        open={!!recoveryModal}
+        onCancel={() => setRecoveryModal(null)}
+        footer={<Button type="primary" onClick={() => setRecoveryModal(null)}>我已保存</Button>}
+      >
+        <Alert type="warning" showIcon message="恢复码仅展示这一次，请立即妥善保存。每个恢复码仅能使用一次。" style={{ marginBottom: 16 }} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {(recoveryModal ?? []).map((c, i) => (
+            <Text key={i} copyable style={{ fontFamily: 'monospace', textAlign: 'center' }}>{c}</Text>
+          ))}
         </div>
       </Modal>
     </div>

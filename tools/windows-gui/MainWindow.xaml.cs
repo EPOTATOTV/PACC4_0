@@ -53,7 +53,7 @@ public partial class MainWindow : Window
 
         string appDir = InstallDir ?? AppContext.BaseDirectory;
         string binDir = System.IO.Path.Combine(appDir, "bin");
-        string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-4.2.0.jar");
+        string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-5.0.0.jar");
         string versionFile = System.IO.Path.Combine(binDir, "probe.version");
 
         // 已有同版本探针则不重复下载

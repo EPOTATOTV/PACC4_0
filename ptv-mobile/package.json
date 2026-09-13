@@ -1,8 +1,8 @@
 {
   "name": "pacc-mobile",
-  "version": "4.2.0",
+  "version": "5.0.0",
   "private": true,
-  "description": "PACC v4.2 移动端 App（Capacitor + 复用 ptv-frontend 构建产物，远程管理与查看）",
+  "description": "PACC v5.0 移动端 App（Capacitor + 复用 ptv-frontend 构建产物，远程管理与查看）",
   "scripts": {
     "sync": "npx cap sync",
     "add:android": "npx cap add android",

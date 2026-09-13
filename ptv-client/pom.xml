@@ -6,9 +6,9 @@
 
     <groupId>com.potatotv.pacc</groupId>
     <artifactId>ptv-client</artifactId>
-    <version>4.2.0</version>
+    <version>5.0.0</version>
     <name>PACC 玩家端用户态服务</name>
-    <description>PACC v4.2 玩家端检测层：本地检测引擎、WSS 上报、红屏接收。</description>
+    <description>PACC v5.0 玩家端检测层：本地检测引擎、WSS 上报、红屏接收。</description>
 
     <properties>
         <java.version>21</java.version>

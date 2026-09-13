@@ -4,6 +4,7 @@ import { Alert, Button, Modal, Tag, Typography } from 'antd'
 import { ArrowLeftOutlined, PauseCircleOutlined, PlayCircleOutlined, ReloadOutlined, SendOutlined } from '@ant-design/icons'
 import { api } from '../../api/client'
 import type { BpListedMap, BpStateDto, MapEntry } from '../../types'
+import { useWebSocket } from '../../ws/useWebSocket'
 
 const { Title, Text } = Typography
 
@@ -41,15 +42,20 @@ export default function BpConsole() {
   }, [bpId])
   useEffect(() => { load() }, [load])
 
-  // WebSocket 实时订阅
+  // WebSocket 实时订阅（走全局事件总线：自动重连 + 心跳）
+  const bpWsUrl = useMemo(
+    () => `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/admin`,
+    [],
+  )
+  const { send: bpSend } = useWebSocket(bpWsUrl, {
+    onOpen: () => {
+      if (bpId) bpSend({ type: 'bp_subscribe', bp_session_id: bpId })
+    },
+    onMessage: () => { load() },
+  })
   useEffect(() => {
-    if (!bpId) return
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const sock = new WebSocket(`${proto}//${window.location.host}/ws/admin`)
-    sock.onopen = () => sock.send(JSON.stringify({ type: 'bp_subscribe', bp_session_id: bpId }))
-    sock.onmessage = () => { load() }
-    return () => { sock.close() }
-  }, [bpId, load])
+    if (bpId) bpSend({ type: 'bp_subscribe', bp_session_id: bpId })
+  }, [bpId, bpSend])
 
   const deadline = state?.turn_deadline ? new Date(state.turn_deadline).getTime() : null
   const remainMs = deadline ? Math.max(0, deadline - now) : 0

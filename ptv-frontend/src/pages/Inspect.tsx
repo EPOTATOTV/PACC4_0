@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Badge, Button, Card, Drawer, List, Modal, Space, Table, Tag, Typography, message } from 'antd'
 import { SyncOutlined } from '@ant-design/icons'
 import type { TableColumnsType } from 'antd'
@@ -6,6 +6,7 @@ import { api } from '../api/client'
 import type { InspectSession } from '../types'
 import { StatusPill } from '../components/StatusPill'
 import { acceptScreenShare, type SignalTransport } from '../webrtc/webrtc'
+import { useWebSocket } from '../ws/useWebSocket'
 
 const { Title, Text } = Typography
 
@@ -27,8 +28,8 @@ export default function Inspect() {
   const [wsStatus, setWsStatus] = useState<'连接中' | '已连接' | '已断开' | '掉线'>('连接中')
   const [log, setLog] = useState<string[]>([])
   const [forensics, setForensics] = useState<Forensics | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const screenRef = useRef<{ onSignal: (msg: Record<string, unknown>) => Promise<void>; stop: () => void } | null>(null)
   const [screenOn, setScreenOn] = useState(false)
 
   const load = useCallback(async () => {
@@ -44,44 +45,47 @@ export default function Inspect() {
 
   useEffect(() => { load() }, [load])
 
-  // 打开查端抽屉：建立 /ws/admin 信令通道，实时展示玩家端回传的取证信令与 B2 实时屏幕
-  useEffect(() => {
-    if (!view) return
-    setLog([]); setForensics(null); setScreenOn(false); setWsStatus('连接中')
+  // 查端抽屉打开时建立 /ws/admin 信令通道（统一事件总线），关闭时退订
+  const wsUrl = useMemo(() => {
+    if (!view) return ''
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws/admin?session_id=${encodeURIComponent(view.sessionId)}`)
-    wsRef.current = ws
-    // B2：管理端作为被叫，接收玩家端 WebView 的屏幕共享；信令复用本 ws 通道
-    const transport: SignalTransport = {
-      send: (p) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(p)) },
-    }
-    const screen = videoRef.current
-      ? acceptScreenShare(transport, view.sessionId, videoRef.current)
-      : null
-    ws.onopen = () => setWsStatus('已连接')
-    ws.onclose = () => setWsStatus((s) => (s === '已连接' ? '掉线' : '已断开'))
-    ws.onerror = () => setWsStatus('掉线')
-    ws.onmessage = (ev) => {
-      let msg: unknown
-      try { msg = JSON.parse(ev.data as string) } catch { return }
-      const record = msg as Record<string, unknown>
-      setLog((l) => [...l, JSON.stringify(msg)].slice(-30))
+    return `${proto}://${window.location.host}/ws/admin?session_id=${encodeURIComponent(view.sessionId)}`
+  }, [view])
+
+  const { status: connStatus, send } = useWebSocket(wsUrl, {
+    onMessage: (record) => {
+      setLog((l) => [...l, JSON.stringify(record)].slice(-30))
       if (record?.type === 'inspect_started') {
         setLog((l) => [...l, '玩家已连接，等待取证...'])
       } else if (record?.type === 'inspect_forensics') {
         setForensics(record as Forensics)
       } else if (record?.type === 'inspect_offer' || record?.type === 'inspect_ice') {
         setScreenOn(true)
-        screen?.onSignal(record).catch(console.error)
+        screenRef.current?.onSignal(record).catch(console.error)
       }
-    }
+    },
+  })
+
+  // 打开抽屉：重置取证状态并创建 WebRTC 被叫（信令走事件总线 send）
+  useEffect(() => {
+    if (!view || !videoRef.current) return
+    setLog([]); setForensics(null); setScreenOn(false); setWsStatus('连接中')
+    const transport: SignalTransport = { send }
+    const screen = acceptScreenShare(transport, view.sessionId, videoRef.current)
+    screenRef.current = screen
     return () => {
-      screen?.stop()
-      wsRef.current?.close()
-      wsRef.current = null
+      screen.stop()
+      screenRef.current = null
       setScreenOn(false)
     }
-  }, [view])
+  }, [view, send])
+
+  // WS 连接状态 → 页面展示状态
+  useEffect(() => {
+    if (connStatus === 'connected') setWsStatus('已连接')
+    else if (connStatus === 'connecting' || connStatus === 'reconnecting') setWsStatus('连接中')
+    else if (connStatus === 'disconnected') setWsStatus((s) => (s === '已连接' ? '掉线' : '已断开'))
+  }, [connStatus])
 
   async function start(session: InspectSession) {
     try {

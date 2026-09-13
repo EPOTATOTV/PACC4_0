@@ -1,4 +1,4 @@
-# PACC v4.2 监控栈 Prometheus 配置
+# PACC v5.0 监控栈 Prometheus 配置
 # 抓取目标：PTV 后端（actuator/prometheus）、Go 网关（/metrics）、AI 推理服务（/metrics）
 global:
   scrape_interval: 15s

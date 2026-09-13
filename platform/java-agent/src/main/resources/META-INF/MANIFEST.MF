@@ -3,4 +3,4 @@ Premain-Class: com.potatotv.pacc.agent.PaccJavaAgent
 Can-Redefine-Classes: true
 Can-Retransform-Classes: true
 Implementation-Title: PACC-PTV-Java-Agent
-Implementation-Version: 4.2.0
+Implementation-Version: 5.0.0

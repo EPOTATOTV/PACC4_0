@@ -5,6 +5,7 @@ import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.CompetitionService;
 import com.potatotv.pacc.service.LoginThrottle;
 import com.potatotv.pacc.service.TokenService;
+import com.potatotv.pacc.service.TotpService;
 import com.potatotv.pacc.service.VerifyCodeService;
 import com.potatotv.pacc.service.sms.SmsProvider;
 import jakarta.mail.MessagingException;
@@ -20,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,6 +45,7 @@ public class AuthController {
     private final CompetitionService competitionService;
     private final VerifyCodeService verifyCodeService;
     private final SmsProvider smsProvider;
+    private final TotpService totpService;
 
     /** 演示级邮件发送 stub：为 true 时在响应返回本地重置链接（生产必须关闭）。 */
     @Value("${pacc.mail.stub-enabled:true}")
@@ -239,6 +242,16 @@ public class AuthController {
             boolean remember = Boolean.parseBoolean(body.getOrDefault("remember", "false"));
             TokenService.Token token = accountService.login(identity, body.get("password"),
                     body.get("device_fingerprint"), remember);
+            // 2FA：若该账号已启用两步验证，不直接发主会话 cookie，改发短时 pending 令牌触发第二步
+            if (totpService.enabled(token.pteid())) {
+                throttle.clear(idScope);
+                throttle.clear(ipScope);
+                log.info("玩家开启 2FA，要求第二步验证 pteid={}", token.pteid());
+                Map<String, Object> pending = new LinkedHashMap<>();
+                pending.put("twofa_required", true);
+                pending.put("pending", totpService.issuePending(token.pteid()));
+                return ResponseEntity.ok(pending);
+            }
             throttle.clear(idScope);
             throttle.clear(ipScope);
             log.info("玩家登录成功 pteid={}", token.pteid());
@@ -264,6 +277,60 @@ public class AuthController {
             // 与“账号/密码错误”一致返回 401，不暴露锁定与账号状态（防枚举）
             return ResponseEntity.status(401).body(Map.of("error", "账号或密码错误"));
         }
+    }
+
+    /** 登录第二步：校验短时 pending 令牌 + TOTP（或一次性恢复码），成功后签发主会话 cookie。 */
+    @PostMapping("/login/2fa")
+    public ResponseEntity<?> login2fa(@RequestBody Map<String, String> body, HttpServletRequest request,
+                                      HttpServletResponse response) {
+        String pending = body.get("pending");
+        String code = body.get("code");
+        if (pending == null || pending.isBlank() || code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "请输入验证码"));
+        }
+        String pteid;
+        try {
+            pteid = totpService.parsePending(pending);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+        }
+        if (!totpService.validate(pteid, code)) {
+            log.warn("2FA 第二步验证失败 pteid={}", pteid);
+            return ResponseEntity.status(401).body(Map.of("error", "验证码不正确或已失效"));
+        }
+        boolean remember = Boolean.parseBoolean(body.getOrDefault("remember", "false"));
+        TokenService.Token token = accountService.issueToken(pteid, remember);
+        competitionService.recordLogin(pteid, accountFingerprint(pteid), clientIp(request));
+        log.info("2FA 第二步验证成功 pteid={}", pteid);
+        setPlayerCookie(response, token.accessToken(), token.expiresAt());
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("pteid", pteid);
+        out.put("expires_at", token.expiresAt());
+        return ResponseEntity.ok(out);
+    }
+
+    /** 查询某账号 2FA 状态（供安全中心只读展示，不暴露敏感密钥）。 */
+    @GetMapping("/2fa/status")
+    public ResponseEntity<?> twofaStatus(@RequestBody(required = false) Map<String, String> body,
+                                         HttpServletRequest req) {
+        // 登录前无法直接取 pteid：返回通用结构，仅当带 pending 或已登录质询时才可判定
+        Object v = req.getAttribute("pteid");
+        String pteid = v == null ? "" : v.toString();
+        String pending = body == null ? null : body.get("pending");
+        if (pteid.isBlank() && pending != null && !pending.isBlank()) {
+            try {
+                pteid = totpService.parsePending(pending);
+            } catch (SecurityException ignored) {
+                return ResponseEntity.ok(Map.of("enabled", false));
+            }
+        }
+        boolean enabled = !pteid.isBlank() && totpService.enabled(pteid);
+        return ResponseEntity.ok(Map.of("enabled", enabled));
+    }
+
+    private String accountFingerprint(String pteid) {
+        Account acc = accountService.findByPteidOrNull(pteid);
+        return acc == null ? null : acc.getDeviceFingerprint();
     }
 
     /** 登出：同路径/属性下发 Max-Age=0 的 cookie 使浏览器侧立即失效。 */

@@ -31,5 +31,5 @@ npm run build                      # 自动先构建 ptv-frontend，再 tauri bu
 - **开机自启**：安装时默认开启，前端设置页可切换。
 - **自动更新**：指向 `dl.potatotv.asia`，发布前需生成 Tauri 签名密钥并把 `pubkey` 填入 `tauri.conf.json`。
 
-## 与 v4.2 移动端的关系
+## 与 v5.0 移动端的关系
 移动端（`../ptv-mobile`）为远程查看/管理角色，不内嵌本地检测引擎；桌面壳才承载本地 Java 检测引擎与红屏强制覆盖。

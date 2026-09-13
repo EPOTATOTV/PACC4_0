@@ -70,10 +70,10 @@ chmod +x deploy/server/deploy-server.sh
 
 | 产物 | 路径 | 用途 |
 |---|---|---|
-| 安装向导 | `tools/installer/Output/PACCClientSetup-4.2.0.exe` | 一键安装，含 `PaccManager.exe` + 探针 jar + 配置 |
-| 下载包 | `deploy/dl-web/files/pacc-client-windows-x64-v4.2.0.zip` | 免安装压缩包（`dl` 域直下） |
+| 安装向导 | `tools/installer/Output/PACCClientSetup-5.0.0.exe` | 一键安装，含 `PaccManager.exe` + 探针 jar + 配置 |
+| 下载包 | `deploy/dl-web/files/pacc-client-windows-x64-v5.0.0.zip` | 免安装压缩包（`dl` 域直下） |
 | 版本清单 | `deploy/dl-web/files/version.json` | 自动更新对照（client + probe 各自 sha256） |
-| 探针发布件 | `deploy/dl-web/files/ptv-agent-4.2.0.jar` | 供 PaccManager 相对下载替换 |
+| 探针发布件 | `deploy/dl-web/files/ptv-agent-5.0.0.jar` | 供 PaccManager 相对下载替换 |
 
 重新打包（需 .NET 8 Desktop SDK + Maven）：
 ```powershell
@@ -90,12 +90,12 @@ powershell -ExecutionPolicy Bypass -File tools\windows-gui\build-client.ps1
 `PaccManager.exe` 声明 `requireAdministrator`（写 Program Files 需提权），故**静默/自动安装验证无法在沙箱终端完成**（UAC 授权弹框会挂起）。首次发布前请在有桌面会话的机器上双击运行：
 
 ```
-tools\installer\Output\PACCClientSetup-4.2.0.exe
+tools\installer\Output\PACCClientSetup-5.0.0.exe
 ```
 
 - 点「是」通过 UAC 提权 → 进入 Inno 向导
 - 默认装到 `C:\Program Files\PACC 客户端\`，可选桌面快捷方式
-- 装后目录应含：`PaccManager.exe`、`bin\ptv-agent-4.2.0.jar`、`pacc-client.properties`、`deploy\installer.ps1`
+- 装后目录应含：`PaccManager.exe`、`bin\ptv-agent-5.0.0.jar`、`pacc-client.properties`、`deploy\installer.ps1`
 - 开始菜单出现「PACC 客户端」；「设置 → 应用」可卸载
 - 完成可选「现在启动」，首次启动应拉取 `dl.potatotv.asia/files/version.json` 检查更新（离线则静默）
 

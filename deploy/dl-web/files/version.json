@@ -1,9 +1,9 @@
-﻿{
-  "client_version": "v4.2.0",
-  "client_url": "/files/pacc-client-windows-x64-v4.2.0.zip",
+{
+  "client_version": "v5.0.0",
+  "client_url": "/files/pacc-client-windows-x64-v5.0.0.zip",
   "client_sha256": "cc82736ce9bdf68859fc6dd18d21da8e0f51b75a4f12ac1f2e0d614ad257df41",
-  "probe_version": "v4.2.0",
-  "probe_url": "/files/ptv-agent-4.2.0.jar",
+  "probe_version": "v5.0.0",
+  "probe_url": "/files/ptv-agent-5.0.0.jar",
   "probe_sha256": "c86602595228e17835654639132d73297dcd7ec65ef3302995089e292705557e",
-  "min_version": "4.2.0"
+  "min_version": "5.0.0"
 }

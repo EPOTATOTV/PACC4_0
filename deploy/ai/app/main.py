@@ -1,4 +1,4 @@
-"""PACC v4.1 AI 推理服务入口（FastAPI）。
+"""PACC v5.0 AI 推理服务入口（FastAPI）。
 
 端到端：
   GET  /health                       健康检查（容器探针）
@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from .engine import engine
 from .profiler import profiler
 
-app = FastAPI(title="PACC AI 推理服务", version="4.1.0")
+app = FastAPI(title="PACC AI 推理服务", version="5.0.0")
 
 
 class Feature(BaseModel):
@@ -75,7 +75,7 @@ class AdaptRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "UP", "service": "pacc-ai", "version": "4.1.0", "n": engine.n}
+    return {"status": "UP", "service": "pacc-ai", "version": "5.0.0", "n": engine.n}
 
 
 @app.get("/api/model/info")
