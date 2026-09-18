@@ -13,11 +13,15 @@ obj/
 deploy/dl-web/files/*.zip
 deploy/dl-web/files/*.apk
 deploy/dl-web/files/*.tar.gz
+# 下载站品牌/logo 归档（企业品牌资产，仅本机留档，不入库、不上传）
+deploy/dl-web/archive/
 
 # --- Node ---
 node_modules/
 .vite/
 coverage/
+# TypeScript 增量构建缓存（产物，不入库）
+*.tsbuildinfo
 
 # --- IDE ---
 .idea/
