@@ -89,7 +89,28 @@ a { color: var(--text); text-decoration: none; }
 .nav nav a.dl { color: var(--text); }
 
 /* ---------- Hero：品牌最大声，去强渐变/发光 ---------- */
-.hero { max-width: 1080px; margin: 0 auto; padding: 92px 26px 68px; text-align: center; }
+.hero { position: relative; max-width: 1080px; margin: 0 auto; padding: 92px 26px 68px; text-align: center; }
+/* Hero 氛围图：深压暗 + 径向渐隐，只做纵深不抢标题 */
+.hero-img {
+  position: absolute; inset: -60px 0 0; z-index: 0; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(5, 6, 8, .42), rgba(5, 6, 8, .82) 78%),
+    url('images/background1.png') no-repeat center 26% / cover;
+  opacity: .34; filter: saturate(135%) contrast(1.05);
+  -webkit-mask-image: radial-gradient(92% 74% at 50% 30%, #000 0%, transparent 74%);
+  mask-image: radial-gradient(92% 74% at 50% 30%, #000 0%, transparent 74%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* 长周期缓移，跟随既定分隔层级：背景 > 文字 */
+  .hero-img { will-change: transform; animation: heroDrift 26s cubic-bezier(.45, 0, .55, 1) infinite; }
+  @keyframes heroDrift {
+    0%   { transform: translate3d(0, 0, 0) scale(1); }
+    33%  { transform: translate3d(18px, 10px, 0) scale(1.04); }
+    66%  { transform: translate3d(-14px, 8px, 0) scale(1.02); }
+    100% { transform: translate3d(0, 0, 0) scale(1); }
+  }
+}
+.hero > *:not(.hero-img) { position: relative; z-index: 1; }
 .hero-eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
   font-family: var(--mono); font-size: 11.5px; letter-spacing: .2em; text-transform: uppercase;
@@ -186,6 +207,26 @@ h2::before { content: '#'; color: var(--accent); margin-right: 8px; }
 .note-box .t { font-family: var(--mono); font-size: 12px; color: var(--accent-2); margin-bottom: 4px; }
 .note-box li { list-style: none; color: var(--muted); font-size: 12.5px; line-height: 1.6; padding-right: 22px; flex: 1 1 220px; }
 
+/* ---------- 氛围分隔带：超宽视觉、深压暗渐隐，克制地穿插 ---------- */
+.visual-strip { width: 100%; overflow: hidden; padding: 22px 0; }
+.visual-strip .strip-inner {
+  display: block; width: 100%; height: 172px;
+  background:
+    linear-gradient(180deg, var(--bg) 0%, rgba(5, 6, 8, .18) 18%, rgba(5, 6, 8, .18) 82%, var(--bg) 100%),
+    url('images/fengjing.jpg') no-repeat center 38% / cover;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+  opacity: .5;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .visual-strip .strip-inner { will-change: transform; animation: stripPan 34s cubic-bezier(.45, 0, .55, 1) infinite; }
+  @keyframes stripPan {
+    0%   { transform: translateX(-2.5%) scale(1.03); }
+    50%  { transform: translateX(2.5%) scale(1.06); }
+    100% { transform: translateX(-2.5%) scale(1.03); }
+  }
+}
+
 /* ---------- 页脚 ---------- */
 .footer { border-top: 1px solid var(--line); padding: 30px 26px; }
 .footer-inner { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -194,10 +235,123 @@ h2::before { content: '#'; color: var(--accent); margin-right: 8px; }
 .footer-brand .brand-font { color: var(--accent-2); }
 .footer .small { font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
 
+/* ---------- 通用 section 容器 ---------- */
+.features, .specs, .install, .changelog, .checks, .faq {
+  max-width: 1080px; margin: 0 auto; padding: 20px 26px 78px;
+}
+.tag {
+  font-family: var(--mono); font-size: 11px; color: var(--dim);
+  border: 1px solid var(--line); padding: 2px 9px; border-radius: 999px; letter-spacing: .04em;
+}
+
+/* ---------- 特性：三栏分区卡 ---------- */
+.feat-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+.feat {
+  padding: 18px 6px 18px 0;
+  border-top: 1px solid var(--line);
+}
+.feat-k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; color: var(--accent-2); }
+.feat h3 { font-size: 16px; font-weight: 600; margin: 10px 0 7px; }
+.feat p { color: var(--muted); font-size: 13px; line-height: 1.7; }
+
+/* ---------- 系统要求：行分隔（不套卡） ---------- */
+.spec-box { border-top: 1px solid var(--line-strong); }
+.spec {
+  display: flex; align-items: baseline; gap: 20px;
+  padding: 13px 2px; border-bottom: 1px solid var(--line);
+}
+.spec-name { flex: 0 0 150px; font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+.spec-val { color: var(--muted); font-size: 13px; }
+
+/* ---------- 安装步骤 ---------- */
+.steps { list-style: none; display: flex; flex-direction: column; gap: 15px; }
+.steps li { display: flex; gap: 16px; align-items: flex-start; }
+.step-n {
+  flex: 0 0 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--accent-2); background: var(--panel);
+}
+.steps h4 { font-size: 15px; font-weight: 600; line-height: 1.55; }
+.steps p { color: var(--muted); font-size: 13px; margin-top: 3px; }
+
+/* ---------- 更新日志 ---------- */
+.log-list { border-top: 1px solid var(--line-strong); }
+.log { display: grid; grid-template-columns: 96px 74px 1fr; gap: 15px; padding: 16px 2px; border-bottom: 1px solid var(--line); }
+.log-ver { font-size: 12px; color: var(--accent-2); }
+.log-date { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.log p { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.log p + p { margin-top: 4px; }
+
+/* ---------- 校验和 ---------- */
+.check-box { border-top: 1px solid var(--line-strong); }
+.check { display: flex; flex-direction: column; gap: 7px; padding: 15px 2px; border-bottom: 1px solid var(--line); }
+.check-name { font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+.check code {
+  font-family: var(--mono); font-size: 12px; color: var(--text);
+  word-break: break-all; line-height: 1.65;
+}
+
+/* ---------- FAQ：轻量手风琴 ---------- */
+.faq-list { display: flex; flex-direction: column; gap: 11px; }
+.faq-list details {
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
+  padding: 0 16px;
+}
+.faq-list summary {
+  cursor: pointer; list-style: none; padding: 13px 0;
+  font-size: 13.5px; font-weight: 500; color: var(--text);
+  display: flex; align-items: center; gap: 10px;
+}
+.faq-list summary::-webkit-details-marker { display: none; }
+.faq-list summary::before {
+  content: '+'; font-family: var(--mono); color: var(--accent-2); font-size: 15px; line-height: 1;
+  transition: transform 150ms;
+}
+.faq-list details[open] summary::before { transform: rotate(45deg); }
+.faq-list details p { color: var(--muted); font-size: 13px; line-height: 1.7; padding: 0 0 15px 24px; }
+
+/* ---------- 页脚：导航与法律 ---------- */
+.footer-links { display: flex; gap: 18px; }
+.footer-links a { font-family: var(--mono); font-size: 11.5px; color: var(--muted); transition: color .18s; }
+.footer-links a:hover { color: var(--accent-2); }
+.legal { max-width: 1080px; margin: 18px auto 0; padding: 14px 26px 0; border-top: 1px solid var(--line); font-family: var(--mono); }
+.legal .small { margin-top: 5px; color: var(--dim); }
+
+/* ---------- GSAP 动效辅助样式 ---------- */
+/* 标题逐字：每个字符独立翻起需要保持行的连续性并有 3D 面 */
+.pacc-hero-char { display: inline-block; perspective: 800px; will-change: transform; }
+
+/* 背景粒子层 */
+.pacc-dots { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.pacc-dots span {
+  position: absolute; top: -6%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 187, 120, .55), rgba(255, 187, 120, 0) 72%);
+  filter: blur(.5px);
+}
+
+/* 指针光斑：纯装饰，混色提亮不遮内容 */
+.pacc-cursor-glow {
+  position: fixed; top: 0; left: 0; width: 340px; height: 340px;
+  margin: -170px 0 0 -170px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 122, 69, .20), rgba(255, 122, 69, 0) 62%);
+  mix-blend-mode: screen; pointer-events: none; z-index: 42;
+  will-change: transform;
+}
+
+/* 导航收束态：滚动过 hero 后微微压紧 */
+.nav.scrolled .nav-inner { padding-top: 10px; padding-bottom: 10px; }
+.nav.scrolled .brand { font-size: 17px; }
+
 @media (max-width: 880px) {
   .hero { padding: 64px 20px 52px; }
   .grid { grid-template-columns: 1fr; }
   .hero-meta { gap: 10px; }
+  .feat-list { grid-template-columns: 1fr; gap: 0; }
+  .spec { flex-direction: column; gap: 3px; }
+  .spec-name { flex: none; }
+  .log { grid-template-columns: 1fr; gap: 3px; }
+  .footer-links { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

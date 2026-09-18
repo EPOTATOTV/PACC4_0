@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PACC 客户端下载 | POTATOTV</title>
-  <meta name="description" content="PACC 反作弊客户端官方下载，支持 Windows、Linux、Android、iOS、HarmonyOS 与 Java 版。" />
+  <meta name="description" content="PACC 反作弊客户端官方下载，支持 Windows、Linux、Android、iOS、HarmonyOS 与 Java 版。附校验和、系统要求、更新日志与常见问题。" />
   <link rel="icon" href="favicon.ico" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -18,14 +18,17 @@
         <span class="brand-font">PACC</span>
       </a>
       <nav>
+        <a href="#features">特性</a>
         <a href="#download">DOWNLOAD</a>
+        <a href="#faq">FAQ</a>
         <a class="dl mono" href="#download">客户端下载</a>
       </nav>
     </div>
   </header>
 
   <section class="hero">
-    <div class="hero-eyebrow"><span class="dot"></span>ANTI-CHEAT / POTATOTV SEC</div>
+    <div class="hero-img" aria-hidden="true"></div>
+    <div class="hero-eyebrow"><span class="dot" aria-hidden="true"></span>ANTI-CHEAT / POTATOTV SEC</div>
     <h1 class="brand-font hero-title">PACC</h1>
     <p class="hero-sub">为纯净的游戏环境而生。覆盖六大平台</p>
     <div class="hero-meta">
@@ -36,9 +39,9 @@
     <div class="hero-actions">
       <a class="btn btn-primary" href="#download">
         立即下载
-        <span class="key">↓</span>
+        <span class="key" aria-hidden="true">↓</span>
       </a>
-      <a class="btn" href="#note">平台说明 <span class="key">i</span></a>
+      <a class="btn" href="#note">运行须知 <span class="key" aria-hidden="true">i</span></a>
     </div>
   </section>
 
@@ -47,7 +50,7 @@
       <h2>客户端下载</h2>
       <span class="version mono">v5.0.0</span>
     </div>
-    <p class="sub">选择适配您设备的版本</p>
+    <p class="sub">六种端到端，选适配您设备的那份。下载后请核对校验和。</p>
 
     <div class="grid">
       <div class="card">
@@ -57,7 +60,7 @@
         </div>
         <h3>Windows</h3>
         <p>Windows 10 / 11 桌面端，含驱动层防护。</p>
-        <a class="btn" href="files/pacc-client-windows-x64-v5.0.0.zip">下载</a>
+        <a class="btn" href="files/pacc-client-windows-x64-v5.0.0.zip" data-file="win" aria-label="下载 Windows 客户端 v5.0.0">下载</a>
       </div>
       <div class="card">
         <div class="card-top">
@@ -66,7 +69,7 @@
         </div>
         <h3>Linux</h3>
         <p>Linux x86_64，面向桌面与服务器场景。</p>
-        <a class="btn" href="files/pacc-client-linux-x86_64-v5.0.0.tar.gz">下载</a>
+        <a class="btn" href="files/pacc-client-linux-x86_64-v5.0.0.tar.gz" aria-label="下载 Linux 客户端 v5.0.0">下载</a>
       </div>
       <div class="card">
         <div class="card-top">
@@ -75,7 +78,7 @@
         </div>
         <h3>Android</h3>
         <p>Android 8.0 及以上，以服务模式后台常驻。</p>
-        <a class="btn" href="files/pacc-client-android-v5.0.0.apk">下载</a>
+        <a class="btn" href="files/pacc-client-android-v5.0.0.apk" aria-label="下载 Android 客户端 v5.0.0">下载</a>
       </div>
       <div class="card">
         <div class="card-top">
@@ -84,7 +87,7 @@
         </div>
         <h3>iOS / iPadOS</h3>
         <p>iOS 15 及以上，签名安装包。</p>
-        <a class="btn" href="files/pacc-client-ios-v5.0.0.tar.gz">下载</a>
+        <a class="btn" href="files/pacc-client-ios-v5.0.0.tar.gz" aria-label="下载 iOS 客户端 v5.0.0">下载</a>
       </div>
       <div class="card">
         <div class="card-top">
@@ -93,7 +96,7 @@
         </div>
         <h3>HarmonyOS</h3>
         <p>HarmonyOS NEXT 原生支持。</p>
-        <a class="btn" href="files/pacc-client-harmony-v5.0.0.tar.gz">下载</a>
+        <a class="btn" href="files/pacc-client-harmony-v5.0.0.tar.gz" aria-label="下载 HarmonyOS 客户端 v5.0.0">下载</a>
       </div>
       <div class="card">
         <div class="card-top">
@@ -102,8 +105,193 @@
         </div>
         <h3>Java 探针</h3>
         <p>Java 21+ 探针，校验运行时字节码完整性。</p>
-        <a class="btn" href="files/ptv-agent-5.0.0.jar">下载</a>
+        <a class="btn" href="files/ptv-agent-5.0.0.jar" data-file="probe" aria-label="下载 Java 探针 v5.0.0">下载</a>
       </div>
+    </div>
+  </section>
+
+  <section class="visual-strip" aria-label="氛围图">
+    <span class="strip-inner" aria-hidden="true"></span>
+  </section>
+
+  <section class="features" id="features">
+    <div class="section-head">
+      <h2>它能做什么</h2>
+      <span class="tag mono">CORE</span>
+    </div>
+    <p class="sub">内核级与运行时双重防线，覆盖主要作弊手段。</p>
+    <div class="feat-list">
+      <div class="feat reveal">
+        <span class="feat-k mono">01 / KERNEL</span>
+        <h3>驱动层检测</h3>
+        <p>Windows 下注入驱动，拦截内存读写、未签名驱动与隐藏进程。</p>
+      </div>
+      <div class="feat reveal">
+        <span class="feat-k mono">02 / RUNTIME</span>
+        <h3>运行时完整性</h3>
+        <p>Java 探针校验字节码，Android/iOS 核对进程与签名，防篡改注入。</p>
+      </div>
+      <div class="feat reveal">
+        <span class="feat-k mono">03 / REAL-TIME</span>
+        <h3>实时上报</h3>
+        <p>命中即断开对局并回传证据，管控台可复核查端，全程留痕。</p>
+      </div>
+      <div class="feat reveal">
+        <span class="feat-k mono">04 / PLATFORM</span>
+        <h3>六大平台</h3>
+        <p>Win / Linux / Android / iOS / HarmonyOS / JVM 一套策略统一管控。</p>
+      </div>
+      <div class="feat reveal">
+        <span class="feat-k mono">05 / PRIVACY</span>
+        <h3>克制采集</h3>
+        <p>只采集判定所需进程与驱动快照，敏感数据按审计标准脱敏。</p>
+      </div>
+      <div class="feat reveal">
+        <span class="feat-k mono">06 / AUTO</span>
+        <h3>随系统自启</h3>
+        <p>安装后随平台自启动，检测到独占运行即结束，不干扰正常对局。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="specs" id="specs">
+    <div class="section-head">
+      <h2>系统要求</h2>
+      <span class="tag mono">REQ</span>
+    </div>
+    <div class="spec-box">
+      <div class="spec">
+        <span class="spec-name">Windows</span>
+        <span class="spec-val">10 / 11 · x64 · 驱动需管理员权限</span>
+      </div>
+      <div class="spec">
+        <span class="spec-name">Linux</span>
+        <span class="spec-val">x86_64 · Kernel 5.x+ · systemd 可选用</span>
+      </div>
+      <div class="spec">
+        <span class="spec-name">Android</span>
+        <span class="spec-val">8.0+ · ARM · 需开启未知来源</span>
+      </div>
+      <div class="spec">
+        <span class="spec-name">iOS / iPadOS</span>
+        <span class="spec-val">15+ · 签名安装包</span>
+      </div>
+      <div class="spec">
+        <span class="spec-name">HarmonyOS</span>
+        <span class="spec-val">NEXT · 原生支持</span>
+      </div>
+      <div class="spec">
+        <span class="spec-name">Java 探针</span>
+        <span class="spec-val">JDK 21+ · 随目标进程 JVM 启动</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="install" id="install">
+    <div class="section-head">
+      <h2>安装</h2>
+      <span class="tag mono">SETUP</span>
+    </div>
+    <ol class="steps">
+      <li class="reveal">
+        <span class="step-n mono">1</span>
+        <div>
+          <h4>下载对应平台的安装包</h4>
+          <p>从上方的下载区取您设备的版本。首次建议先用下面的校验和核对文件完整性。</p>
+        </div>
+      </li>
+      <li class="reveal">
+        <span class="step-n mono">2</span>
+        <div>
+          <h4>安装并授权</h4>
+          <p>Windows 以管理员身份安装驱动组件；Android 允许「安装未知来源」；iOS 信任开发者签名。</p>
+        </div>
+      </li>
+      <li class="reveal">
+        <span class="step-n mono">3</span>
+        <div>
+          <h4>校验和启动</h4>
+          <p>确认客户端随系统自启。Java 探针请在启动目标服务前于 JVM 参数中挂载。</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="changelog" id="changelog">
+    <div class="section-head">
+      <h2>更新日志</h2>
+      <span class="tag mono">LOG</span>
+    </div>
+    <div class="log-list">
+      <div class="log reveal">
+        <span class="log-ver mono">v5.0.0</span>
+        <span class="log-date">2026-09</span>
+        <div>
+          <p>重构内核检测引擎，新增 HarmonyOS 原生端与 iOS 签名安装包。</p>
+          <p>Java 探针改为运行时字节码校验，误报率下调；管控台新增红屏动效模板管理。</p>
+        </div>
+      </div>
+      <div class="log reveal">
+        <span class="log-ver mono">v4.3.0</span>
+        <span class="log-date">2026-06</span>
+        <div>
+          <p>管控台新增实时监控大屏与离线数据导入；接入飞书账号体系。</p>
+        </div>
+      </div>
+      <div class="log reveal">
+        <span class="log-ver mono">v4.0.0</span>
+        <span class="log-date">2026-03</span>
+        <div>
+          <p>引入检测策略中心与查端回放；首版跨平台客户端发布。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="checks" id="checksums">
+    <div class="section-head">
+      <h2>校验和</h2>
+      <span class="tag mono">SHA256</span>
+    </div>
+    <p class="sub">下载后请与本页核对 SHA-256，不一致的包可能被篡改，请勿运行。</p>
+    <div class="check-box">
+      <div class="check">
+        <span class="check-name mono">Windows 客户端</span>
+        <code class="mono">cc82736ce9bdf68859fc6dd18d21da8e0f51b75a4f12ac1f2e0d614ad257df41</code>
+      </div>
+      <div class="check">
+        <span class="check-name mono">Java 探针</span>
+        <code class="mono">c86602595228e17835654639132d73297dcd7ec65ef3302995089e292705557e</code>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" id="faq">
+    <div class="section-head">
+      <h2>常见问题</h2>
+      <span class="tag mono">FAQ</span>
+    </div>
+    <div class="faq-list">
+      <details class="reveal">
+        <summary>安装后要一直开着客户端吗？</summary>
+        <p>需要。客户端随系统/平台自启动并常驻后台，检测到外部进程注入会断开本轮对局并上报。手动退出会导致本轮无法被防护。</p>
+      </details>
+      <details class="reveal">
+        <summary>提示校验和不一致怎么办？</summary>
+        <p>停止安装，重新下载并再次核对。校验和匹配的包才能使用；若持续不一致，可到管控台工单反馈。</p>
+      </details>
+      <details class="reveal">
+        <summary>iOS 怎么装签名包？</summary>
+        <p>下载后先在系统「设置 → 通用 → VPN 与设备管理」信任对应开发者证书，再打开安装。iPadOS 同理。</p>
+      </details>
+      <details class="reveal">
+        <summary>会采集我的哪些数据？</summary>
+        <p>只采集判定所需的进程、驱动与运行时快照。账号等敏感数据按审计标准脱敏存储，不做与反作弊无关的采集。</p>
+      </details>
+      <details class="reveal">
+        <summary>Windows 提示需要管理员权限？</summary>
+        <p>安装驱动层容器必须管理员权限。可先暂时关闭其它签名/调试工具，再以管理员身份重试。</p>
+      </details>
     </div>
   </section>
 
@@ -141,8 +329,29 @@
         <span class="brand-font">PACC</span>
         <span style="color:var(--dim)">PotatoTV 反作弊系统</span>
       </div>
+      <div class="footer-links">
+        <a href="#download">下载</a>
+        <a href="#features">特性</a>
+        <a href="#faq">FAQ</a>
+        <a href="#checksums">校验和</a>
+      </div>
+    </div>
+    <div class="legal">
       <p class="small">© 2026 POTATOTV · pacc.potatotv.asia</p>
+      <p class="small">PACC 仅用于正当反作弊目的。禁止用于逆向破解其它安全产品或进行任何违法违规活动。</p>
     </div>
   </footer>
+
+  <script src="js/gsap.min.js"></script>
+  <script src="js/ScrollTrigger.min.js"></script>
+  <script src="js/ScrollToPlugin.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/counter.js"></script>
+  <script src="js/cards.js"></script>
+  <script src="js/scroll.js"></script>
+  <script src="js/hero.js"></script>
+  <script src="js/cursor-glow.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
