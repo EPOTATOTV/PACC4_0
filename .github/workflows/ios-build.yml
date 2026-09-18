@@ -1,0 +1,118 @@
+# PACC iOS 构建 —— 生成壳工程 · 编译验证 · （配置签名后）出 .ipa
+# 演进说明：
+#   - 本机为 Windows，iOS 只能在 macOS 交叉编译，故用 GitHub Actions macos runner。
+#   - 默认（未配 Apple 签名 Secrets）只做 xcodebuild 编译校验 + 无签名 .ipa，
+#     验证代码可构建；签名后启用 CIP_APPLE_CERT/MOBILE_PROVISION/签发密码分支。
+#   - 对齐仓库 ci.yml 规范：最小权限、concurrency 取消、前端先构建。
+name: iOS Build
+
+on:
+  workflow_dispatch:      # 手动触发：master 上点 Run 即可试跑
+  push:
+    branches: [ master ]
+    paths:
+      - 'ptv-mobile/**'
+      - 'ptv-frontend/**'
+      - '.github/workflows/ios-build.yml'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'ptv-mobile/**'
+      - 'ptv-frontend/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  # iOS 最低版本对齐设计文档 4.3.1（iOS 15.0）与 Podfile
+
+jobs:
+  ios-build:
+    name: iOS 编译验证
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ptv-frontend/package-lock.json
+
+      # iOS 壳需要前端 dist 作为 WebView 资源，先构建
+      - name: 构建前端 web 资源
+        working-directory: ptv-frontend
+        run: npm ci && npm run build
+
+      - name: 安装 ptv-mobile 依赖（Capacitor 平台）
+        working-directory: ptv-mobile
+        run: npm ci
+
+      # CocoaPods 解析 Podfile，拉取 Capacitor 原生依赖
+      - name: 安装 CocoaPods 并同步 iOS 平台
+        working-directory: ptv-mobile
+        run: |
+          npx cap sync ios
+          cd ios/App && pod install --repo-update
+
+      - name: xcodebuild 编译校验
+        working-directory: ptv-mobile/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      # 无签名 .ipa（iOS Simulator/通用）；用于验证打包链路产物可回传
+      - name: 打包无签名 .ipa
+        if: always()
+        working-directory: ptv-mobile/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build-release \
+            -archivePath build-release/App.xcarchive \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+          mkdir -p build-release/export
+          # Simulator 版不使用包，仅验证 archive 产物；真机签名见 signing 分支
+          echo "Archive 完成（无签名）。配置 Apple 签名 Secrets 后启用 AdHoc/AppStore 导出。"
+
+      - name: 上传构建产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-sim-archive
+          path: ptv-mobile/ios/App/build-release/App.xcarchive
+          if-no-files-found: warn
+
+      # ---- 可选：已配置 Apple 签名证书时出真机 .ipa ----
+      # 启用条件：在仓库 Secrets 配置以下 5 项，并把下面的 jobs/ios-build 拆出独立
+      # signing 任务，或在运行器上安装证书后走 AdHoc 导出。
+      #  env（证书相关 Secrets）：
+      #   - IOS_DEV_CERT_BASE64    # .p12 的 base64
+      #   - IOS_DEV_CERT_PASS      # .p12 密码
+      #   - IOS_MOBILEPROVISION_B64 # .mobileprovision 的 base64
+      #   - IOS_EXPORT_METHOD      # ad-hoc / app-store / development
+      #  导出示例（放入一个 needs: 本任务 的新 job 或本 job 尾部）：
+      #  security create-keychain -p temp build.keychain
+      #  echo "$IOS_DEV_CERT_BASE64" | base64 -d > cert.p12
+      #  security import cert.p12 -k build.keychain -P "$IOS_DEV_CERT_PASS"
+      #  xcodebuild -exportArchive -archivePath .../App.xcarchive \
+      #    -exportPath out -exportOptionsPlist exportOptions.plist

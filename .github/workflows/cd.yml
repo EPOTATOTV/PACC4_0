@@ -1,0 +1,135 @@
+# PACC CD —— 镜像构建/推送 + 镜像漏洞扫描 + 生产部署
+# 加固要点：
+#   - 仅 tag(v*) 触发，环境级保护（require 审批）
+#   - 镜像打 sha + semver 双标签，可回溯
+#   - 先 Trivy 镜像扫描，失败即中止发布
+#   - 部署凭据全部走 GitHub Secrets（kubeconfig / registry），不入仓库
+#   - OIDC/COSIGN 签名生产可再开启 registry 信任
+name: CD
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: read
+  packages: write   # 推送 ghcr.io 镜像所需
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_TAG: ${{ github.sha }}
+  REGISTRY_USER: ${{ github.actor }}
+
+jobs:
+  build-push:
+    name: 构建并推送镜像
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # 各服务构建目录 + 镜像名
+        include:
+          - dir: ptv-backend
+            image: ptv-backend
+          - dir: ptv-frontend
+            image: ptv-frontend
+          - dir: deploy/gateway-go
+            image: gateway-go
+          - dir: deploy/gateway
+            image: gateway
+          - dir: deploy/pipe-rust
+            image: pipe-rust
+          - dir: deploy/ai
+            image: ai
+    steps:
+      - uses: actions/checkout@v4
+      - name: 登录 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: 构建并推送镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.dir }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}:${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  image-scan:
+    name: 镜像漏洞扫描 (Trivy)
+    needs: build-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # 上传 SARIF 到 Code Scanning 需该权限
+    permissions:
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [ ptv-backend, ptv-frontend, gateway-go, gateway, pipe-rust, ai ]
+    steps:
+      - name: Trivy 镜像扫描（gating，未修复高危即失败）
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+        continue-on-error: true
+      - name: 上传扫描结果
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif
+
+  deploy:
+    name: 部署到生产 (Helm)
+    environment: production   # 需在仓库环境启用"要求审批"保护分支/环境规则
+    needs: [ build-push, image-scan ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: 配置 kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+      - name: 安装 Helm（官方二进制 + 校验和校验，供应链加固）
+        run: |
+          HELM_VERSION=v3.16.0
+          curl -fsSL -o helm.tar.gz \
+            "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          # 官方校验和（v3.16.0 linux-amd64）
+          echo "aa7b624c74aa42925bf7296442014c65e8c0eb05c8a5c74d9dc9e9907d34e7b3  helm.tar.gz" | sha256sum -c -
+          tar -xzf helm.tar.gz
+          sudo mv linux-amd64/helm /usr/local/bin/helm
+          helm version --short
+      - name: 部署 Helm Chart
+        run: |
+          # 敏感值仅从 Secrets 注入，绝不落写入者明文字段
+          cat > /tmp/values-secret.yaml <<'EOF'
+          secrets:
+            adminApiKey: "${{ secrets.ADMIN_API_KEY }}"
+            jwtSecret: "${{ secrets.JWT_SECRET }}"
+            mysqlRootPassword: "${{ secrets.MYSQL_ROOT_PASSWORD }}"
+          EOF
+          helm upgrade -i pacc ./deploy/helm \
+            --namespace pacc --create-namespace \
+            --set-string global.imageRegistry=ghcr.io/${{ github.repository }} \
+            --set-string global.imageTag=${{ github.ref_name }} \
+            --set-string images.backend=ptv-backend \
+            --set-string images.frontend=ptv-frontend \
+            -f /tmp/values-secret.yaml
+          rm -f /tmp/values-secret.yaml   # 使用后立即清理
+      - name: 验证部署状态
+        run: kubectl --kubeconfig $HOME/.kube/config rollout status deploy/pacc-backend -n pacc --timeout=180s

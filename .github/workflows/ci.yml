@@ -1,0 +1,178 @@
+# PACC CI —— 全模块构建 + 测试 + 安全扫描 + SBOM 制品
+# 加固要点：
+#   - 最小权限（permissions: contents: read）
+#   - 缓存 Maven/npm/Go 加速
+#   - gitleaks 密钥泄露扫描 + Trivy 依赖漏洞扫描
+#   - 每次提交可取消（concurrency），防积压
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read   # 最小权限：CI 只读仓库代码
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '21'
+  NODE_VERSION: '20'
+
+jobs:
+  # ---- 密钥泄漏 / 供应链扫描（最前置）----
+  secret-scan:
+    name: 密钥扫描 (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # 按需放开：gitleaks 需将发现的密钥写入 Code Scanning alerts
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---- 后端 / 玩家端（Java 21 + Maven）----
+  java:
+    name: Java 模块构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: 构建后端 ptv-backend
+        working-directory: ptv-backend
+        run: mvn -B -q package
+      - name: 构建玩家端 ptv-client
+        working-directory: ptv-client
+        run: mvn -B -q package
+      - name: 生成后端 SBOM (CycloneDX)
+        working-directory: ptv-backend
+        run: mvn -B -q org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
+        continue-on-error: true
+      - name: 上传制品
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-artifacts
+          path: |
+            ptv-backend/target/*.jar
+            ptv-client/target/*.jar
+            ptv-backend/target/bom.xml
+
+  # ---- 前端（Node 20 + Vite）----
+  frontend:
+    name: 前端构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ptv-frontend/package-lock.json
+      - name: 安装依赖并构建
+        working-directory: ptv-frontend
+        run: npm ci && npm run build
+      - name: 上传制品
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: ptv-frontend/dist
+
+  # ---- Go 边缘网关 ----
+  go:
+    name: Go 网关构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: deploy/gateway-go
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+          cache-dependency-path: deploy/gateway-go/go.sum
+      - run: go vet ./...
+      - run: go build -trimpath -ldflags="-s -w" -o gateway-go .
+      - name: 上传制品
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-go-bin
+          path: deploy/gateway-go/gateway-go
+
+  # ---- Rust 管道 ----
+  rust:
+    name: Rust 管道构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: deploy/pipe-rust
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pipe-rust-bin
+          path: deploy/pipe-rust/target/release/*
+
+  # ---- Python AI 服务 ----
+  python:
+    name: AI 服务校验
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: deploy/ai
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m compileall -q .
+
+  # ---- 依赖漏洞扫描（聚合已构建产物源码）----
+  vuln-scan:
+    name: 依赖漏洞扫描 (Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # 上传 SARIF 到 Code Scanning 需该权限
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy 文件系统扫描
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: ptv-backend
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: '1'
+          ignore-unfixed: true
+        continue-on-error: true
+      - name: 上传扫描结果
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: trivy-results.sarif
