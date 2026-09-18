@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PACC 客户端下载 | POTATOTV</title>
-  <meta name="description" content="PACC 反作弊客户端官方下载，支持 Windows、Linux、Android、iOS、HarmonyOS 与 Java 版。附校验和、系统要求、更新日志与常见问题。" />
+  <meta name="description" content="PACC 反作弊客户端官方下载，支持 Windows、Linux、Android、iOS 与 HarmonyOS。附校验和、系统要求、更新日志与常见问题。" />
   <link rel="icon" href="favicon.ico" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -30,9 +30,9 @@
     <div class="hero-img" aria-hidden="true"></div>
     <div class="hero-eyebrow"><span class="dot" aria-hidden="true"></span>ANTI-CHEAT / POTATOTV SEC</div>
     <h1 class="brand-font hero-title">PACC</h1>
-    <p class="hero-sub">为纯净的游戏环境而生。覆盖六大平台</p>
+    <p class="hero-sub">为纯净的游戏环境而生。覆盖五大平台</p>
     <div class="hero-meta">
-      <span>Win / Lin / Apr / iOS / Harmony / JVM</span>
+      <span>Win / Lin / Android / iOS / Harmony</span>
       <span>实时内核级检测</span>
       <span>v5.0.0</span>
     </div>
@@ -50,7 +50,7 @@
       <h2>客户端下载</h2>
       <span class="version mono">v5.0.0</span>
     </div>
-    <p class="sub">六种端到端，选适配您设备的那份。下载后请核对校验和。</p>
+    <p class="sub">五种端到端，选适配您设备的那份。下载后请核对校验和。</p>
 
     <div class="grid">
       <div class="card">
@@ -98,15 +98,6 @@
         <p>HarmonyOS NEXT 原生支持。</p>
         <a class="btn" href="files/pacc-client-harmony-v5.0.0.tar.gz" aria-label="下载 HarmonyOS 客户端 v5.0.0">下载</a>
       </div>
-      <div class="card">
-        <div class="card-top">
-          <div class="card-badge">JVM</div>
-          <span class="card-os mono">JDK 21+</span>
-        </div>
-        <h3>Java 探针</h3>
-        <p>Java 21+ 探针，校验运行时字节码完整性。</p>
-        <a class="btn" href="files/ptv-agent-5.0.0.jar" data-file="probe" aria-label="下载 Java 探针 v5.0.0">下载</a>
-      </div>
     </div>
   </section>
 
@@ -129,7 +120,7 @@
       <div class="feat reveal">
         <span class="feat-k mono">02 / RUNTIME</span>
         <h3>运行时完整性</h3>
-        <p>Java 探针校验字节码，Android/iOS 核对进程与签名，防篡改注入。</p>
+        <p>Android/iOS 核对进程与签名，防篡改注入。</p>
       </div>
       <div class="feat reveal">
         <span class="feat-k mono">03 / REAL-TIME</span>
@@ -138,8 +129,8 @@
       </div>
       <div class="feat reveal">
         <span class="feat-k mono">04 / PLATFORM</span>
-        <h3>六大平台</h3>
-        <p>Win / Linux / Android / iOS / HarmonyOS / JVM 一套策略统一管控。</p>
+        <h3>五大平台</h3>
+        <p>Win / Linux / Android / iOS / HarmonyOS 一套策略统一管控。</p>
       </div>
       <div class="feat reveal">
         <span class="feat-k mono">05 / PRIVACY</span>
@@ -180,10 +171,6 @@
         <span class="spec-name">HarmonyOS</span>
         <span class="spec-val">NEXT · 原生支持</span>
       </div>
-      <div class="spec">
-        <span class="spec-name">Java 探针</span>
-        <span class="spec-val">JDK 21+ · 随目标进程 JVM 启动</span>
-      </div>
     </div>
   </section>
 
@@ -211,7 +198,7 @@
         <span class="step-n mono">3</span>
         <div>
           <h4>校验和启动</h4>
-          <p>确认客户端随系统自启。Java 探针请在启动目标服务前于 JVM 参数中挂载。</p>
+          <p>确认客户端随系统自启，并正常显示防护状态。</p>
         </div>
       </li>
     </ol>
@@ -228,7 +215,7 @@
         <span class="log-date">2026-09</span>
         <div>
           <p>重构内核检测引擎，新增 HarmonyOS 原生端与 iOS 签名安装包。</p>
-          <p>Java 探针改为运行时字节码校验，误报率下调；管控台新增红屏动效模板管理。</p>
+          <p>运行时可执行校验与误报率下调；管控台新增红屏动效模板管理。</p>
         </div>
       </div>
       <div class="log reveal">
@@ -258,10 +245,6 @@
       <div class="check">
         <span class="check-name mono">Windows 客户端</span>
         <code class="mono">cc82736ce9bdf68859fc6dd18d21da8e0f51b75a4f12ac1f2e0d614ad257df41</code>
-      </div>
-      <div class="check">
-        <span class="check-name mono">Java 探针</span>
-        <code class="mono">c86602595228e17835654639132d73297dcd7ec65ef3302995089e292705557e</code>
       </div>
     </div>
   </section>

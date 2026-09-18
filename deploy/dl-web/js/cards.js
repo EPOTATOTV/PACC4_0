@@ -19,14 +19,14 @@
 
   // 入场：只有在下滚动时才浮现，避免首屏双击;错峰用自然阻尼
   gsap.from(cards, {
-    y: 26,
+    y: 46,
     opacity: 0,
-    duration: M.dur(560),
-    ease: M.eases.inSoft,
-    stagger: M.dur(70),
+    duration: M.dur(680),
+    ease: M.eases.expo,
+    stagger: M.dur(90),
     scrollTrigger: {
       trigger: '.grid',
-      start: 'top 86%',
+      start: 'top 88%',
       once: true,
     },
   });

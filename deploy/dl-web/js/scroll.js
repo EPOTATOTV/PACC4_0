@@ -25,11 +25,11 @@
   }
   revealEls.forEach(function (el, i) {
     gsap.from(el, {
-      y: 28,
+      y: 52,
       opacity: 0,
-      duration: M.dur(560),
-      ease: M.eases.inSoft,
-      scrollTrigger: { trigger: el, start: 'top 88%', once: true },
+      duration: M.dur(680),
+      ease: M.eases.expo,
+      scrollTrigger: { trigger: el, start: 'top 90%', once: true },
     });
   });
 

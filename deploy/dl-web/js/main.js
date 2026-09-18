@@ -9,9 +9,9 @@
     if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
   });
 
-  // 低端/减弱：确认所有动效元素回到可见终态（各模块已处理，这里兜底）
+  // 低端/减弱：确认正文动效元素回到可见终态（按钮走 hero.js 的快速淡出，不在兜底范围内）
   if (M.reduced || M.tiny) {
-    document.querySelectorAll('.card, .reveal, .hero-eyebrow, .hero-sub, .hero-meta, .hero-actions')
+    document.querySelectorAll('.card, .reveal, .hero-eyebrow, .hero-sub, .hero-meta')
       .forEach(function (el) { el.style.opacity = '1'; });
   }
 
