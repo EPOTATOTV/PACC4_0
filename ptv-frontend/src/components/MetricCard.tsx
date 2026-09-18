@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Card, Skeleton, Statistic } from 'antd'
+import { AnimatedCounter } from './animations'
 
 /**
  * 统一的运营台 / 玩家端 KPI 统计卡。
@@ -13,6 +14,8 @@ export default function MetricCard({
   accent,
   hint,
   loading,
+  counter,
+  counterDelay,
   style,
 }: {
   label: string
@@ -20,6 +23,10 @@ export default function MetricCard({
   accent?: string
   hint?: ReactNode
   loading?: boolean
+  /** 数值型指标是否启用 0 → 目标值滚动；非数值自动忽略 */
+  counter?: boolean
+  /** 滚动起始延迟（秒），用于同排卡片错峰起跑 */
+  counterDelay?: number
   style?: CSSProperties
 }) {
   return (
@@ -54,6 +61,11 @@ export default function MetricCard({
         <Statistic
           title={label}
           value={value ?? 0}
+          formatter={
+            counter && typeof value === 'number'
+              ? (v) => <AnimatedCounter value={Number(v)} delay={counterDelay} />
+              : undefined
+          }
           styles={{ content: { color: accent, fontWeight: 700 } }}
           style={{ '--label-mb': '4px' } as CSSProperties}
         />
