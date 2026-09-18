@@ -40,6 +40,7 @@ const zhCN = {
   'nav.effectiveness': '效果分析',
   'nav.lists': '黑白名单',
   'nav.detectorConfig': '检测配置',
+  'nav.motionConfig': '动效配置',
   'nav.releases': '版本发布',
   'nav.exportCenter': '数据导出',
 

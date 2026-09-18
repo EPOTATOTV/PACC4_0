@@ -35,6 +35,7 @@ const ja = {
   'nav.effectiveness': '効果分析',
   'nav.lists': 'ブラック/ホワイトリスト',
   'nav.detectorConfig': '検出設定',
+  'nav.motionConfig': 'モーション設定',
   'nav.releases': 'バージョン配信',
   'nav.exportCenter': 'データエクスポート',
 

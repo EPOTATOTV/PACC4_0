@@ -99,6 +99,7 @@ export const navGroups: NavGroup[] = [
       { key: '/effectiveness', to: '/effectiveness', label: '效果分析', i18nKey: 'nav.effectiveness' },
       { key: '/lists', to: '/lists', label: '黑白名单', i18nKey: 'nav.lists' },
       { key: '/config', to: '/config', label: '检测配置', i18nKey: 'nav.detectorConfig' },
+      { key: '/motion', to: '/motion', label: '动效配置', i18nKey: 'nav.motionConfig' },
       { key: '/releases', to: '/releases', label: '版本发布', i18nKey: 'nav.releases' },
       { key: '/export', to: '/export', label: '数据导出', i18nKey: 'nav.exportCenter' },
     ],
@@ -150,6 +151,7 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/effectiveness': { titleKey: 'nav.effectiveness', groupKey: 'nav.group.p1' },
   '/lists': { titleKey: 'nav.lists', groupKey: 'nav.group.p1' },
   '/config': { titleKey: 'nav.detectorConfig', groupKey: 'nav.group.p1' },
+  '/motion': { titleKey: 'nav.motionConfig', groupKey: 'nav.group.p1' },
   '/releases': { titleKey: 'nav.releases', groupKey: 'nav.group.p1' },
   '/export': { titleKey: 'nav.exportCenter', groupKey: 'nav.group.p1' },
 }

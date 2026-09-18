@@ -3,6 +3,7 @@ import { Alert, Button, Card, Input, Popconfirm, Space, Table, Tag, Typography }
 import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
 import type { CheatRecord } from '../types'
+import { useTableRowReveal } from '../hooks/useGSAP'
 
 const { Title, Text } = Typography
 
@@ -10,6 +11,7 @@ export default function CheatRecords() {
   const [records, setRecords] = useState<CheatRecord[]>([])
   const [keyword, setKeyword] = useState('')
   const [err, setErr] = useState('')
+  const { ref: tableRef, reveal } = useTableRowReveal<HTMLDivElement>({ x: -18 })
 
   const load = useCallback(async (kw: string) => {
     try {
@@ -22,6 +24,12 @@ export default function CheatRecords() {
   }, [])
 
   useEffect(() => { void load('') }, [load])
+
+  // 检索/撤销后行集合会整体替换，等新行渲染进 DOM 再重播一次入场
+  useEffect(() => {
+    const id = requestAnimationFrame(reveal)
+    return () => cancelAnimationFrame(id)
+  }, [records, reveal])
 
   async function toggleRevoke(r: CheatRecord) {
     try {
@@ -81,14 +89,16 @@ export default function CheatRecords() {
       </Space>
 
       <Card styles={{ body: { padding: 0 } }}>
-        <Table<CheatRecord>
-          rowKey="recordId"
-          columns={columns}
-          dataSource={records}
-          pagination={{ pageSize: 15, hideOnSinglePage: true }}
-          scroll={{ x: 760 }}
-          locale={{ emptyText: '暂无记录' }}
-        />
+        <div ref={tableRef}>
+          <Table<CheatRecord>
+            rowKey="recordId"
+            columns={columns}
+            dataSource={records}
+            pagination={{ pageSize: 15, hideOnSinglePage: true }}
+            scroll={{ x: 760 }}
+            locale={{ emptyText: '暂无记录' }}
+          />
+        </div>
       </Card>
     </div>
   )

@@ -38,6 +38,7 @@ const zhTW: Record<string, string> = {
   'nav.effectiveness': '效果分析',
   'nav.lists': '黑白名單',
   'nav.detectorConfig': '檢測配置',
+  'nav.motionConfig': '動效配置',
   'nav.releases': '版本發布',
   'nav.exportCenter': '數據導出',
 

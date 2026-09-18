@@ -5,6 +5,7 @@ import { ArrowLeftOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { RedScreenDetail } from '../../types'
+import { RippleButton } from '../../components/animations'
 
 const { Title, Text } = Typography
 
@@ -135,9 +136,9 @@ export default function PlayerRedScreenDetail() {
                 <Descriptions.Item label="信誉分">{detail.player.reputation}</Descriptions.Item>
                 <Descriptions.Item label="设备">{detail.player.device || '-'}</Descriptions.Item>
               </Descriptions>
-              <Button type="primary" block style={{ marginTop: 12 }}>
+              <RippleButton variant="primary" style={{ width: '100%', marginTop: 12 }}>
                 前往申诉
-              </Button>
+              </RippleButton>
             </Card>
           )}
         </Col>

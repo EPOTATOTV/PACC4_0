@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Col, Row, Space, Tag, Typography } from 'antd'
 import { FullscreenOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons'
@@ -8,6 +8,9 @@ import type { MapBanPickSession, RealtimeAlert, RealtimeOverview, RuntimeStat } 
 import EChart from '../components/EChart'
 import MetricCard from '../components/MetricCard'
 import PageHeader from '../components/PageHeader'
+import { DataStream } from '../components/animations'
+import { gsap, motionAllowed, motionDuration } from '../gsap'
+import { useGSAP } from '../hooks/useGSAP'
 
 const { Text } = Typography
 
@@ -26,6 +29,41 @@ export default function RealtimeMonitor() {
   const [alerts, setAlerts] = useState<RealtimeAlert[]>([])
   const [bpSessions, setBpSessions] = useState<MapBanPickSession[]>([])
   const [err, setErr] = useState('')
+  // 大屏是持续刷新的，入场序列只在挂载时跑一次
+  const rootRef = useGSAP<HTMLDivElement>(({ el }) => {
+    if (!motionAllowed()) return
+    gsap.from(el.querySelectorAll('[data-motion="panel"]'), {
+      y: 22,
+      opacity: 0,
+      duration: motionDuration(0.5),
+      stagger: motionDuration(0.06),
+      ease: 'power2.out',
+      clearProps: 'all',
+    })
+  }, [])
+  const alertsRef = useRef<HTMLDivElement>(null)
+  // 已经提示过的高危告警 id，避免每 5 秒轮询都重播一次脉冲
+  const pulsedAlerts = useRef<Set<string>>(new Set())
+
+  /** 新高危告警到达时，在告警面板外圈打一圈扩散光环（有限次数，不常驻闪烁）。 */
+  useEffect(() => {
+    const el = alertsRef.current
+    if (!el || !motionAllowed()) return
+    const fresh = alerts.filter((a) => a.level >= 4 && !pulsedAlerts.current.has(a.id))
+    if (fresh.length === 0) return
+    fresh.forEach((a) => pulsedAlerts.current.add(a.id))
+    gsap.fromTo(
+      el,
+      { boxShadow: '0 0 0 0 rgba(255, 77, 61, .55)' },
+      {
+        boxShadow: '0 0 0 16px rgba(255, 77, 61, 0)',
+        duration: motionDuration(1.2),
+        repeat: 3,
+        ease: 'power2.out',
+        clearProps: 'boxShadow',
+      },
+    )
+  }, [alerts])
 
   async function load() {
     try {
@@ -106,27 +144,29 @@ export default function RealtimeMonitor() {
   }, [events])
 
   return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(1200px 640px at 84% -200px, rgba(255,77,61,.10), transparent 55%), var(--bg)', padding: 20 }}>
-      <PageHeader
-        title="实时监控大屏"
-        description={<Tag color="green" style={{ marginLeft: 2 }}>自动刷新 · 5s</Tag>}
-        error={err || undefined}
-        onCloseError={() => setErr('')}
-        extra={
-          <Space>
-            <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
-            <Button icon={<FullscreenOutlined />} onClick={enterFullscreen}>全屏</Button>
-          </Space>
-        }
-      />
+    <div ref={rootRef} style={{ minHeight: '100vh', background: 'radial-gradient(1200px 640px at 84% -200px, rgba(255,77,61,.10), transparent 55%), var(--bg)', padding: 20 }}>
+      <div data-motion="panel">
+        <PageHeader
+          title="实时监控大屏"
+          description={<Tag color="green" style={{ marginLeft: 2 }}>自动刷新 · 5s</Tag>}
+          error={err || undefined}
+          onCloseError={() => setErr('')}
+          extra={
+            <Space>
+              <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
+              <Button icon={<FullscreenOutlined />} onClick={enterFullscreen}>全屏</Button>
+            </Space>
+          }
+        />
+      </div>
 
-      <Row gutter={[12, 12]} className="pacc-stagger">
-        <Col xs={12} sm={8} md={4}><MetricCard label="在线玩家" value={overview?.online ?? '-'} accent="var(--kpi-green)" /></Col>
-        <Col xs={12} sm={8} md={4}><MetricCard label="今日检测" value={overview?.detections ?? '-'} accent="var(--kpi-blue)" /></Col>
-        <Col xs={12} sm={8} md={4}><MetricCard label="今日红屏" value={overview?.redscreenToday ?? '-'} accent="var(--kpi-red)" /></Col>
-        <Col xs={12} sm={8} md={4}><MetricCard label="待查端" value={overview?.pendingInspect ?? '-'} accent="var(--kpi-amber)" /></Col>
-        <Col xs={12} sm={8} md={4}><MetricCard label="平均风险" value={overview?.avgRisk ?? '-'} accent={(overview?.avgRisk ?? 0) >= 70 ? 'var(--kpi-amber)' : 'var(--kpi-muted)'} /></Col>
-        <Col xs={12} sm={8} md={4}><MetricCard label="进行中查端" value={overview?.activeInspect ?? '-'} accent="var(--kpi-muted)" /></Col>
+      <Row gutter={[12, 12]} data-motion="panel">
+        <Col xs={12} sm={8} md={4}><MetricCard counter label="在线玩家" value={overview?.online ?? '-'} accent="var(--kpi-green)" /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard counter counterDelay={0.06} label="今日检测" value={overview?.detections ?? '-'} accent="var(--kpi-blue)" /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard counter counterDelay={0.12} label="今日红屏" value={overview?.redscreenToday ?? '-'} accent="var(--kpi-red)" /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard counter counterDelay={0.18} label="待查端" value={overview?.pendingInspect ?? '-'} accent="var(--kpi-amber)" /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard counter counterDelay={0.24} label="平均风险" value={overview?.avgRisk ?? '-'} accent={(overview?.avgRisk ?? 0) >= 70 ? 'var(--kpi-amber)' : 'var(--kpi-muted)'} /></Col>
+        <Col xs={12} sm={8} md={4}><MetricCard counter counterDelay={0.3} label="进行中查端" value={overview?.activeInspect ?? '-'} accent="var(--kpi-muted)" /></Col>
       </Row>
 
       <Card
@@ -166,7 +206,7 @@ export default function RealtimeMonitor() {
       </Card>
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={8} data-motion="panel">
           <Card title="运行状态" size="small">
             {runtime.length === 0 ? (
               <Text type="secondary">暂无运行数据</Text>
@@ -184,13 +224,13 @@ export default function RealtimeMonitor() {
           </Card>
         </Col>
 
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={8} data-motion="panel">
           <Card title="检测类型分布" size="small">
             <EChart option={typeDist} height={220} />
           </Card>
         </Col>
 
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={8} data-motion="panel">
           <Card title="风险评分分布" size="small">
             <EChart option={riskDist} height={220} />
           </Card>
@@ -198,41 +238,47 @@ export default function RealtimeMonitor() {
       </Row>
 
       <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
-        <Col xs={24} lg={12}>
+        <Col xs={24} lg={12} data-motion="panel">
           <Card title="实时检测事件流" size="small" styles={{ body: { padding: 0 } }}>
             {events.length === 0 ? (
               <div style={{ padding: 32, textAlign: 'center' }}><Text type="secondary">暂无实时事件</Text></div>
             ) : (
-              <div style={{ maxHeight: 300, overflow: 'auto' }}>
-                {events.map((e) => (
-                  <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
-                    <Tag color={e.level >= 4 ? 'error' : e.level >= 3 ? 'warning' : 'success'}>{e.level}</Tag>
-                    <span style={{ flex: 1, fontSize: 13 }}>[{e.type}] {e.message}</span>
-                    {e.player && <Text type="secondary" style={{ fontSize: 12 }}>{e.player}</Text>}
-                    <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(e.time).toLocaleTimeString('zh-CN', { hour12: false })}</Text>
-                  </div>
-                ))}
+              <div style={{ position: 'relative', maxHeight: 300, overflow: 'hidden' }}>
+                {/* 数据流粒子铺在列表底层，模拟事件自上而下流入 */}
+                <DataStream count={14} speed={2.4} />
+                <div style={{ position: 'relative', zIndex: 1, maxHeight: 300, overflowY: 'auto' }}>
+                  {events.map((e) => (
+                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
+                      <Tag color={e.level >= 4 ? 'error' : e.level >= 3 ? 'warning' : 'success'}>{e.level}</Tag>
+                      <span style={{ flex: 1, fontSize: 13 }}>[{e.type}] {e.message}</span>
+                      {e.player && <Text type="secondary" style={{ fontSize: 12 }}>{e.player}</Text>}
+                      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(e.time).toLocaleTimeString('zh-CN', { hour12: false })}</Text>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </Card>
         </Col>
 
-        <Col xs={24} lg={12}>
-          <Card title="异常告警" size="small" styles={{ body: { padding: 0 } }}>
-            {alerts.length === 0 ? (
-              <div style={{ padding: 32, textAlign: 'center' }}><Text type="secondary">暂无告警</Text></div>
-            ) : (
-              <div style={{ maxHeight: 300, overflow: 'auto' }}>
-                {alerts.map((a) => (
-                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
-                    <Tag color={a.level >= 4 ? 'red' : a.level >= 3 ? 'orange' : 'gold'}>L{a.level}</Tag>
-                    <span style={{ flex: 1, fontSize: 13 }}>{a.message}</span>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{a.time}</Text>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+        <Col xs={24} lg={12} data-motion="panel">
+          <div ref={alertsRef} style={{ borderRadius: 12 }}>
+            <Card title="异常告警" size="small" styles={{ body: { padding: 0 } }}>
+              {alerts.length === 0 ? (
+                <div style={{ padding: 32, textAlign: 'center' }}><Text type="secondary">暂无告警</Text></div>
+              ) : (
+                <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                  {alerts.map((a) => (
+                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
+                      <Tag color={a.level >= 4 ? 'red' : a.level >= 3 ? 'orange' : 'gold'}>L{a.level}</Tag>
+                      <span style={{ flex: 1, fontSize: 13 }}>{a.message}</span>
+                      <Text type="secondary" style={{ fontSize: 12 }}>{a.time}</Text>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
         </Col>
       </Row>
     </div>

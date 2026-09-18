@@ -7,6 +7,7 @@ import type { TableColumnsType } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { api } from '../../api/client'
 import type { ReleaseInfoRow } from '../../types'
+import { useModalReveal, useTableRowReveal } from '../../hooks/useGSAP'
 
 const PLATFORMS = ['windows', 'android', 'ios', 'macos', 'linux']
 const CHANNELS = ['stable', 'beta', 'canary']
@@ -19,6 +20,8 @@ export default function Releases() {
   const [filter, setFilter] = useState('all')
   const [open, setOpen] = useState(false)
   const [form] = Form.useForm()
+  const { ref: tableRef, reveal } = useTableRowReveal<HTMLDivElement>({ x: -18 })
+  const revealModal = useModalReveal()
 
   const load = useCallback(async () => {
     try {
@@ -35,6 +38,19 @@ export default function Releases() {
   }, [load])
 
   const visible = rows.filter((r) => filter === 'all' || r.status === filter)
+
+  // 数据到达/切换筛选后重播行入场，等新行进 DOM 再触发
+  useEffect(() => {
+    const id = requestAnimationFrame(reveal)
+    return () => cancelAnimationFrame(id)
+  }, [visible, reveal])
+
+  // 弹层挂载完成后再接管入场，避免与 antd 默认过渡抢同一组 transform
+  useEffect(() => {
+    if (!open) return
+    const id = requestAnimationFrame(revealModal)
+    return () => cancelAnimationFrame(id)
+  }, [open, revealModal])
 
   async function submit() {
     const v = await form.validateFields()
@@ -140,7 +156,9 @@ export default function Releases() {
       </div>
 
       <Card styles={{ body: { padding: 0 } }}>
-        <Table<ReleaseInfoRow> rowKey="id" columns={columns} dataSource={visible} pagination={false} scroll={{ x: 980 }} locale={{ emptyText: '暂无发布记录' }} />
+        <div ref={tableRef}>
+          <Table<ReleaseInfoRow> rowKey="id" columns={columns} dataSource={visible} pagination={false} scroll={{ x: 980 }} locale={{ emptyText: '暂无发布记录' }} />
+        </div>
       </Card>
 
       <Modal title="新建版本发布" open={open} onCancel={() => setOpen(false)} onOk={submit} destroyOnClose>

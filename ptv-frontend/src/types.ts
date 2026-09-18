@@ -1168,3 +1168,32 @@ export interface ExportSubmitResult {
   task_id: string
   status: string
 }
+
+// ===================== v5.0 动效配置中心与下载站 =====================
+export interface EffectConfigDto {
+  id: string
+  motion_level: string
+  effects_json: string
+  redscreen_template: string
+  redscreen_json: string
+  updated_by?: string
+  updated_at: string
+}
+
+export interface DlRelease {
+  id: string
+  platform: string
+  artifact: string
+  version: string
+  fileUrl: string
+  sha256: string
+  sizeBytes: number
+  enabled: boolean
+  updatedAt: string
+}
+
+export interface DlStats {
+  days: number
+  platform: Record<string, number>
+  trend: { date: string; count: number }[]
+}

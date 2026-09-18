@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Spin } from 'antd'
 import { api } from './api/client'
 import Layout from './components/Layout'
+import PageTransition from './components/PageTransition'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Redscreen from './pages/Redscreen'
@@ -36,6 +37,7 @@ import Lists from './pages/p1/Lists'
 import Exports from './pages/p1/Exports'
 import Effectiveness from './pages/p1/Effectiveness'
 import DetectorConfig from './pages/p1/DetectorConfig'
+import EffectConfig from './pages/p1/EffectConfig'
 import PlayerPortal from './pages/player/PlayerPortal'
 import PlayerScreenShare from './pages/player/PlayerScreenShare'
 
@@ -90,41 +92,44 @@ export default function App() {
 
   return (
     <Layout role={role}>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/redscreen" element={<Redscreen />} />
-        <Route path="/inspect" element={<Inspect />} />
-        <Route path="/signatures" element={<SignatureLibrary />} />
-        <Route path="/accounts" element={<Accounts />} />
-        <Route path="/records" element={<CheatRecords />} />
-        <Route path="/competition" element={<Competition />} />
-        <Route path="/tournament" element={<Tournament />} />
-        <Route path="/maps" element={<MapPoolManager />} />
-        <Route path="/maps/bp" element={<BpSessions />} />
-        <Route path="/maps/bp/:bpId" element={<BpConsole />} />
-        <Route path="/stream-live" element={<StreamLive />} />
-        <Route path="/detection41" element={<Detection41 />} />
-        <Route path="/countermeasure" element={<Countermeasure />} />
-        <Route path="/v46" element={<V46Detection />} />
-        <Route path="/v47" element={<V47ThreatIntel />} />
-        <Route path="/compliance" element={<Compliance />} />
-        <Route path="/login-logs" element={<AdminLoginLogs />} />
-        <Route path="/audit" element={<Audit />} />
-        <Route path="/tenant" element={<Tenant />} />
-        <Route path="/admins" element={<Admins />} />
-        <Route path="/system" element={<System />} />
-        <Route path="/bi" element={<BiReport />} />
-        <Route path="/openapi" element={<OpenApi />} />
-        <Route path="/ab" element={<AbExperiment />} />
-        <Route path="/ops" element={<OpsCenter />} />
-        <Route path="/support" element={<SupportCenter />} />
-        <Route path="/releases" element={<Releases />} />
-        <Route path="/lists" element={<Lists />} />
-        <Route path="/export" element={<Exports />} />
-        <Route path="/effectiveness" element={<Effectiveness />} />
-        <Route path="/config" element={<DetectorConfig />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <PageTransition>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/redscreen" element={<Redscreen />} />
+          <Route path="/inspect" element={<Inspect />} />
+          <Route path="/signatures" element={<SignatureLibrary />} />
+          <Route path="/accounts" element={<Accounts />} />
+          <Route path="/records" element={<CheatRecords />} />
+          <Route path="/competition" element={<Competition />} />
+          <Route path="/tournament" element={<Tournament />} />
+          <Route path="/maps" element={<MapPoolManager />} />
+          <Route path="/maps/bp" element={<BpSessions />} />
+          <Route path="/maps/bp/:bpId" element={<BpConsole />} />
+          <Route path="/stream-live" element={<StreamLive />} />
+          <Route path="/detection41" element={<Detection41 />} />
+          <Route path="/countermeasure" element={<Countermeasure />} />
+          <Route path="/v46" element={<V46Detection />} />
+          <Route path="/v47" element={<V47ThreatIntel />} />
+          <Route path="/compliance" element={<Compliance />} />
+          <Route path="/login-logs" element={<AdminLoginLogs />} />
+          <Route path="/audit" element={<Audit />} />
+          <Route path="/tenant" element={<Tenant />} />
+          <Route path="/admins" element={<Admins />} />
+          <Route path="/system" element={<System />} />
+          <Route path="/bi" element={<BiReport />} />
+          <Route path="/openapi" element={<OpenApi />} />
+          <Route path="/ab" element={<AbExperiment />} />
+          <Route path="/ops" element={<OpsCenter />} />
+          <Route path="/support" element={<SupportCenter />} />
+          <Route path="/releases" element={<Releases />} />
+          <Route path="/lists" element={<Lists />} />
+          <Route path="/export" element={<Exports />} />
+          <Route path="/effectiveness" element={<Effectiveness />} />
+          <Route path="/config" element={<DetectorConfig />} />
+          <Route path="/motion" element={<EffectConfig />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </PageTransition>
     </Layout>
   )
 }

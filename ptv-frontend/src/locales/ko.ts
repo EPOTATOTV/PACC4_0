@@ -35,6 +35,7 @@ const ko = {
   'nav.effectiveness': '효과 분석',
   'nav.lists': '블랙/화이트리스트',
   'nav.detectorConfig': '탐지 설정',
+  'nav.motionConfig': '모션 설정',
   'nav.releases': '버전 배포',
   'nav.exportCenter': '데이터 내보내기',
 

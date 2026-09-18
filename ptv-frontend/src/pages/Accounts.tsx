@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Descriptions, Drawer, Input, Space, Table, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { api } from '../api/client'
 import type { Account } from '../types'
 import { StatusPill } from '../components/StatusPill'
+import { useTableRowReveal } from '../hooks/useGSAP'
 
 const { Title, Text } = Typography
 
@@ -12,6 +13,7 @@ export default function Accounts() {
   const [list, setList] = useState<Account[]>([])
   const [err, setErr] = useState('')
   const [detail, setDetail] = useState<Account | null>(null)
+  const { ref: tableRef, reveal } = useTableRowReveal<HTMLDivElement>({ x: -18 })
 
   async function load() {
     try {
@@ -21,6 +23,12 @@ export default function Accounts() {
       setErr((e as Error).message)
     }
   }
+
+  // 检索结果整体替换后重播行入场，等新行进 DOM 再触发
+  useEffect(() => {
+    const id = requestAnimationFrame(reveal)
+    return () => cancelAnimationFrame(id)
+  }, [list, reveal])
 
   const columns: TableColumnsType<Account> = [
     { title: 'PTEID', dataIndex: 'pteid', render: (v: string) => <span style={{ fontFamily: 'monospace' }}>{v}</span> },
@@ -52,14 +60,16 @@ export default function Accounts() {
       </Space>
 
       <Card styles={{ body: { padding: 0 } }}>
-        <Table<Account>
-          rowKey="pteid"
-          columns={columns}
-          dataSource={list}
-          pagination={{ pageSize: 15, hideOnSinglePage: true }}
-          scroll={{ x: 720 }}
-          locale={{ emptyText: '无匹配账号' }}
-        />
+        <div ref={tableRef}>
+          <Table<Account>
+            rowKey="pteid"
+            columns={columns}
+            dataSource={list}
+            pagination={{ pageSize: 15, hideOnSinglePage: true }}
+            scroll={{ x: 720 }}
+            locale={{ emptyText: '无匹配账号' }}
+          />
+        </div>
       </Card>
 
       <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>

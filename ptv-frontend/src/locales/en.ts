@@ -38,6 +38,7 @@ const en: Record<string, string> = {
   'nav.effectiveness': 'Effectiveness',
   'nav.lists': 'Black/White Lists',
   'nav.detectorConfig': 'Detector Config',
+  'nav.motionConfig': 'Motion Config',
   'nav.releases': 'Releases',
   'nav.exportCenter': 'Data Export',
 

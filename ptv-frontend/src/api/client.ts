@@ -36,6 +36,9 @@ import type {
   SystemInfo,
   SystemConfig,
   SystemAdmins,
+  EffectConfigDto,
+  DlRelease,
+  DlStats,
   ProtectionStatus,
   ProtectionStat,
   ProtectionResource,
@@ -612,6 +615,17 @@ export const api = {
     info: () => request<SystemInfo>('/system/info'),
     config: () => request<SystemConfig>('/system/config'),
     admins: () => request<SystemAdmins>('/system/admins'),
+  },
+
+  // ---- v5.0 动效配置中心与下载站 ----
+  effect: {
+    get: () => request<EffectConfigDto>('/effect'),
+    update: (body: Record<string, unknown>) =>
+      request<EffectConfigDto>('/effect', { method: 'PUT', body: JSON.stringify(body) }),
+  },
+  dl: {
+    releases: () => request<DlRelease[]>('/dl/releases'),
+    stats: (days = 14) => request<DlStats>(`/dl/stats?days=${days}`),
   },
 
   // ---- v4.5 二期 DMA/IOMMU 环境巡检 ----
