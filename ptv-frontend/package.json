@@ -13,7 +13,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@ant-design/icons": "^6.3.2",
+    "@ant-design/icons": "^6.3.4",
     "antd": "^6.6.2",
     "echarts": "^5.5.1",
     "gsap": "^3.12.5",
