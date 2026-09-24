@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS t_alert_rule (
     id            VARCHAR(255) NOT NULL,
     name          VARCHAR(255) NOT NULL,
     scope         VARCHAR(255),
-    condition     VARCHAR(255),
+    rule_condition VARCHAR(255),
     threshold     INT,
     cooldown_min  INT,
     enabled       BIT NOT NULL DEFAULT FALSE,

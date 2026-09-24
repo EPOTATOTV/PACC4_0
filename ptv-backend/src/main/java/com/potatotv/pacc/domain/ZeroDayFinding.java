@@ -1,6 +1,9 @@
 package com.potatotv.pacc.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Lob;
@@ -54,10 +57,12 @@ public class ZeroDayFinding {
     private String confidenceTier;
 
     @Builder.Default
+    @Enumerated(EnumType.STRING)
     private Status status = Status.OPEN;
 
-    /** 特征摘要（参与审计与模型回流）。 */
+    /** 特征摘要（参与审计与模型回流）。length 取 int 上限：Hibernate 据此推导为 longtext。 */
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String featuresJson;
 
     @Builder.Default

@@ -1,5 +1,6 @@
 package com.potatotv.pacc.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -36,10 +37,16 @@ public class AbExperiment {
      */
     private String dimension;
 
-    /** 对照组变体 */
+    /**
+     * 对照组变体。
+     * 显式钉住列名：隐式命名策略对「末尾单大写字母」不插下划线（variantA → varianta），
+     * 与 V8 迁移建出的 variant_a 对不上，会在 ddl-auto=validate 下导致启动失败。
+     */
+    @Column(name = "variant_a")
     private String variantA;
 
-    /** 实验组变体 */
+    /** 实验组变体（同上，显式列名）。 */
+    @Column(name = "variant_b")
     private String variantB;
 
     /** 实验组占比 0-100 */

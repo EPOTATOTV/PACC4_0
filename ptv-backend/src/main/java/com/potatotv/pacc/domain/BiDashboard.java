@@ -38,8 +38,8 @@ public class BiDashboard {
     @Column(nullable = false, length = 128)
     private String name;
 
-    /** 组件定义 JSON（图表类型/数据源/筛选条件/刷新频率）。 */
-    @Column(nullable = false)
+    /** 组件定义 JSON（图表类型/数据源/筛选条件/刷新频率）。显式 4000：默认 255 装不下 JSON。 */
+    @Column(nullable = false, length = 4000)
     private String widgets;
 
     @Column(length = 255)

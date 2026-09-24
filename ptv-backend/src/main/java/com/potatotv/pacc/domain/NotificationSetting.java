@@ -25,6 +25,8 @@ public class NotificationSetting {
     @Column(name = "pteid")
     private String pteid;
 
+    /** length 取 int 上限：Hibernate 据此推导为 longtext，与迁移脚本一致。 */
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String settings;
 }

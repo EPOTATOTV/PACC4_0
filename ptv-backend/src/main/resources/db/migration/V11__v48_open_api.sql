@@ -4,7 +4,7 @@ create table t_api_key (
     name               varchar(128)  not null,
     tenant_id          varchar(64)   not null default 'platform',
     plan               varchar(16)   not null default 'PRO',
-    secret_enc         clob          not null,
+    secret_enc         longtext      not null,
     scopes             varchar(64)   not null default 'READ',
     categories         varchar(255)  null,
     ip_whitelist       varchar(255)  null,

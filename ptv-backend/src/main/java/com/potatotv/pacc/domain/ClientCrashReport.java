@@ -1,6 +1,9 @@
 package com.potatotv.pacc.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Lob;
@@ -45,12 +48,16 @@ public class ClientCrashReport {
     private String arch = "";
 
     @Builder.Default
+    @Enumerated(EnumType.STRING)
     private Platform platform = Platform.WINDOWS;
 
+    // length 取 int 上限：Hibernate 据此推导为 longtext，与迁移脚本一致
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String stackTrace;
 
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String contextJson;
 
     private String controller;

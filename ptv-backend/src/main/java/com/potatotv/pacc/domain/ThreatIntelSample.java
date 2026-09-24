@@ -1,6 +1,9 @@
 package com.potatotv.pacc.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Lob;
@@ -46,19 +49,24 @@ public class ThreatIntelSample {
     /** AI 语义家族标签（K-Means 指纹聚类后赋名，如 CLUSTER_0 …，或匹配命中的家族）。 */
     private String familyLabel;
 
+    // 以下三列 length 取 int 上限：Hibernate 据此推导为 longtext，与迁移脚本一致
     /** 静态维度摘要（结构字符串/指标），参与规则生成。 */
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String staticDims;
 
     /** 自动生成的检测规则（特征表达式 JSON）。 */
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String generatedRule;
 
     /** 自动样本分析报告（严重度/指标/建议，JSON 文本）。 */
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String autoAnalysis;
 
     @Builder.Default
+    @Enumerated(EnumType.STRING)
     private Status status = Status.NEW;
 
     /** 人工复核结论（确认真样本）。 */

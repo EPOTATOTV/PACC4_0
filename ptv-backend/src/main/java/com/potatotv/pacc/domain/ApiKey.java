@@ -45,9 +45,9 @@ public class ApiKey {
     @Column(nullable = false, length = 16)
     private String plan = "PRO";
 
-    /** 密钥密文（平台主密钥加密），禁止明文落库/返回。 */
+    /** 密钥密文（平台主密钥加密），禁止明文落库/返回。length 见 AdminRole.permissions 注（推导为 longtext）。 */
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, length = Integer.MAX_VALUE)
     private String secretEnc;
 
     @Builder.Default

@@ -39,7 +39,8 @@ public class AdminRole {
     @Builder.Default
     private Integer memberCount = 0;
 
-    /** 模块×操作权限矩阵 JSON 文本。 */
+    /** 模块×操作权限矩阵 JSON 文本。length 取 int 上限：Hibernate 按它推导列类型，退到 longtext 与迁移脚本一致（默认 255 会推成 tinytext，装不下）。 */
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String permissions;
 }

@@ -6,7 +6,7 @@ CREATE TABLE t_bi_dashboard (
     id           BIGINT NOT NULL AUTO_INCREMENT,
     tenant_id    VARCHAR(64)  NOT NULL DEFAULT 'platform',
     name         VARCHAR(128) NOT NULL,
-    widgets      TEXT         NOT NULL COMMENT '仪表盘组件定义（JSON：图表类型/数据源/筛选/刷新频率）',
+    widgets      VARCHAR(4000) NOT NULL COMMENT '仪表盘组件定义（JSON：图表类型/数据源/筛选/刷新频率）',
     layout       VARCHAR(255),
     created_by   VARCHAR(64),
     created_at   DATETIME(6) NOT NULL,

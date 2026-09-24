@@ -11,7 +11,7 @@ CREATE TABLE t_dma_risk_event (
     memory_read_alert TINYINT(1) NOT NULL DEFAULT 0,
     antidebug_findings VARCHAR(1000) NULL,
     score INT NOT NULL DEFAULT 0,
-    level VARCHAR(16) NOT NULL DEFAULT 'LOW',
+    level ENUM('LOW','MEDIUM','HIGH') NOT NULL DEFAULT 'LOW',
     findings VARCHAR(1000) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
