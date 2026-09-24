@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 纯 JNI 探针库：无 Activity、无组件、无权限，manifest 仅用于满足 AGP 对 library 模块的结构要求。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />

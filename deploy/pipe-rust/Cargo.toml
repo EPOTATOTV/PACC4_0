@@ -17,3 +17,5 @@ opt-level = 3
 lto = true
 codegen-units = 1
 panic = "abort"
+# 抹掉符号表：管道进程处理检测数据，符号名会暴露内部结构与算法分块方式
+strip = true

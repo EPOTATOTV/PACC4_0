@@ -18,8 +18,12 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // 生产加固：R8 代码收缩 + 名称混淆 + 资源收缩，抬高反编译成本。
+            // Capacitor 以 consumerProguardFiles 下发了插件 / 注解的 keep 规则，
+            // 应用侧只需在 proguard-rules.pro 补 JS 桥与 JNI 相关规则。
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
