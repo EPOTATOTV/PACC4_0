@@ -37,6 +37,7 @@ import type {
   SystemConfig,
   SystemAdmins,
   EffectConfigDto,
+  EffectConfigAuditRow,
   DlRelease,
   DlStats,
   ProtectionStatus,
@@ -622,6 +623,7 @@ export const api = {
     get: () => request<EffectConfigDto>('/effect'),
     update: (body: Record<string, unknown>) =>
       request<EffectConfigDto>('/effect', { method: 'PUT', body: JSON.stringify(body) }),
+    history: (limit = 20) => request<EffectConfigAuditRow[]>(`/effect/history?limit=${limit}`),
   },
   dl: {
     releases: () => request<DlRelease[]>('/dl/releases'),

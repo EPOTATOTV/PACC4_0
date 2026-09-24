@@ -4,6 +4,7 @@ import { Spin } from 'antd'
 import { api } from './api/client'
 import Layout from './components/Layout'
 import PageTransition from './components/PageTransition'
+import TopProgressBar from './components/TopProgressBar'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Redscreen from './pages/Redscreen'
@@ -92,6 +93,7 @@ export default function App() {
 
   return (
     <Layout role={role}>
+      <TopProgressBar />
       <PageTransition>
         <Routes>
           <Route path="/" element={<Dashboard />} />

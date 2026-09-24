@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Card, Col, Input, Row, Segmented, Space, Switch, Table, Tag, message } from 'antd'
 import type { TableColumnsType } from 'antd'
+import type { EChartsOption } from 'echarts'
 import { ReloadOutlined, SaveOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { api } from '../../api/client'
-import type { DlRelease, DlStats, EffectConfigDto } from '../../types'
+import type { DlRelease, DlStats, EffectConfigAuditRow, EffectConfigDto } from '../../types'
+import EChart from '../../components/EChart'
 import { RedScreenOverlay } from '../../components/animations/RedScreenOverlay'
+
+/** 平台折线配色：与 Dashboard 图表同一套，避免两处图表观感割裂 */
+const DL_PALETTE = ['#58a6ff', '#d29922', '#3fb950', '#a371f7', '#39c5cf', '#ff3b30']
 
 const LEVEL_OPTIONS = [
   { label: '关闭', value: 'off' },
@@ -34,19 +39,22 @@ export default function EffectConfig() {
   const [releases, setReleases] = useState<DlRelease[]>([])
   const [stats, setStats] = useState<DlStats | null>(null)
   const [statsDays, setStatsDays] = useState(14)
+  const [history, setHistory] = useState<EffectConfigAuditRow[]>([])
 
   const load = useCallback(async () => {
     try {
-      const [c, rel, st] = await Promise.all([
+      const [c, rel, st, his] = await Promise.all([
         api.effect.get(),
         api.dl.releases().catch(() => [] as DlRelease[]),
         api.dl.stats(statsDays).catch(() => null),
+        api.effect.history().catch(() => [] as EffectConfigAuditRow[]),
       ])
       setCfg(c)
       setEffects(parseBool(c.effects_json))
       setRedscreen(parseObj(c.redscreen_json))
       setReleases(rel)
       setStats(st)
+      setHistory(his)
       setErr('')
     } catch (e) {
       setErr((e as Error).message)
@@ -71,6 +79,8 @@ export default function EffectConfig() {
       setEffects(parseBool(saved.effects_json))
       setRedscreen(parseObj(saved.redscreen_json))
       message.success('动效配置已保存')
+      // 保存后立刻刷新变更历史，让刚落的这条记录出现在列表首位
+      void load()
     } catch (e) {
       message.error((e as Error).message)
     } finally {
@@ -86,6 +96,42 @@ export default function EffectConfig() {
     return m
   }, [stats])
 
+  // 后端已把各平台序列对齐到同一条日期轴（缺数据补 0），这里只做展示映射
+  const dlOption: EChartsOption = useMemo(() => {
+    const dates = stats?.dates ?? []
+    const series = stats?.series ?? []
+    const multi = series.length > 1
+    return {
+      tooltip: { trigger: 'axis' },
+      legend: multi ? { bottom: 0, type: 'scroll', textStyle: { color: '#8b949e' } } : undefined,
+      grid: { left: 40, right: 16, top: 18, bottom: multi ? 48 : 28 },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: dates.map((d) => d.slice(5)),
+        axisLine: { lineStyle: { color: '#8b949e' } },
+        axisLabel: { color: '#8b949e' },
+      },
+      yAxis: {
+        type: 'value',
+        minInterval: 1,
+        splitLine: { lineStyle: { color: 'rgba(139,148,158,0.15)' } },
+        axisLabel: { color: '#8b949e' },
+      },
+      series: series.map((s, i) => ({
+        name: s.platform,
+        type: 'line',
+        smooth: true,
+        symbolSize: 5,
+        data: s.data,
+        lineStyle: { color: DL_PALETTE[i % DL_PALETTE.length], width: 2 },
+        itemStyle: { color: DL_PALETTE[i % DL_PALETTE.length] },
+      })),
+    }
+  }, [stats])
+
+  const hasDlTrend = (stats?.series ?? []).some((s) => s.data.some((v) => v > 0))
+
   const statColumns: TableColumnsType<{ platform: string; count: number }> = [
     { title: '平台', dataIndex: 'platform', width: 120, render: (v: string) => <Tag>{v}</Tag> },
     { title: '下载次数', dataIndex: 'count', width: 140 },
@@ -100,6 +146,17 @@ export default function EffectConfig() {
     { title: '文件', dataIndex: 'fileUrl', ellipsis: true },
     { title: 'SHA-256', dataIndex: 'sha256', ellipsis: true },
     { title: '启用', dataIndex: 'enabled', width: 70, render: (v: boolean) => (v ? <Tag color="green">是</Tag> : <Tag>否</Tag>) },
+  ]
+
+  // 摘要由服务端算好（含改动前后的值），前端只负责展示，避免两边 diff 逻辑不一致
+  const auditColumns: TableColumnsType<EffectConfigAuditRow> = [
+    {
+      title: '时间', dataIndex: 'createdAt', width: 168,
+      render: (v: number) => <span className="mono">{new Date(v).toLocaleString('zh-CN', { hour12: false })}</span>,
+    },
+    { title: '操作人', dataIndex: 'changedBy', width: 140 },
+    { title: '档位', dataIndex: 'motionLevel', width: 96, render: (v: string) => <Tag>{v}</Tag> },
+    { title: '变更内容', dataIndex: 'summary', ellipsis: true },
   ]
 
   return (
@@ -185,6 +242,12 @@ export default function EffectConfig() {
           <Card title="下载统计" size="small" extra={
             <Segmented size="small" value={statsDays} options={[{ label: '7 天', value: 7 }, { label: '14 天', value: 14 }, { label: '30 天', value: 30 }]} onChange={(v) => setStatsDays(Number(v))} />
           }>
+            <EChart option={dlOption} height={220} />
+            {!hasDlTrend && (
+              <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', margin: '2px 0 12px' }}>
+                近 {statsDays} 天暂无下载数据
+              </div>
+            )}
             <Table<{ platform: string; count: number }> rowKey="platform" size="small" columns={statColumns} dataSource={statData} pagination={false} locale={{ emptyText: '暂无下载数据' }} />
           </Card>
         </Col>
@@ -192,6 +255,24 @@ export default function EffectConfig() {
         <Col xs={24} lg={12}>
           <Card title="当前发布物" size="small">
             <Table<DlRelease> rowKey="id" size="small" columns={releaseColumns} dataSource={releases} pagination={false} scroll={{ x: 560 }} locale={{ emptyText: '暂无发布物' }} />
+          </Card>
+        </Col>
+
+        <Col xs={24}>
+          <Card
+            title="变更历史"
+            size="small"
+            extra={<span style={{ fontSize: 12, color: 'var(--muted)' }}>最近 20 条</span>}
+          >
+            <Table<EffectConfigAuditRow>
+              rowKey="id"
+              size="small"
+              columns={auditColumns}
+              dataSource={history}
+              pagination={false}
+              scroll={{ x: 720 }}
+              locale={{ emptyText: '暂无变更记录' }}
+            />
           </Card>
         </Col>
       </Row>

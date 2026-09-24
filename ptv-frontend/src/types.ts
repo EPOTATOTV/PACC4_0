@@ -1194,6 +1194,20 @@ export interface DlRelease {
 
 export interface DlStats {
   days: number
+  /** 近 N 天各平台累计下载次数 */
   platform: Record<string, number>
-  trend: { date: string; count: number }[]
+  /** 序列日期轴（升序，含无数据的日期） */
+  dates: string[]
+  /** 每个平台一条等长序列，data[i] 对应 dates[i] */
+  series: { platform: string; data: number[] }[]
+}
+
+/** 动效配置变更记录（t_effect_config_audit） */
+export interface EffectConfigAuditRow {
+  id: number
+  changedBy: string
+  motionLevel: string
+  redscreenTemplate: string
+  summary: string
+  createdAt: number
 }

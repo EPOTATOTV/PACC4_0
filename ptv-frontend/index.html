@@ -442,6 +442,16 @@
         box-shadow: 0 4px 16px rgba(255, 77, 61, .28);
       }
 
+      /* —— TopProgressBar：路由切换顶部进度条 ——
+         只动画 transform/opacity（合层），不改宽度，避免每帧触发布局。 */
+      .pacc-topbar {
+        position: fixed; top: 0; left: 0; right: 0; height: 2px;
+        z-index: 3000; pointer-events: none;
+        transform-origin: 0 50%; transform: scaleX(0); opacity: 0;
+        background: linear-gradient(90deg, var(--red), var(--red-2));
+        box-shadow: 0 0 10px rgba(255, 77, 61, .45);
+      }
+
       /* —— RedScreenOverlay：红屏警告全屏层 ——
          三层结构：闪烁层（瞬时高亮）、遮罩层（负责从中心扩散，自身会被 scale 到 3 倍，
          故内容必须放在独立的 body 层，避免一起被放大）。 */
