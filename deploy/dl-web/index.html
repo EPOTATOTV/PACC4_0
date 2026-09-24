@@ -1,204 +1,317 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="js-fallback">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PACC 客户端下载 | POTATOTV</title>
   <meta name="description" content="PACC 反作弊客户端官方下载，支持 Windows、Linux、Android、iOS 与 HarmonyOS。附校验和、系统要求、更新日志与常见问题。" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#050608" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f1ee" />
+
+  <!-- 社交分享预览 -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="POTATOTV" />
+  <meta property="og:title" content="PACC 客户端下载 | POTATOTV" />
+  <meta property="og:description" content="为纯净的游戏环境而生。覆盖 Windows、Linux、Android、iOS、HarmonyOS 五大平台。" />
+  <meta property="og:image" content="https://dl.potatotv.asia/images/og-cover.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="PACC 反作弊客户端下载" />
+  <meta property="og:url" content="https://dl.potatotv.asia" />
+  <meta property="og:locale" content="zh_CN" />
+  <meta property="og:locale:alternate" content="en_US" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="PACC 客户端下载 | POTATOTV" />
+  <meta name="twitter:description" content="为纯净的游戏环境而生。覆盖 Windows、Linux、Android、iOS、HarmonyOS 五大平台。" />
+  <meta name="twitter:image" content="https://dl.potatotv.asia/images/og-cover.jpg" />
+  <link rel="canonical" href="https://dl.potatotv.asia" />
+
+  <!-- 首帧主题：在样式生效前定好 data-theme，避免深/浅色闪烁（同 js/site.js 的存储键） -->
+  <script>
+    (function () {
+      try {
+        var v = localStorage.getItem('pacc-dl-theme');
+        if (v !== 'light' && v !== 'dark') {
+          v = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.dataset.theme = v;
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    })();
+  </script>
+
   <link rel="icon" href="favicon.ico" />
+  <link rel="preload" as="font" type="font/ttf" href="fonts/RussoOne.ttf" crossorigin />
   <link rel="stylesheet" href="styles.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PACC",
+    "alternateName": "PotatoTV Anti-Cheat Client",
+    "description": "PACC 反作弊客户端：内核级与运行时双重防护，覆盖 Windows、Linux、Android、iOS 与 HarmonyOS。",
+    "applicationCategory": "SecurityApplication",
+    "operatingSystem": "Windows 10, Windows 11, Linux, Android 8.0+, iOS 15+, HarmonyOS NEXT",
+    "softwareVersion": "5.0.0",
+    "url": "https://dl.potatotv.asia",
+    "downloadUrl": "https://dl.potatotv.asia/files/pacc-client-windows-x64-v5.0.0.zip",
+    "publisher": {
+      "@type": "Organization",
+      "name": "POTATOTV",
+      "url": "https://potatotv.asia"
+    }
+  }
+  </script>
 </head>
 <body>
+  <a class="skip-link" href="#download" data-i18n="ui.skip">跳到主要内容</a>
+
   <div class="bg" aria-hidden="true"></div>
 
   <header class="nav">
     <div class="nav-inner">
-      <a class="brand" href="/">
-        <img src="logo.png" width="26" height="26" alt="PACC logo" class="brand-logo" />
+      <a class="brand" href="/" data-i18n-attr="aria-label=nav.home">
+        <img src="logo.png" width="26" height="26" alt="" class="brand-logo" />
         <span class="brand-font">PACC</span>
       </a>
       <nav>
-        <a href="#features">特性</a>
-        <a href="#download">DOWNLOAD</a>
-        <a href="#faq">FAQ</a>
-        <a class="dl mono" href="#download">客户端下载</a>
+        <a href="#features" data-i18n="nav.features">特性</a>
+        <a href="#download" data-i18n="nav.download">DOWNLOAD</a>
+        <a href="#faq" data-i18n="nav.faq">FAQ</a>
+        <a class="dl mono" href="#download" data-i18n="nav.cta">客户端下载</a>
       </nav>
+      <div class="nav-tools">
+        <div class="lang">
+          <button id="lang-toggle" class="tool-btn" type="button" aria-haspopup="listbox" aria-expanded="false"
+                  data-i18n-attr="aria-label=ui.lang">
+            <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+              <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2" />
+              <ellipse cx="8" cy="8" rx="2.6" ry="6.2" fill="none" stroke="currentColor" stroke-width="1.2" />
+              <path d="M2.2 6.2h11.6M2.2 9.8h11.6" fill="none" stroke="currentColor" stroke-width="1.2" />
+            </svg>
+            <span id="lang-current" class="mono">中</span>
+          </button>
+          <ul id="lang-menu" class="lang-menu" role="listbox" hidden>
+            <li role="option" data-lang="zh-CN">中文</li>
+            <li role="option" data-lang="en">English</li>
+          </ul>
+        </div>
+        <button id="theme-toggle" class="tool-btn" type="button">
+          <svg class="ico-moon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+            <path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.7 5.7 0 1 0 6.8 6.8Z"
+                  fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+          </svg>
+          <svg class="ico-sun" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+            <circle cx="8" cy="8" r="3.1" fill="none" stroke="currentColor" stroke-width="1.3" />
+            <path d="M8 1.4v1.7M8 12.9v1.7M1.4 8h1.7M12.9 8h1.7M3.3 3.3l1.2 1.2M11.5 11.5l1.2 1.2M12.7 3.3l-1.2 1.2M4.5 11.5l-1.2 1.2"
+                  fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 
   <section class="hero">
-    <div class="hero-img" aria-hidden="true"></div>
-    <div class="hero-eyebrow"><span class="dot" aria-hidden="true"></span>ANTI-CHEAT / POTATOTV SEC</div>
-    <h1 class="brand-font hero-title">PACC</h1>
-    <p class="hero-sub">为纯净的游戏环境而生。覆盖五大平台</p>
-    <div class="hero-meta">
-      <span>Win / Lin / Android / iOS / Harmony</span>
-      <span>实时内核级检测</span>
-      <span>v5.0.0</span>
-    </div>
-    <div class="hero-actions">
-      <a class="btn btn-primary" href="#download">
-        立即下载
-        <span class="key" aria-hidden="true">↓</span>
-      </a>
-      <a class="btn" href="#note">运行须知 <span class="key" aria-hidden="true">i</span></a>
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="hero-img-wrap" aria-hidden="true"><div class="hero-img"></div></div>
+    <div class="hero-content">
+      <div class="hero-eyebrow"><span class="dot" aria-hidden="true"></span><span data-i18n="hero.eyebrow">ANTI-CHEAT / POTATOTV SEC</span></div>
+      <h1 class="brand-font hero-title">PACC</h1>
+      <p class="hero-sub" data-i18n="hero.sub">为纯净的游戏环境而生。覆盖五大平台</p>
+      <div class="hero-meta">
+        <span data-i18n="hero.meta.platforms">Win / Lin / Android / iOS / Harmony</span>
+        <span data-i18n="hero.meta.realtime">实时内核级检测</span>
+        <span>v5.0.0</span>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#download">
+          <span data-i18n="hero.cta.primary">立即下载</span>
+          <span class="key" aria-hidden="true">↓</span>
+        </a>
+        <a class="btn" href="#note"><span data-i18n="hero.cta.secondary">运行须知</span> <span class="key" aria-hidden="true">i</span></a>
+      </div>
     </div>
   </section>
 
   <section class="download" id="download">
     <div class="section-head">
-      <h2>客户端下载</h2>
+      <h2 data-i18n="dl.title">客户端下载</h2>
       <span class="version mono">v5.0.0</span>
     </div>
-    <p class="sub">五种端到端，选适配您设备的那份。下载后请核对校验和。</p>
+    <p class="sub" data-i18n="dl.sub">五种端到端，选适配您设备的那份。下载后请核对校验和。</p>
 
     <div class="grid">
-      <div class="card">
+      <div class="card" data-plat="win">
         <div class="card-top">
           <div class="card-badge">WIN</div>
           <span class="card-os mono">x64</span>
         </div>
-        <h3>Windows</h3>
-        <p>Windows 10 / 11 桌面端，含驱动层防护。</p>
-        <a class="btn" href="files/pacc-client-windows-x64-v5.0.0.zip" data-file="win" aria-label="下载 Windows 客户端 v5.0.0">下载</a>
+        <h3 data-i18n="card.win.title">Windows</h3>
+        <p data-i18n="card.win.desc">Windows 10 / 11 桌面端，含驱动层防护。</p>
+        <div class="card-foot">
+          <span class="card-size mono" hidden></span>
+          <a class="btn" href="files/pacc-client-windows-x64-v5.0.0.zip" data-file="win"
+             data-i18n="dl.btn" data-i18n-attr="aria-label=card.win.aria">下载</a>
+        </div>
       </div>
-      <div class="card">
+      <div class="card" data-plat="linux">
         <div class="card-top">
           <div class="card-badge">LNX</div>
           <span class="card-os mono">x86_64</span>
         </div>
-        <h3>Linux</h3>
-        <p>Linux x86_64，面向桌面与服务器场景。</p>
-        <a class="btn" href="files/pacc-client-linux-x86_64-v5.0.0.tar.gz" aria-label="下载 Linux 客户端 v5.0.0">下载</a>
+        <h3 data-i18n="card.lnx.title">Linux</h3>
+        <p data-i18n="card.lnx.desc">Linux x86_64，面向桌面与服务器场景。</p>
+        <div class="card-foot">
+          <span class="card-size mono" hidden></span>
+          <a class="btn" href="files/pacc-client-linux-x86_64-v5.0.0.tar.gz" data-file="lnx"
+             data-i18n="dl.btn" data-i18n-attr="aria-label=card.lnx.aria">下载</a>
+        </div>
       </div>
-      <div class="card">
+      <div class="card" data-plat="android">
         <div class="card-top">
           <div class="card-badge">APK</div>
           <span class="card-os mono">ARM</span>
         </div>
-        <h3>Android</h3>
-        <p>Android 8.0 及以上，以服务模式后台常驻。</p>
-        <a class="btn" href="files/pacc-client-android-v5.0.0.apk" aria-label="下载 Android 客户端 v5.0.0">下载</a>
+        <h3 data-i18n="card.apk.title">Android</h3>
+        <p data-i18n="card.apk.desc">Android 8.0 及以上，以服务模式后台常驻。</p>
+        <div class="card-foot">
+          <span class="card-size mono" hidden></span>
+          <a class="btn" href="files/pacc-client-android-v5.0.0.apk" data-file="apk"
+             data-i18n="dl.btn" data-i18n-attr="aria-label=card.apk.aria">下载</a>
+        </div>
       </div>
-      <div class="card">
+      <div class="card" data-plat="ios">
         <div class="card-top">
           <div class="card-badge">iOS</div>
           <span class="card-os mono">OS 15+</span>
         </div>
-        <h3>iOS / iPadOS</h3>
-        <p>iOS 15 及以上，签名安装包。</p>
-        <a class="btn" href="files/pacc-client-ios-v5.0.0.tar.gz" aria-label="下载 iOS 客户端 v5.0.0">下载</a>
+        <h3 data-i18n="card.ios.title">iOS / iPadOS</h3>
+        <p data-i18n="card.ios.desc">iOS 15 及以上，签名安装包。</p>
+        <div class="card-foot">
+          <span class="card-size mono" hidden></span>
+          <a class="btn" href="files/pacc-client-ios-v5.0.0.tar.gz" data-file="ios"
+             data-i18n="dl.btn" data-i18n-attr="aria-label=card.ios.aria">下载</a>
+        </div>
       </div>
-      <div class="card">
+      <div class="card" data-plat="harmony">
         <div class="card-top">
           <div class="card-badge">HMY</div>
           <span class="card-os mono">NEXT</span>
         </div>
-        <h3>HarmonyOS</h3>
-        <p>HarmonyOS NEXT 原生支持。</p>
-        <a class="btn" href="files/pacc-client-harmony-v5.0.0.tar.gz" aria-label="下载 HarmonyOS 客户端 v5.0.0">下载</a>
+        <h3 data-i18n="card.hmy.title">HarmonyOS</h3>
+        <p data-i18n="card.hmy.desc">HarmonyOS NEXT 原生支持。</p>
+        <div class="card-foot">
+          <span class="card-size mono" hidden></span>
+          <a class="btn" href="files/pacc-client-harmony-v5.0.0.tar.gz" data-file="hmy"
+             data-i18n="dl.btn" data-i18n-attr="aria-label=card.hmy.aria">下载</a>
+        </div>
       </div>
     </div>
   </section>
 
   <section class="visual-strip" aria-label="氛围图">
-    <span class="strip-inner" aria-hidden="true"></span>
+    <span class="strip-inner" aria-hidden="true">
+      <img src="images/banner-720.webp" srcset="images/banner-720.webp 1x, images/banner.webp 2x"
+           width="1440" height="900" alt="" loading="lazy" decoding="async" />
+    </span>
   </section>
 
   <section class="features" id="features">
     <div class="section-head">
-      <h2>它能做什么</h2>
+      <h2 data-i18n="feat.title">它能做什么</h2>
       <span class="tag mono">CORE</span>
     </div>
-    <p class="sub">内核级与运行时双重防线，覆盖主要作弊手段。</p>
+    <p class="sub" data-i18n="feat.sub">内核级与运行时双重防线，覆盖主要作弊手段。</p>
     <div class="feat-list">
       <div class="feat reveal">
         <span class="feat-k mono">01 / KERNEL</span>
-        <h3>驱动层检测</h3>
-        <p>Windows 下注入驱动，拦截内存读写、未签名驱动与隐藏进程。</p>
+        <h3 data-i18n="feat.1.title">驱动层检测</h3>
+        <p data-i18n="feat.1.desc">Windows 下注入驱动，拦截内存读写、未签名驱动与隐藏进程。</p>
       </div>
       <div class="feat reveal">
         <span class="feat-k mono">02 / RUNTIME</span>
-        <h3>运行时完整性</h3>
-        <p>Android/iOS 核对进程与签名，防篡改注入。</p>
+        <h3 data-i18n="feat.2.title">运行时完整性</h3>
+        <p data-i18n="feat.2.desc">Android/iOS 核对进程与签名，防篡改注入。</p>
       </div>
       <div class="feat reveal">
         <span class="feat-k mono">03 / REAL-TIME</span>
-        <h3>实时上报</h3>
-        <p>命中即断开对局并回传证据，管控台可复核查端，全程留痕。</p>
+        <h3 data-i18n="feat.3.title">实时上报</h3>
+        <p data-i18n="feat.3.desc">命中即断开对局并回传证据，管控台可复核查端，全程留痕。</p>
       </div>
       <div class="feat reveal">
         <span class="feat-k mono">04 / PLATFORM</span>
-        <h3>五大平台</h3>
-        <p>Win / Linux / Android / iOS / HarmonyOS 一套策略统一管控。</p>
+        <h3 data-i18n="feat.4.title">五大平台</h3>
+        <p data-i18n="feat.4.desc">Win / Linux / Android / iOS / HarmonyOS 一套策略统一管控。</p>
       </div>
       <div class="feat reveal">
         <span class="feat-k mono">05 / PRIVACY</span>
-        <h3>克制采集</h3>
-        <p>只采集判定所需进程与驱动快照，敏感数据按审计标准脱敏。</p>
+        <h3 data-i18n="feat.5.title">克制采集</h3>
+        <p data-i18n="feat.5.desc">只采集判定所需进程与驱动快照，敏感数据按审计标准脱敏。</p>
       </div>
       <div class="feat reveal">
         <span class="feat-k mono">06 / AUTO</span>
-        <h3>随系统自启</h3>
-        <p>安装后随平台自启动，检测到独占运行即结束，不干扰正常对局。</p>
+        <h3 data-i18n="feat.6.title">随系统自启</h3>
+        <p data-i18n="feat.6.desc">安装后随平台自启动，检测到独占运行即结束，不干扰正常对局。</p>
       </div>
     </div>
   </section>
 
   <section class="specs" id="specs">
     <div class="section-head">
-      <h2>系统要求</h2>
+      <h2 data-i18n="spec.title">系统要求</h2>
       <span class="tag mono">REQ</span>
     </div>
     <div class="spec-box">
       <div class="spec">
-        <span class="spec-name">Windows</span>
-        <span class="spec-val">10 / 11 · x64 · 驱动需管理员权限</span>
+        <span class="spec-name" data-i18n="spec.win.name">Windows</span>
+        <span class="spec-val" data-i18n="spec.win.val">10 / 11 · x64 · 驱动需管理员权限</span>
       </div>
       <div class="spec">
-        <span class="spec-name">Linux</span>
-        <span class="spec-val">x86_64 · Kernel 5.x+ · systemd 可选用</span>
+        <span class="spec-name" data-i18n="spec.lnx.name">Linux</span>
+        <span class="spec-val" data-i18n="spec.lnx.val">x86_64 · Kernel 5.x+ · systemd 可选用</span>
       </div>
       <div class="spec">
-        <span class="spec-name">Android</span>
-        <span class="spec-val">8.0+ · ARM · 需开启未知来源</span>
+        <span class="spec-name" data-i18n="spec.apk.name">Android</span>
+        <span class="spec-val" data-i18n="spec.apk.val">8.0+ · ARM · 需开启未知来源</span>
       </div>
       <div class="spec">
-        <span class="spec-name">iOS / iPadOS</span>
-        <span class="spec-val">15+ · 签名安装包</span>
+        <span class="spec-name" data-i18n="spec.ios.name">iOS / iPadOS</span>
+        <span class="spec-val" data-i18n="spec.ios.val">15+ · 签名安装包</span>
       </div>
       <div class="spec">
-        <span class="spec-name">HarmonyOS</span>
-        <span class="spec-val">NEXT · 原生支持</span>
+        <span class="spec-name" data-i18n="spec.hmy.name">HarmonyOS</span>
+        <span class="spec-val" data-i18n="spec.hmy.val">NEXT · 原生支持</span>
       </div>
     </div>
   </section>
 
   <section class="install" id="install">
     <div class="section-head">
-      <h2>安装</h2>
+      <h2 data-i18n="install.title">安装</h2>
       <span class="tag mono">SETUP</span>
     </div>
     <ol class="steps">
       <li class="reveal">
         <span class="step-n mono">1</span>
         <div>
-          <h4>下载对应平台的安装包</h4>
-          <p>从上方的下载区取您设备的版本。首次建议先用下面的校验和核对文件完整性。</p>
+          <h4 data-i18n="install.1.title">下载对应平台的安装包</h4>
+          <p data-i18n="install.1.desc">从上方的下载区取您设备的版本。首次建议先用下面的校验和核对文件完整性。</p>
         </div>
       </li>
       <li class="reveal">
         <span class="step-n mono">2</span>
         <div>
-          <h4>安装并授权</h4>
-          <p>Windows 以管理员身份安装驱动组件；Android 允许「安装未知来源」；iOS 信任开发者签名。</p>
+          <h4 data-i18n="install.2.title">安装并授权</h4>
+          <p data-i18n="install.2.desc">Windows 以管理员身份安装驱动组件；Android 允许「安装未知来源」；iOS 信任开发者签名。</p>
         </div>
       </li>
       <li class="reveal">
         <span class="step-n mono">3</span>
         <div>
-          <h4>校验和启动</h4>
-          <p>确认客户端随系统自启，并正常显示防护状态。</p>
+          <h4 data-i18n="install.3.title">校验和启动</h4>
+          <p data-i18n="install.3.desc">确认客户端随系统自启，并正常显示防护状态。</p>
         </div>
       </li>
     </ol>
@@ -206,7 +319,7 @@
 
   <section class="changelog" id="changelog">
     <div class="section-head">
-      <h2>更新日志</h2>
+      <h2 data-i18n="log.title">更新日志</h2>
       <span class="tag mono">LOG</span>
     </div>
     <div class="log-list">
@@ -214,22 +327,22 @@
         <span class="log-ver mono">v5.0.0</span>
         <span class="log-date">2026-09</span>
         <div>
-          <p>重构内核检测引擎，新增 HarmonyOS 原生端与 iOS 签名安装包。</p>
-          <p>运行时可执行校验与误报率下调；管控台新增红屏动效模板管理。</p>
+          <p data-i18n="log.1.desc">重构内核检测引擎，新增 HarmonyOS 原生端与 iOS 签名安装包。</p>
+          <p data-i18n="log.1.desc2">运行时可执行校验与误报率下调；管控台新增红屏动效模板管理。</p>
         </div>
       </div>
       <div class="log reveal">
         <span class="log-ver mono">v4.3.0</span>
         <span class="log-date">2026-06</span>
         <div>
-          <p>管控台新增实时监控大屏与离线数据导入；接入飞书账号体系。</p>
+          <p data-i18n="log.2.desc">管控台新增实时监控大屏与离线数据导入；接入飞书账号体系。</p>
         </div>
       </div>
       <div class="log reveal">
         <span class="log-ver mono">v4.0.0</span>
         <span class="log-date">2026-03</span>
         <div>
-          <p>引入检测策略中心与查端回放；首版跨平台客户端发布。</p>
+          <p data-i18n="log.3.desc">引入检测策略中心与查端回放；首版跨平台客户端发布。</p>
         </div>
       </div>
     </div>
@@ -237,43 +350,45 @@
 
   <section class="checks" id="checksums">
     <div class="section-head">
-      <h2>校验和</h2>
+      <h2 data-i18n="check.title">校验和</h2>
       <span class="tag mono">SHA256</span>
     </div>
-    <p class="sub">下载后请与本页核对 SHA-256，不一致的包可能被篡改，请勿运行。</p>
-    <div class="check-box">
+    <p class="sub" data-i18n="check.sub">下载后请与本页核对 SHA-256，不一致的包可能被篡改，请勿运行。</p>
+    <div class="check-box" id="check-box"></div>
+    <noscript>
+      <p class="check-hint">启用 JavaScript 后可从发布接口读取全部平台的校验和。Windows 客户端 SHA-256：</p>
       <div class="check">
-        <span class="check-name mono">Windows 客户端</span>
+        <span class="check-name mono">Windows · v5.0.0</span>
         <code class="mono">cc82736ce9bdf68859fc6dd18d21da8e0f51b75a4f12ac1f2e0d614ad257df41</code>
       </div>
-    </div>
+    </noscript>
   </section>
 
   <section class="faq" id="faq">
     <div class="section-head">
-      <h2>常见问题</h2>
+      <h2 data-i18n="faq.title">常见问题</h2>
       <span class="tag mono">FAQ</span>
     </div>
     <div class="faq-list">
       <details class="reveal">
-        <summary>安装后要一直开着客户端吗？</summary>
-        <p>需要。客户端随系统/平台自启动并常驻后台，检测到外部进程注入会断开本轮对局并上报。手动退出会导致本轮无法被防护。</p>
+        <summary data-i18n="faq.1.q">安装后要一直开着客户端吗？</summary>
+        <p data-i18n="faq.1.a">需要。客户端随系统/平台自启动并常驻后台，检测到外部进程注入会断开本轮对局并上报。手动退出会导致本轮无法被防护。</p>
       </details>
       <details class="reveal">
-        <summary>提示校验和不一致怎么办？</summary>
-        <p>停止安装，重新下载并再次核对。校验和匹配的包才能使用；若持续不一致，可到管控台工单反馈。</p>
+        <summary data-i18n="faq.2.q">提示校验和不一致怎么办？</summary>
+        <p data-i18n="faq.2.a">停止安装，重新下载并再次核对。校验和匹配的包才能使用；若持续不一致，可到管控台工单反馈。</p>
       </details>
       <details class="reveal">
-        <summary>iOS 怎么装签名包？</summary>
-        <p>下载后先在系统「设置 → 通用 → VPN 与设备管理」信任对应开发者证书，再打开安装。iPadOS 同理。</p>
+        <summary data-i18n="faq.3.q">iOS 怎么装签名包？</summary>
+        <p data-i18n="faq.3.a">下载后先在系统「设置 → 通用 → VPN 与设备管理」信任对应开发者证书，再打开安装。iPadOS 同理。</p>
       </details>
       <details class="reveal">
-        <summary>会采集我的哪些数据？</summary>
-        <p>只采集判定所需的进程、驱动与运行时快照。账号等敏感数据按审计标准脱敏存储，不做与反作弊无关的采集。</p>
+        <summary data-i18n="faq.4.q">会采集我的哪些数据？</summary>
+        <p data-i18n="faq.4.a">只采集判定所需的进程、驱动与运行时快照。账号等敏感数据按审计标准脱敏存储，不做与反作弊无关的采集。</p>
       </details>
       <details class="reveal">
-        <summary>Windows 提示需要管理员权限？</summary>
-        <p>安装驱动层容器必须管理员权限。可先暂时关闭其它签名/调试工具，再以管理员身份重试。</p>
+        <summary data-i18n="faq.5.q">Windows 提示需要管理员权限？</summary>
+        <p data-i18n="faq.5.a">安装驱动层容器必须管理员权限。可先暂时关闭其它签名/调试工具，再以管理员身份重试。</p>
       </details>
     </div>
   </section>
@@ -281,25 +396,25 @@
   <section class="note" id="note">
     <div class="note-box">
       <div>
-        <div class="t">安装前</div>
+        <div class="t" data-i18n="note.before">安装前</div>
         <ul>
-          <li>Windows 请先关闭其它签名/调试工具，避免冲突。</li>
-          <li>Android 需开启「安装未知来源」。</li>
-          <li>iOS 为签名安装包，未越狱即可使用。</li>
+          <li data-i18n="note.before.1">Windows 请先关闭其它签名/调试工具，避免冲突。</li>
+          <li data-i18n="note.before.2">Android 需开启「安装未知来源」。</li>
+          <li data-i18n="note.before.3">iOS 为签名安装包，未越狱即可使用。</li>
         </ul>
       </div>
       <div>
-        <div class="t">运行须知</div>
+        <div class="t" data-i18n="note.running">运行须知</div>
         <ul>
-          <li>客户端需保持后台运行，随系统/平台启动。</li>
-          <li>被检测到外部进程注入会断开本轮对局并上报。</li>
+          <li data-i18n="note.running.1">客户端需保持后台运行，随系统/平台启动。</li>
+          <li data-i18n="note.running.2">被检测到外部进程注入会断开本轮对局并上报。</li>
         </ul>
       </div>
       <div>
-        <div class="t">遇到问题</div>
+        <div class="t" data-i18n="note.problem">遇到问题</div>
         <ul>
-          <li>先核对设备版本与规格是否满足。</li>
-          <li>仍异常可到管控台自助门户提交工单。</li>
+          <li data-i18n="note.problem.1">先核对设备版本与规格是否满足。</li>
+          <li data-i18n="note.problem.2">仍异常可到管控台自助门户提交工单。</li>
         </ul>
       </div>
     </div>
@@ -308,33 +423,72 @@
   <footer class="footer">
     <div class="footer-inner">
       <div class="footer-brand">
-        <img src="logo.png" width="20" height="20" alt="PACC logo" />
+        <img src="logo.png" width="20" height="20" alt="" loading="lazy" decoding="async" />
         <span class="brand-font">PACC</span>
-        <span style="color:var(--dim)">PotatoTV 反作弊系统</span>
+        <span class="footer-tag" data-i18n="footer.brand">PotatoTV 反作弊系统</span>
       </div>
-      <div class="footer-links">
-        <a href="#download">下载</a>
-        <a href="#features">特性</a>
-        <a href="#faq">FAQ</a>
-        <a href="#checksums">校验和</a>
+
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h4 data-i18n="footer.product">产品</h4>
+          <a href="#download" data-i18n="footer.link.download">下载</a>
+          <a href="#features" data-i18n="footer.link.features">特性</a>
+          <a href="#changelog" data-i18n="footer.link.changelog">更新日志</a>
+          <a href="#checksums" data-i18n="footer.link.checks">校验和</a>
+        </div>
+        <div class="footer-col">
+          <h4 data-i18n="footer.support">支持</h4>
+          <a href="#faq" data-i18n="footer.link.faq">常见问题</a>
+          <a href="mailto:support@potatotv.asia" data-i18n="footer.link.email">客服邮箱</a>
+        </div>
+        <div class="footer-col">
+          <h4 data-i18n="footer.legal">法律</h4>
+          <a href="legal/privacy.html" data-i18n="footer.link.privacy">隐私政策</a>
+          <a href="legal/terms.html" data-i18n="footer.link.terms">服务协议</a>
+        </div>
+        <div class="footer-col">
+          <h4 data-i18n="footer.community">社区</h4>
+          <a class="footer-social" href="https://github.com/EPOTATOTV/PACC4_0" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.88.51-1.08-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 8 0Z" />
+            </svg>
+            <span data-i18n="footer.social.github">GitHub 仓库</span>
+          </a>
+          <a class="footer-social" href="#faq" title="客服邮箱">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+              <path d="M1.6 3.4h12.8v9.2H1.6z" fill="none" stroke="currentColor" stroke-width="1.2" />
+              <path d="m2 4 6 4.4L14 4" fill="none" stroke="currentColor" stroke-width="1.2" />
+            </svg>
+            <span data-i18n="footer.link.email">客服邮箱</span>
+          </a>
+          <a class="footer-social" href="https://qm.qq.com/q/4mL2MeEe8E" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+              <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" stroke-width="1.2" />
+              <path d="M5.6 9.2c1.4 1 3.4 1 4.8 0" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+              <circle cx="6" cy="6.4" r=".8" fill="currentColor" />
+              <circle cx="10" cy="6.4" r=".8" fill="currentColor" />
+            </svg>
+            <span data-i18n="footer.social.qq">QQ 群</span>
+          </a>
+        </div>
       </div>
     </div>
+
     <div class="legal">
-      <p class="small">© 2026 POTATOTV · pacc.potatotv.asia</p>
-      <p class="small">PACC 仅用于正当反作弊目的。禁止用于逆向破解其它安全产品或进行任何违法违规活动。</p>
+      <p class="small" data-i18n="footer.legal.1">© 2026 POTATOTV · pacc.potatotv.asia</p>
+      <p class="small" data-i18n="footer.legal.2">PACC 仅用于正当反作弊目的。禁止用于逆向破解其它安全产品或进行任何违法违规活动。</p>
     </div>
   </footer>
 
-  <script src="js/gsap.min.js"></script>
-  <script src="js/ScrollTrigger.min.js"></script>
-  <script src="js/ScrollToPlugin.min.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/background.js"></script>
-  <script src="js/counter.js"></script>
-  <script src="js/cards.js"></script>
-  <script src="js/scroll.js"></script>
-  <script src="js/hero.js"></script>
-  <script src="js/cursor-glow.js"></script>
-  <script src="js/main.js"></script>
+  <!-- 动效依赖库与脚本一律 defer：不阻塞 HTML 解析，DOM 解析完成后按序执行。
+       GSAP 加载失败时页面靠 styles.css 里的 CSS 关键帧保持进场效果（见 .js-fallback 规则）。 -->
+  <script src="js/gsap.min.js" defer></script>
+  <script src="js/ScrollTrigger.min.js" defer></script>
+  <script src="js/ScrollToPlugin.min.js" defer></script>
+  <script src="i18n/zh-CN.js" defer></script>
+  <script src="i18n/en.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/motion.js" defer></script>
+  <script src="js/site.js" defer></script>
 </body>
 </html>

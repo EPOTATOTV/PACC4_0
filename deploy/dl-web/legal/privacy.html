@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>隐私政策 | PACC</title>
+  <meta name="description" content="PACC 隐私政策：说明客户端与管理后台采集哪些数据、用于什么目的、保存多久，以及你可以提出的请求。" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#050608" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f1ee" />
+
+  <!-- 首帧主题：与 index.html 同键，从下载页过来时保持同一套配色 -->
+  <script>
+    (function () {
+      try {
+        var v = localStorage.getItem('pacc-dl-theme');
+        if (v !== 'light' && v !== 'dark') {
+          v = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.dataset.theme = v;
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    })();
+  </script>
+  <!-- 语言：?lang= 优先并写回本地，否则沿用下载页的选择。正文靠 html[lang] 显隐，见 styles.css -->
+  <script>
+    (function () {
+      try {
+        var KEY = 'pacc-dl-lang';
+        var q = new URLSearchParams(location.search).get('lang');
+        if (q === 'zh-CN' || q === 'en') {
+          localStorage.setItem(KEY, q);
+        } else {
+          q = localStorage.getItem(KEY);
+        }
+        document.documentElement.lang = q === 'en' ? 'en' : 'zh-CN';
+      } catch (e) { /* 保持 HTML 上的 lang */ }
+    })();
+  </script>
+
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="preload" as="font" type="font/ttf" href="../fonts/RussoOne.ttf" crossorigin />
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="../index.html" aria-label="返回首页 / Back to home">
+        <img src="../logo.png" width="26" height="26" alt="" class="brand-logo" />
+        <span class="brand-font">PACC</span>
+      </a>
+      <nav>
+        <a href="?lang=zh-CN">中文</a>
+        <a href="?lang=en">EN</a>
+        <a class="dl mono" href="../index.html#download">下载 / Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="doc-wrap doc">
+    <div class="doc-top">
+      <a class="doc-back" href="../index.html">← 返回下载页 / Back</a>
+      <span class="doc-meta">PACC · POTATOTV</span>
+    </div>
+
+    <article lang="zh-CN">
+      <h1>隐私政策</h1>
+      <p class="doc-meta">最近更新：2026-09-24</p>
+
+      <h2>一、这份政策管什么</h2>
+      <p>本政策适用于 PACC 反作弊客户端（Windows / Linux / Android / iOS / HarmonyOS）、PACC 管控后台，以及下载站 dl.potatotv.asia。它说明我们采集哪些数据、为什么采集、保存多久，以及你可以要求什么。</p>
+
+      <h2>二、管理后台账号</h2>
+      <p>管理端登录会涉及这些数据：</p>
+      <ul>
+        <li>账号标识（PTEID）、昵称、邮箱或手机号，用于登录、验证码与找回密码</li>
+        <li>登录审计：时间、来源 IP、客户端 UA、结果（成功 / 失败 / 锁定 / 限流）</li>
+        <li>安全设置状态：两步验证是否绑定、可信设备记录</li>
+      </ul>
+      <p>密码以不可逆哈希保存，我们自己也无法还原。</p>
+
+      <h2>三、客户端运行期上报的数据</h2>
+      <p>反作弊要靠运行环境信息才能判断，客户端上报的内容包括：</p>
+      <ul>
+        <li>进程与驱动清单、模块加载记录</li>
+        <li>硬件与系统指纹摘要，用于识别同一台设备上的异常重复</li>
+        <li>运行时行为快照：输入时序统计、内存与调用完整性检查结果</li>
+        <li>对抗性环境信号：调试器、DMA 设备、虚拟化 / 沙箱迹象</li>
+      </ul>
+      <p>我们不上报你的个人文件内容、聊天记录或浏览器历史，也不做屏幕录制。</p>
+
+      <h2>四、下载站</h2>
+      <p>下载站是静态页面：不写 cookie、不做用户画像、不接第三方统计脚本。</p>
+      <p>你点击下载时页面会上报一次计数（哪个平台、哪个产物），只用于统计各平台下载量。计数按「天 × 平台 × 产物」聚合保存；服务端会对来源 IP 做当日次数限制以防刷量，该 IP 仅参与这一次限流判断，<strong>不写入下载统计表</strong>。</p>
+
+      <h2>五、数据用于什么</h2>
+      <ul>
+        <li>判定作弊与风险评分，输出红屏 / 告警结论</li>
+        <li>账号安全：登录、找回密码、异常登录识别</li>
+        <li>运维：容量规划、故障排查、下载量趋势</li>
+      </ul>
+      <p>不用于广告投放，也不出售给第三方。</p>
+
+      <h2>六、保存多久</h2>
+      <ul>
+        <li>风险判定与证据留痕：按赛事与运营需要保留，到期删除</li>
+        <li>登录审计：短期保留，用于安全回溯</li>
+        <li>下载计数：长期保留，但已是聚合数据，不含个人标识</li>
+      </ul>
+
+      <h2>七、谁会看到</h2>
+      <p>除法律法规要求或司法机关依法调取外，仅向提供服务所必需的人员（管理员、运维）开放，并受权限与审计约束。</p>
+
+      <h2>八、你的权利</h2>
+      <p>你可以通过 <a href="mailto:support@potatotv.asia">support@potatotv.asia</a> 请求查询、更正或删除与你账号相关的数据。涉及赛事判定证据的部分，需要先完成申诉流程。</p>
+
+      <h2>九、政策变更</h2>
+      <p>本政策更新后会在本页发布，并同步修改顶部的「最近更新」时间。继续使用即视为接受更新后的版本。</p>
+
+      <h2>十、联系我们</h2>
+      <p>邮箱：<a href="mailto:support@potatotv.asia">support@potatotv.asia</a></p>
+
+      <p class="doc-foot doc-meta"><a href="terms.html">服务协议 →</a></p>
+    </article>
+
+    <article lang="en">
+      <h1>Privacy Policy</h1>
+      <p class="doc-meta">Last updated: 2026-09-24</p>
+
+      <h2>1. Scope</h2>
+      <p>This policy covers the PACC anti-cheat client (Windows / Linux / Android / iOS / HarmonyOS), the PACC management console, and the download site at dl.potatotv.asia. It explains what we collect, why, how long we keep it, and what you can ask us to do.</p>
+
+      <h2>2. Console accounts</h2>
+      <p>Signing in to the console involves:</p>
+      <ul>
+        <li>Account identifier (PTEID), display name, email or phone number — used for login, verification codes and password recovery</li>
+        <li>Login audit: time, source IP, client user agent, outcome (success / failure / lockout / rate limited)</li>
+        <li>Security state: whether two-factor authentication is bound, trusted-device records</li>
+      </ul>
+      <p>Passwords are stored as irreversible hashes. We cannot recover them either.</p>
+
+      <h2>3. Data the client reports at runtime</h2>
+      <p>Anti-cheat needs runtime environment signals. The client reports:</p>
+      <ul>
+        <li>Process and driver lists, module load records</li>
+        <li>Hardware and system fingerprint digests, used to spot abnormal duplication on the same machine</li>
+        <li>Runtime behaviour snapshots: input timing statistics, memory and call integrity check results</li>
+        <li>Adversarial environment signals: debuggers, DMA devices, virtualisation / sandbox traces</li>
+      </ul>
+      <p>We do not report the contents of your personal files, chat history or browser history, and we do not record your screen.</p>
+
+      <h2>4. Download site</h2>
+      <p>The download site is a static page: no cookies, no profiling, no third-party analytics scripts.</p>
+      <p>When you start a download the page reports a single count — which platform, which artefact — used only to measure download volume per platform. Counts are aggregated as "day × platform × artefact". The server applies a per-IP daily limit against abuse; that IP is used for this rate-limit decision only and is <strong>not written into the download statistics table</strong>.</p>
+
+      <h2>5. What the data is used for</h2>
+      <ul>
+        <li>Cheat detection and risk scoring, producing red-screen / alert decisions</li>
+        <li>Account security: login, password recovery, abnormal sign-in detection</li>
+        <li>Operations: capacity planning, troubleshooting, download trends</li>
+      </ul>
+      <p>It is not used for advertising and is not sold to third parties.</p>
+
+      <h2>6. Retention</h2>
+      <ul>
+        <li>Risk decisions and evidence: kept as long as the event and operations require, then deleted</li>
+        <li>Login audit: short-term retention for security review</li>
+        <li>Download counts: kept long term, but already aggregated and free of personal identifiers</li>
+      </ul>
+
+      <h2>7. Who can see it</h2>
+      <p>Apart from legal requirements or lawful requests from authorities, access is limited to staff who need it to run the service (administrators, operations), under permission and audit controls.</p>
+
+      <h2>8. Your rights</h2>
+      <p>Write to <a href="mailto:support@potatotv.asia">support@potatotv.asia</a> to request access to, correction of, or deletion of data tied to your account. Where the data forms part of a tournament decision, the appeal process must be completed first.</p>
+
+      <h2>9. Changes</h2>
+      <p>Updates to this policy are published on this page, and the "Last updated" date above changes with them. Continued use means you accept the updated version.</p>
+
+      <h2>10. Contact</h2>
+      <p>Email: <a href="mailto:support@potatotv.asia">support@potatotv.asia</a></p>
+
+      <p class="doc-foot doc-meta"><a href="terms.html">Terms of Service →</a></p>
+    </article>
+  </main>
+</body>
+</html>

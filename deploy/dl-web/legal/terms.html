@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>服务协议 | PACC</title>
+  <meta name="description" content="PACC 服务协议：服务内容、使用前提、禁止行为、下载校验、判定与申诉、责任边界与变更终止。" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#050608" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f1ee" />
+
+  <!-- 首帧主题：与 index.html 同键，从下载页过来时保持同一套配色 -->
+  <script>
+    (function () {
+      try {
+        var v = localStorage.getItem('pacc-dl-theme');
+        if (v !== 'light' && v !== 'dark') {
+          v = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.dataset.theme = v;
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    })();
+  </script>
+  <!-- 语言：?lang= 优先并写回本地，否则沿用下载页的选择。正文靠 html[lang] 显隐，见 styles.css -->
+  <script>
+    (function () {
+      try {
+        var KEY = 'pacc-dl-lang';
+        var q = new URLSearchParams(location.search).get('lang');
+        if (q === 'zh-CN' || q === 'en') {
+          localStorage.setItem(KEY, q);
+        } else {
+          q = localStorage.getItem(KEY);
+        }
+        document.documentElement.lang = q === 'en' ? 'en' : 'zh-CN';
+      } catch (e) { /* 保持 HTML 上的 lang */ }
+    })();
+  </script>
+
+  <link rel="icon" href="../favicon.ico" />
+  <link rel="preload" as="font" type="font/ttf" href="../fonts/RussoOne.ttf" crossorigin />
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="../index.html" aria-label="返回首页 / Back to home">
+        <img src="../logo.png" width="26" height="26" alt="" class="brand-logo" />
+        <span class="brand-font">PACC</span>
+      </a>
+      <nav>
+        <a href="?lang=zh-CN">中文</a>
+        <a href="?lang=en">EN</a>
+        <a class="dl mono" href="../index.html#download">下载 / Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="doc-wrap doc">
+    <div class="doc-top">
+      <a class="doc-back" href="../index.html">← 返回下载页 / Back</a>
+      <span class="doc-meta">PACC · POTATOTV</span>
+    </div>
+
+    <article lang="zh-CN">
+      <h1>服务协议</h1>
+      <p class="doc-meta">最近更新：2026-09-24</p>
+
+      <h2>一、服务内容</h2>
+      <p>PACC 提供反作弊客户端及配套管控后台。客户端常驻运行并上报运行环境信号，服务端据此给出风险判定，供赛事方或运营方处置。</p>
+
+      <h2>二、使用前提</h2>
+      <ul>
+        <li>你有权在目标设备上安装并运行本客户端</li>
+        <li>客户端需要常驻，并按平台要求获得系统权限（Windows 需内核驱动，Linux 需内核模块与守护进程）；关闭或卸载会导致赛事环境不可用</li>
+        <li>设备需具备可达的上报链路</li>
+      </ul>
+
+      <h2>三、你不得</h2>
+      <ul>
+        <li>逆向、反编译或篡改客户端，绕过、屏蔽其检测与上报</li>
+        <li>伪造上报数据、伪造硬件指纹，或复用他人账号</li>
+        <li>对接口刷量、压测，或进行未授权的自动化调用</li>
+        <li>将本客户端用于破解其它安全产品，或任何违法违规用途</li>
+      </ul>
+
+      <h2>四、下载与校验</h2>
+      <p>下载站公布每个发布物的 SHA-256 与文件体积，请在安装前自行核对；<strong>校验和不一致的安装包请勿运行</strong>，并联系我们。</p>
+      <p>校验和以本下载站与 <span class="mono">/api/dl/latest</span> 下发的数值为准。我们不会通过聊天工具单独向你发送安装包。</p>
+
+      <h2>五、判定与申诉</h2>
+      <p>风险判定由服务端综合评分给出，可能包含误判。对结果有异议的，可通过 <a href="mailto:support@potatotv.asia">support@potatotv.asia</a> 提起申诉，并提供账号标识、时间点与相关日志。</p>
+
+      <h2>六、责任边界</h2>
+      <p>本客户端按「现状」提供。以下情形造成的损失，我们不承担责任：</p>
+      <ul>
+        <li>你关闭、卸载、篡改或绕过客户端</li>
+        <li>系统环境不满足要求（内核版本、驱动签名策略不兼容等）</li>
+        <li>不可抗力或第三方网络故障</li>
+      </ul>
+      <p>我们不对赛事主办方的最终处置决定作担保。</p>
+
+      <h2>七、变更与终止</h2>
+      <p>出于安全或合规原因，我们可以更新客户端与本协议。重大变更会在本页与更新日志中说明。若你不同意变更，请停止使用并卸载客户端。</p>
+
+      <h2>八、联系我们</h2>
+      <p>邮箱：<a href="mailto:support@potatotv.asia">support@potatotv.asia</a></p>
+
+      <p class="doc-foot doc-meta"><a href="privacy.html">隐私政策 →</a></p>
+    </article>
+
+    <article lang="en">
+      <h1>Terms of Service</h1>
+      <p class="doc-meta">Last updated: 2026-09-24</p>
+
+      <h2>1. What we provide</h2>
+      <p>PACC provides an anti-cheat client and its management console. The client runs resident and reports runtime environment signals; the server turns those into risk decisions that the tournament or operations side acts on.</p>
+
+      <h2>2. Prerequisites</h2>
+      <ul>
+        <li>You are entitled to install and run the client on the target machine</li>
+        <li>The client must stay resident and needs the system permissions each platform requires (kernel driver on Windows, kernel module and daemon on Linux). Stopping or uninstalling it makes the tournament environment unusable</li>
+        <li>The machine needs a reachable reporting path</li>
+      </ul>
+
+      <h2>3. Prohibited</h2>
+      <ul>
+        <li>Reverse engineering, decompiling or modifying the client, or bypassing and blocking its detection and reporting</li>
+        <li>Faking reported data or hardware fingerprints, or reusing someone else's account</li>
+        <li>Flooding, load-testing or otherwise automating calls to the API without authorisation</li>
+        <li>Using the client to crack other security products, or for anything unlawful</li>
+      </ul>
+
+      <h2>4. Downloads and verification</h2>
+      <p>The download site publishes the SHA-256 and file size of every artefact. Verify them before installing; <strong>do not run a package whose checksum does not match</strong>, and contact us instead.</p>
+      <p>Published checksums on this site and from <span class="mono">/api/dl/latest</span> are authoritative. We never send installers to you privately over chat.</p>
+
+      <h2>5. Decisions and appeals</h2>
+      <p>Risk decisions come from server-side composite scoring and can be wrong. If you disagree with an outcome, write to <a href="mailto:support@potatotv.asia">support@potatotv.asia</a> with your account identifier, the time in question and any relevant logs.</p>
+
+      <h2>6. Limits of liability</h2>
+      <p>The client is provided "as is". We are not liable for losses caused by:</p>
+      <ul>
+        <li>Stopping, uninstalling, modifying or bypassing the client</li>
+        <li>An environment that does not meet requirements (kernel version, driver signing policy, and similar)</li>
+        <li>Force majeure or third-party network failures</li>
+      </ul>
+      <p>We do not guarantee the final ruling of a tournament organiser.</p>
+
+      <h2>7. Changes and termination</h2>
+      <p>We may update the client and these terms for security or compliance reasons. Material changes are described on this page and in the changelog. If you do not agree, stop using the client and uninstall it.</p>
+
+      <h2>8. Contact</h2>
+      <p>Email: <a href="mailto:support@potatotv.asia">support@potatotv.asia</a></p>
+
+      <p class="doc-foot doc-meta"><a href="privacy.html">Privacy Policy →</a></p>
+    </article>
+  </main>
+</body>
+</html>
