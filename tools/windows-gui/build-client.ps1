@@ -1,4 +1,4 @@
-# PACC v5.0 Windows 客户端一键打包脚本
+﻿# PACC v5.0 Windows 客户端一键打包脚本
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/build-client.ps1
 # 职责：构建 WPF 单文件 EXE -> 构建 Java 探针 jar -> 写入客户端配置（自动读取根目录 .env 的 WSS 密钥）
@@ -50,15 +50,31 @@ if (-not $obfuscator) { throw "找不到 Obfuscar.Console.exe" }
 $obfConfig = Join-Path $env:TEMP ("obfuscar-" + [guid]::NewGuid() + ".xml")
 (Get-Content "$root/tools/windows-gui/obfuscar.xml" -Raw).Replace('PATH_FILLED_BY_SCRIPT', $exeOut) |
   Set-Content $obfConfig -Encoding utf8
-& $obfuscator $obfConfig 2>&1 | Out-Null
+# -s：关闭 Obfuscar 默认开启的 Rollbar 崩溃上报，构建数据不外发
+& $obfuscator -s $obfConfig 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Obfuscar 混淆失败 (exit=$LASTEXITCODE)" }
-# 混淆输出在 $exeOut-obf：替换回 $exeOut，保留 apphost/运行时 dll 原样透传
+
+# Obfuscar 的 OutPath 里只有被混淆的模块与 Mapping.txt，它不复制 apphost 与运行时 dll。
+# 所以只能把混淆后的 dll 覆盖回发布目录——整目录替换会把 243 个运行时文件全部删掉，
+# 产物变成一个无法启动的空壳（zip 里只剩 PaccManager.dll 与映射表）。
 $obfOut = "$exeOut-obf"
-if (-not (Test-Path (Join-Path $obfOut 'PaccManager.dll'))) { throw "混淆未产出 PaccManager.dll" }
-Remove-Item $exeOut -Recurse -Force -ErrorAction SilentlyContinue
-Move-Item $obfOut $exeOut
+$obfDll = Join-Path $obfOut 'PaccManager.dll'
+if (-not (Test-Path $obfDll)) { throw "混淆未产出 PaccManager.dll" }
+Copy-Item $obfDll (Join-Path $exeOut 'PaccManager.dll') -Force
+
+# Mapping.txt 是反混淆对照表：留着能还原崩溃栈，但一旦随包发布，等于把符号表送给逆向者。
+# 因此留档到 dist 下（已在 .gitignore，不进 zip、不上下载站），发布目录里必须清掉。
+$mapSrc = Join-Path $obfOut 'Mapping.txt'
+$mapDir = Join-Path $root "dist/obfuscar-map"
+if (Test-Path $mapSrc) {
+  New-Item -ItemType Directory -Force -Path $mapDir | Out-Null
+  Copy-Item $mapSrc (Join-Path $mapDir "PaccManager-$version-mapping.txt") -Force
+}
+Remove-Item $obfOut -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $obfConfig -Force -ErrorAction SilentlyContinue
 Write-Host ("  已混淆: {0}" -f (Join-Path $exeOut 'PaccManager.dll'))
+Write-Host ("  映射表: {0}（留档，不随产物发布）" -f $mapDir)
+if (Test-Path (Join-Path $exeOut 'Mapping.txt')) { throw "Mapping.txt 混入了发布目录，会随 zip 外泄" }
 
 # ---------- 2. 构建 Java 探针 jar ----------
 Write-Host "`n[2/4] 构建 Java 探针 jar ..." -ForegroundColor Green
@@ -75,10 +91,16 @@ Copy-Item $jar (Join-Path $exeOut $probeName) -Force
 # ---------- 3. 生成客户端配置（自动读 .env 的 WSS 密钥）----------
 Write-Host "`n[3/4] 生成客户端配置并写入 WSS 密钥 ..." -ForegroundColor Green
 $envFile = Join-Path $root ".env"
-if (-not (Test-Path $envFile)) { throw "找不到根目录 .env，无法读取 PACC_SECURITY_WSS_SIGN_SECRET" }
-$secret = (Select-String -Path $envFile -Pattern '^PACC_SECURITY_WSS_SIGN_SECRET=' |
-           ForEach-Object { $_.Line -replace '^[^=]+=','' }).Trim()
+if (-not (Test-Path $envFile)) { throw "找不到根目录 .env，无法读取签名密钥" }
+function Read-EnvValue([string]$name) {
+  (Select-String -Path $envFile -Pattern "^$name=" |
+   ForEach-Object { $_.Line -replace '^[^=]+=','' }).Trim()
+}
+$secret = Read-EnvValue 'PACC_SECURITY_WSS_SIGN_SECRET'
 if ([string]::IsNullOrWhiteSpace($secret)) { throw ".env 未设置 PACC_SECURITY_WSS_SIGN_SECRET" }
+# 特征库包签名密钥：客户端缺失时拒绝启动（与后端 PACC_SIG_SECRET 一致）
+$sigSecret = Read-EnvValue 'PACC_SIG_SECRET'
+if ([string]::IsNullOrWhiteSpace($sigSecret)) { throw ".env 未设置 PACC_SIG_SECRET" }
 
 @"
 # PACC v5.0 客户端配置（由 build-client.ps1 自动生成）
@@ -88,6 +110,7 @@ pacc.detection.redscreen-threshold=85
 pacc.detection.sample-rate=1.0
 pacc.log.level=INFO
 pacc.client.wss-secret=$secret
+pacc.client.signature.secret=$sigSecret
 "@ | Set-Content (Join-Path $exeOut "pacc-client.properties") -Encoding utf8
 
 # ---------- 组装 zip 到发布目录 ----------

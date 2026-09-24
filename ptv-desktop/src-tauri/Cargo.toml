@@ -20,3 +20,15 @@ tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ureq = { version = "2", default-features = false, features = ["json"] }
+
+[profile.release]
+# 发行加固：strip 抹掉符号表（逆向者拿不到函数名与类型名），
+# lto + codegen-units=1 让跨 crate 内联与优化充分展开，顺带减少可被识别的代码结构，
+# panic = "abort" 去掉展开表并让异常路径直接终止（不留下可用于定位的栈展开信息）。
+# 注意：panic = "abort" 下 panic 不可捕获，业务代码不要依赖 catch_unwind 兜底。
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
+# 桌面壳以体积优先：opt-level "s" 是 Tauri 官方推荐值，性能影响对壳层可忽略
+opt-level = "s"

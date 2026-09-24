@@ -10,6 +10,12 @@
   <Var name="RenameProperties" value="false" />
   <Var name="RenameEvents" value="false" />
   <Var name="UseUnicodeNames" value="false" />
+  <!-- 字符串加密：把字面量改为运行时解密，strings/ILSpy 里看不到明文。
+       这是本配置文件里唯一能挡住「直接搜字符串」的一环——URL、配置键、提示文案
+       否则会以明文躺在 DLL 里，跳过反编译步骤就能拿到。
+       注意：字符串会改为经解密辅助方法取值，若某处依赖 ldstr 常量折叠（如 switch 跳转表、
+       特性参数）需回归验证；本项目无此类用法。 -->
+  <Var name="HideStrings" value="true" />
   <Module file="PATH_FILLED_BY_SCRIPT\PaccManager.dll">
     <SkipTypeName>PaccManager.App</SkipTypeName>
     <SkipTypeName>PaccManager.MainWindow</SkipTypeName>

@@ -21,6 +21,9 @@ public partial class MainWindow : Window
 
     private async void OnContentRendered(object? sender, EventArgs e)
     {
+        // 本地完整性校验放在联网之前：离线也要能发现探针被换过
+        VerifyProbeIntegrity();
+
         var info = await _updater.FetchVersionAsync();
         if (info is null) return; // 离线或解析失败，静默
 
@@ -55,12 +58,16 @@ public partial class MainWindow : Window
         string binDir = System.IO.Path.Combine(appDir, "bin");
         string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-5.0.0.jar");
         string versionFile = System.IO.Path.Combine(binDir, "probe.version");
+        string sealFile = probeFile + ProbeIntegrity.SealSuffix;
 
-        // 已有同版本探针则不重复下载
+        // 已有同版本探针则不重复下载；但若封存摘要缺失（从旧版升级上来），补封一次
         try
         {
             if (System.IO.File.Exists(versionFile) && System.IO.File.ReadAllText(versionFile).Trim() == info.ProbeVersion)
+            {
+                if (!System.IO.File.Exists(sealFile)) ProbeIntegrity.Seal(probeFile, sealFile);
                 return;
+            }
         }
         catch { /* 忽略读取失败，继续更新 */ }
 
@@ -72,6 +79,8 @@ public partial class MainWindow : Window
             if (!System.IO.Directory.Exists(binDir)) System.IO.Directory.CreateDirectory(binDir);
             System.IO.File.Copy(ok, probeFile, true);
             System.IO.File.WriteAllText(versionFile, info.ProbeVersion);
+            // 落盘后立刻封存摘要：这是「已验证的 jar」与「以后启动时比对的基准」之间唯一的衔接点
+            ProbeIntegrity.Seal(probeFile, sealFile);
             StatusText.Text = $"探针已更新至 {info.ProbeVersion}（重启 PTV 服务后生效）";
         }
         catch { /* 更新失败不影响主程序 */ }
@@ -79,6 +88,29 @@ public partial class MainWindow : Window
         {
             try { if (System.IO.File.Exists(tempPath)) System.IO.File.Delete(tempPath); } catch { /* 清理失败忽略 */ }
         }
+    }
+
+    /// <summary>
+    /// 启动时核对本地探针 jar 是否仍是安装时的那一份。
+    /// 只在「确定不一致」时告警：解不开封存（换机器/换用户）归为无法判定，不打扰用户。
+    /// </summary>
+    private void VerifyProbeIntegrity()
+    {
+        try
+        {
+            string binDir = System.IO.Path.Combine(InstallDir ?? AppContext.BaseDirectory, "bin");
+            string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-5.0.0.jar");
+            if (ProbeIntegrity.Verify(probeFile, probeFile + ProbeIntegrity.SealSuffix)
+                != ProbeIntegrity.State.Mismatch) return;
+
+            StatusText.Text = "警告：本地探针文件与安装时不一致，检测可能已失效";
+            MessageBox.Show(this,
+                "本地探针文件（bin\\ptv-agent-5.0.0.jar）与安装时记录的摘要不一致。\n\n" +
+                "这通常意味着文件被替换或修改，检测结果不再可信。\n" +
+                "建议从 dl.potatotv.asia 重新安装客户端。",
+                "PACC 完整性告警", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch { /* 校验本身绝不影响启动 */ }
     }
 
     /// <summary>读取安装目录（install.iss 写入 HKCU 注册表），无则回退当前运行目录。</summary>

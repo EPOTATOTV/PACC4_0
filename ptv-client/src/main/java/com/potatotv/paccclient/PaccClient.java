@@ -11,8 +11,10 @@ import com.potatotv.paccclient.store.OfflineQueue;
 import com.potatotv.paccclient.store.RedScreenStatePersistence;
 import com.potatotv.paccclient.ops.OpsClient;
 import com.potatotv.paccclient.signature.SignatureSync;
+import com.potatotv.pacc.proto.PaccWire;
 import com.potatotv.paccclient.transport.PaccWireSigner;
 import com.potatotv.paccclient.transport.WssReporter;
+import com.potatotv.paccclient.transport.WssSessionKey;
 
 import java.lang.management.ManagementFactory;
 import java.net.URI;
@@ -87,10 +89,51 @@ public final class PaccClient {
                 cfg.heartbeatSeconds, cfg.signatureVersion, cfg.reconnectDelaySeconds, cfg.autoReconnect,
                 cfg.wssSignSecret, json -> routeMessage(json, inspectAgent), offlineQueue);
         PaccWireSigner wire = new PaccWireSigner(cfg.wssSignSecret, pteid);
-        inspectAgent.setResponder(m -> reporter.sendEnvelope(wire.build(
-                m.containsKey("type") ? String.valueOf(m.get("type")) : "inspect_started",
-                m.get("session_id") instanceof String s ? s : null,
-                Json.encode(m)).toByteArray()));
+        // ---- WSS 会话级动态密钥（协商 → 轮换 → 断线即弃）----
+        // 静态密钥只在握手首帧用一次；之后每条信封都用本连接独有的会话密钥签名。
+        // 未启用时 session 为 null，wire 恒用静态密钥，行为与加固前完全一致。
+        WssSessionKey session = cfg.wssSessionKeyEnabled ? new WssSessionKey(cfg.wssSignSecret) : null;
+
+        inspectAgent.setResponder(m -> {
+            String type = m.containsKey("type") ? String.valueOf(m.get("type")) : "inspect_started";
+            String sid = m.get("session_id") instanceof String s ? s : null;
+            reporter.sendEnvelope(wire.build(type, sid, Json.encode(m)).toByteArray());
+            // 达到轮换阈值（条数或时长）就发 rekey；epoch 要等服务端 ack 后才推进，
+            // 否则本地已换密钥、服务端还在用旧的，中间这段消息会全部验签失败。
+            if (session != null && session.active() && session.dueForRotation() >= 0) {
+                reporter.sendEnvelope(wire.build(WssSessionKey.REKEY_TYPE, session.sessionId(),
+                        session.rekeyPayload()).toByteArray());
+            }
+        });
+
+        if (session != null) {
+            reporter.setOnConnected(() -> {
+                // 每次连接（含重连）都重新协商：新会话 ID + 新盐，旧密钥不跨连接复用
+                String initPayload = session.start();
+                wire.setSecret(cfg.wssSignSecret, WssSessionKey.SIG_V1);
+                reporter.sendEnvelope(wire.build(WssSessionKey.INIT_TYPE, session.sessionId(),
+                        initPayload).toByteArray());
+            });
+            reporter.setOnBinaryMessage(bytes -> {
+                try {
+                    PaccWire.WsEnvelope env = PaccWire.WsEnvelope.parseFrom(bytes);
+                    if (WssSessionKey.READY_TYPE.equals(env.getType())) {
+                        if (session.activate()) {
+                            wire.setSecret(session.signingKey(), session.sigVersion());
+                            System.out.println("[PTV-Client] WSS 会话密钥已激活 sid=" + session.sessionId());
+                        }
+                    } else if (WssSessionKey.ACK_TYPE.equals(env.getType())) {
+                        Object epoch = Json.decodeObject(env.getPayloadJson()).get("epoch");
+                        if (epoch instanceof Number n && session.commitRotation(n.longValue())) {
+                            wire.setSecret(session.signingKey(), session.sigVersion());
+                            System.out.println("[PTV-Client] WSS 会话密钥已轮换 epoch=" + session.epoch());
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("[PTV-Client] 会话密钥帧处理失败: " + e.getMessage());
+                }
+            });
+        }
 
         try {
             reporter.connect();

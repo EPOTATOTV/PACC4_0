@@ -35,13 +35,19 @@ public final class ClientConfig {
     public final String wssSignSecret;
     /** 特征库包签名密钥：与服务器端 PACC_SIG_SECRET 保持一致，用于端侧校验热更新包。 */
     public final String sigSecret;
+    /**
+     * 是否启用 WSS 会话级动态密钥。
+     * <p>默认关闭：服务端若未开启 {@code pacc.wss.session-key-required} 且未处理 session_init，
+     * 客户端贸然改走 v2 会导致查端信令全部验签失败。等两端一起升级后再打开。</p>
+     */
+    public final boolean wssSessionKeyEnabled;
 
     /** 敏感值解密口令：仅用设备指纹（不绑 pteid，保持 wss/sig/token 设备全局可解）。 */
     private final String secretPassword = MachineFingerprint.hash();
 
     private ClientConfig(Properties p) {
         this.pteid = get(p, "pacc.client.pteid", "PACC_CLIENT_PTEID", "PT0000000001");
-        this.token = getSecret(p, "pacc.client.token", null, "PACC_CLIENT_TOKEN", "demo-access-token");
+        this.token = getSecretOr(p, "pacc.client.token", null, "PACC_CLIENT_TOKEN", "demo-access-token");
         this.edition = get(p, "pacc.client.edition", "PACC_CLIENT_EDITION", "JAVA");
         this.wssUri = get(p, "pacc.client.wss.uri", "PACC_CLIENT_WSS_URI", "ws://localhost:8080/ws/ptv");
         this.serverUri = get(p, "pacc.client.server.uri", "PACC_CLIENT_SERVER_URI", "http://localhost:8080");
@@ -55,10 +61,14 @@ public final class ClientConfig {
         this.reconnectDelaySeconds = getInt(p, "pacc.client.reconnect.delay.seconds", "PACC_CLIENT_RECONNECT_DELAY_SECONDS", 5);
         this.autoReconnect = getBool(p, "pacc.client.reconnect.enabled", "PACC_CLIENT_AUTO_RECONNECT", true);
         this.signatureVersion = get(p, "pacc.client.signature.version", "PACC_CLIENT_SIGNATURE_VERSION", "v5.0.0");
-        this.wssSignSecret = getSecret(p, "pacc.client.wss.sign.secret", "pacc.client.wss-secret",
-                "PACC_CLIENT_WSS_SECRET", "pacc-dev-wss-sign-key-change-me");
-        this.sigSecret = getSecret(p, "pacc.client.signature.secret", null,
-                "PACC_CLIENT_SIG_SECRET", "pacc-sig-test-secret");
+        // 两个签名密钥不提供内置默认值：产物中一旦出现明文默认密钥，
+        // 任何拿到发行件的人都能伪造 WSS 上报与特征库包。缺失即拒绝启动（fail-closed）。
+        this.wssSignSecret = requireSecret(p, "pacc.client.wss.sign.secret", "pacc.client.wss-secret",
+                "PACC_CLIENT_WSS_SECRET");
+        this.sigSecret = requireSecret(p, "pacc.client.signature.secret", null,
+                "PACC_CLIENT_SIG_SECRET");
+        this.wssSessionKeyEnabled = getBool(p, "pacc.client.wss.session-key.enabled",
+                "PACC_CLIENT_WSS_SESSION_KEY_ENABLED", false);
     }
 
     /** 环境变量优先，其次配置文件，最后内置默认值。 */
@@ -68,21 +78,45 @@ public final class ClientConfig {
     }
 
     /**
-     * 读取敏感键：支持遗留 key 回退、环境变量优先，并对 "enc:" 前缀做本机指纹解密。
-     * 解密失败（机器变化/被篡改）回退默认值，避免启动崩溃。
+     * 读取签名密钥：支持遗留 key 回退、环境变量优先，并对 "enc:" 前缀做本机指纹解密。
+     * 取值顺序 环境变量 &gt; 配置文件 &gt; 遗留 key；全部缺失或解密失败时抛异常，
+     * 由 {@link #load()} 调用方终止启动，绝不静默降级为公开默认值。
      */
-    private String getSecret(Properties p, String key, String legacyKey, String env, String def) {
-        String v = p.getProperty(key);
-        if ((v == null || v.isBlank()) && legacyKey != null)
-            v = p.getProperty(legacyKey);
-        String envv = System.getenv(env);
-        if (envv != null && !envv.isBlank()) v = envv;
-        if (v == null || v.isBlank()) v = def;
+    private String requireSecret(Properties p, String key, String legacyKey, String env) {
+        String v = System.getenv(env);
+        if (v == null || v.isBlank()) v = p.getProperty(key);
+        if ((v == null || v.isBlank()) && legacyKey != null) v = p.getProperty(legacyKey);
+        if (v == null || v.isBlank()) {
+            throw new IllegalStateException("缺少必需密钥 " + key + "（可用环境变量 " + env + " 注入）");
+        }
         if (v.startsWith(LocalSecureStore.PREFIX)) {
             try {
                 v = LocalSecureStore.decryptString(v, secretPassword);
             } catch (IOException | RuntimeException e) {
-                v = def; // 解密失败：回退默认，不抛
+                throw new IllegalStateException("密钥 " + key + " 解密失败（设备指纹已变化或配置被篡改）", e);
+            }
+        }
+        if (v.isBlank()) {
+            throw new IllegalStateException("密钥 " + key + " 解密结果为空");
+        }
+        return v;
+    }
+
+    /**
+     * 读取可选的端到端加密值（如访问令牌）：支持 env 优先 + "enc:" 前缀本机解密，
+     * 缺失时回落到内置默认（仅供 demo）。区别于 {@link #requireSecret} 的地方是
+     * 它允许默认值——令牌不像签名密钥那样是全局防伪凭据。
+     */
+    private String getSecretOr(Properties p, String key, String legacyKey, String env, String def) {
+        String v = System.getenv(env);
+        if (v == null || v.isBlank()) v = p.getProperty(key);
+        if ((v == null || v.isBlank()) && legacyKey != null) v = p.getProperty(legacyKey);
+        if (v == null || v.isBlank()) return def;
+        if (v.startsWith(LocalSecureStore.PREFIX)) {
+            try {
+                v = LocalSecureStore.decryptString(v, secretPassword);
+            } catch (IOException | RuntimeException e) {
+                throw new IllegalStateException("值 " + key + " 解密失败（设备指纹已变化或配置被篡改）", e);
             }
         }
         return v;

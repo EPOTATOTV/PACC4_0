@@ -14,6 +14,12 @@
         <java.version>21</java.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+        <!-- 发行产物加固：默认开启。本地需要可读产物调试时用 -Dpacc.proguard.skip=true 跳过。 -->
+        <pacc.proguard.skip>false</pacc.proguard.skip>
+        <proguard.version>7.6.1</proguard.version>
+        <!-- 必须与 proguard-base 的传递依赖一致：7.6.1 -> proguard-core 9.1.7 -->
+        <proguard.core.version>9.1.7</proguard.core.version>
+        <protobuf.version>3.23.2</protobuf.version>
     </properties>
 
     <!-- 玩家端运行时依赖：仅引入 protobuf（WSS 查端信令信封，见 proto/pacc_wire.proto），
@@ -22,7 +28,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.23.2</version>
+            <version>${protobuf.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -55,6 +61,49 @@
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+            <!-- 发行产物加固（P0）：打包后立即对自有字节码做混淆 / 收缩 / 优化。
+                 必须声明在 maven-jar-plugin 之后，保证以已生成的 jar 作为输入。 -->
+            <plugin>
+                <groupId>com.github.wvengen</groupId>
+                <artifactId>proguard-maven-plugin</artifactId>
+                <version>2.6.0</version>
+                <executions>
+                    <execution>
+                        <id>obfuscate-release-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>proguard</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <skip>${pacc.proguard.skip}</skip>
+                    <proguardVersion>${proguard.version}</proguardVersion>
+                    <obfuscate>true</obfuscate>
+                    <injar>${project.build.finalName}.jar</injar>
+                    <outjar>${project.build.finalName}.jar</outjar>
+                    <!-- 输入 jar 缺失说明生命周期顺序异常，直接失败而不是静默产出未加固产物 -->
+                    <injarNotExistsSkip>false</injarNotExistsSkip>
+                    <options>
+                        <option>-include</option>
+                        <option>${project.basedir}/proguard-rules.pro</option>
+                    </options>
+                </configuration>
+                <!-- 插件自身固定 proguard-base 7.2.2 / proguard-core 9.0.1（不支持 Java 21 字节码），
+                     此处显式升级为一对匹配版本；两者必须同时覆盖，否则 ClassReader 签名不匹配。 -->
+                <dependencies>
+                    <dependency>
+                        <groupId>com.guardsquare</groupId>
+                        <artifactId>proguard-base</artifactId>
+                        <version>${proguard.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.guardsquare</groupId>
+                        <artifactId>proguard-core</artifactId>
+                        <version>${proguard.core.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>

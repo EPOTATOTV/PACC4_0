@@ -42,6 +42,21 @@ public final class WssReporter implements AutoCloseable {
     private final Consumer<String> onMessage;
     private final OfflineQueue offlineQueue;
 
+    /** 二进制帧回调（会话密钥握手）。默认空实现，不影响既有链路。 */
+    private volatile Consumer<byte[]> onBinaryMessage;
+    /** 每次连接（含重连）成功后触发，用于发起 session_init 重新协商密钥。 */
+    private volatile Runnable onConnected;
+
+    /** 注册二进制帧处理器（服务端 session_ready / session_ack）。 */
+    public void setOnBinaryMessage(Consumer<byte[]> handler) {
+        this.onBinaryMessage = handler;
+    }
+
+    /** 注册「连接已建立」回调；重连成功同样触发，因此会话密钥不会跨连接复用。 */
+    public void setOnConnected(Runnable handler) {
+        this.onConnected = handler;
+    }
+
     private static final SecureRandom RAND = new SecureRandom();
     private static final long SIGN_WINDOW_SECONDS = 300;
 
@@ -109,6 +124,16 @@ public final class WssReporter implements AutoCloseable {
             }
             socket = ws;
             everConnected = true;
+        }
+        // 在锁外触发：回调会经 socket 发帧，持锁执行容易和发送路径互相等待。
+        // 每次连接（含重连）都触发一次，调用方据此重新协商会话密钥。
+        Runnable cb = onConnected;
+        if (cb != null) {
+            try {
+                cb.run();
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 连接后回调失败: " + rootMessage(e));
+            }
         }
     }
 
@@ -307,6 +332,23 @@ public final class WssReporter implements AutoCloseable {
                 buffer.setLength(0);
                 System.out.println("[PTV-Client] 收到服务端消息: " + msg);
                 onMessage.accept(msg);
+            }
+            webSocket.request(1);
+            return null;
+        }
+
+        @Override
+        public CompletionStage<?> onBinary(WebSocket webSocket, java.nio.ByteBuffer data, boolean last) {
+            // 服务端的 session_ready / session_ack 走二进制帧；转发给会话密钥状态机。
+            // 不在此处阻塞：只是把字节交出去，避免在 WebSocket 回调里等待握手结果导致死锁。
+            if (last && onBinaryMessage != null) {
+                byte[] bytes = new byte[data.remaining()];
+                data.get(bytes);
+                try {
+                    onBinaryMessage.accept(bytes);
+                } catch (Exception e) {
+                    System.err.println("[PTV-Client] 处理二进制帧失败: " + e.getMessage());
+                }
             }
             webSocket.request(1);
             return null;

@@ -12,10 +12,14 @@ import java.security.MessageDigest;
  * 客户端 WSS 信封（protobuf {@link PaccWire.WsEnvelope}）构建与签名。
  * <p>与服务端 {@code PaccWireCodec} 同构：规范字段 HMAC-SHA256、时间戳、nonce 防重放。
  * 用于客户端→服务端的查端信令（inspect_*）以二进制帧收发，服务端校验一致。</p>
+ *
+ * <p>签名密钥按 {@link WssSessionKey#sigVersion()} 选择：未激活时用静态密钥（v1，握手期），
+ * 激活后与会话密钥（v2）看齐。轮换归 {@link WssSessionKey} 管理，本类只负责「用当前密钥签名」。</p>
  */
 public final class PaccWireSigner {
 
-    private final String secret;
+    private volatile String secret = "";
+    private volatile int sigVersion = WssSessionKey.SIG_V1;
     private final String pteid;
     private static final SecureRandom RAND = new SecureRandom();
 
@@ -24,8 +28,20 @@ public final class PaccWireSigner {
         this.pteid = pteid == null ? "" : pteid;
     }
 
-    /** 构建并签名一枚信封（对应服务端 {code PaccWireCodec#build}）。 */
+    /** 切换当前签名密钥与版本（会话密钥激活/轮换时调用）。 */
+    public void setSecret(String newSecret, int newSigVersion) {
+        this.secret = newSecret == null ? "" : newSecret;
+        this.sigVersion = newSigVersion;
+    }
+
+    /** 构建并签名一枚信封。 */
     public PaccWire.WsEnvelope build(String type, String sessionId, String payloadJson) {
+        PaccWire.WsEnvelope.Builder b = base(type, sessionId, payloadJson);
+        String sig = hmacHex(canonical(b.build()), secret);
+        return b.setSignature(sig).build();
+    }
+
+    private PaccWire.WsEnvelope.Builder base(String type, String sessionId, String payloadJson) {
         long ts = System.currentTimeMillis();
         byte[] nb = new byte[8];
         RAND.nextBytes(nb);
@@ -36,10 +52,9 @@ public final class PaccWireSigner {
                 .setNonce(nonce)
                 .setPteid(pteid)
                 .setPayloadJson(payloadJson == null ? "" : payloadJson)
-                .setSigVersion(1);
+                .setSigVersion(sigVersion);
         if (sessionId != null) b.setSessionId(sessionId);
-        String sig = hmacHex(canonical(b.build()), secret);
-        return b.setSignature(sig).build();
+        return b;
     }
 
     private static String canonical(PaccWire.WsEnvelope env) {
