@@ -38,6 +38,10 @@ public class SecurityConfig {
     @Value("${pacc.security.api-master-secret:pacc-dev-api-master-key-change-me}")
     private String apiMasterSecret;
 
+    /** 强制管理员两步验证：开启后登录必须完成 TOTP，且静态密钥直连被停用。 */
+    @Value("${pacc.security.admin-2fa-required:false}")
+    private boolean admin2faRequired;
+
     private final AdminTokenService adminTokenService;
     private final ApiKeyRepository apiKeyRepository;
     private final ApiUsageLogRepository apiUsageLogRepository;
@@ -71,7 +75,7 @@ public class SecurityConfig {
         // 安全响应头 + 统一访问日志：置于过滤器链最前，覆盖所有请求
         http.addFilterBefore(new SecurityHeadersFilter(), ChannelProcessingFilter.class);
         http.addFilterBefore(new AccessLogFilter(), ChannelProcessingFilter.class);
-        http.addFilterBefore(new AdminKeyFilter(adminApiKey, adminTokenService, allowedOrigins), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(new AdminKeyFilter(adminApiKey, adminTokenService, allowedOrigins, admin2faRequired), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(new JwtAuthFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(new ApiV1AuthFilter(apiKeyRepository, apiUsageLogRepository, apiKeyService, apiMasterSecret), UsernamePasswordAuthenticationFilter.class);
         // 全局限流置于认证过滤器之后（需读取 adminActor / PTEID 身份属性）

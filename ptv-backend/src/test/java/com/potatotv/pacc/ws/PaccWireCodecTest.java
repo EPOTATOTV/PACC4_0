@@ -15,7 +15,7 @@ class PaccWireCodecTest {
 
     @Test
     void roundTripSignThenVerifyOk() {
-        PaccWireCodec c = new PaccWireCodec(SECRET, 60_000);
+        PaccWireCodec c = new PaccWireCodec(SECRET, 60_000, new WssSessionKeys(false));
         PaccWire.WsEnvelope env = PaccWireCodec.build("inspect_started", "s1", "PT01", "{}", SECRET);
         assertEquals("inspect_started", env.getType());
         assertEquals("s1", env.getSessionId());
@@ -26,7 +26,7 @@ class PaccWireCodecTest {
 
     @Test
     void tamperedPayloadFails() {
-        PaccWireCodec c = new PaccWireCodec(SECRET, 60_000);
+        PaccWireCodec c = new PaccWireCodec(SECRET, 60_000, new WssSessionKeys(false));
         PaccWire.WsEnvelope env = PaccWireCodec.build("inspect_forensics", "s2", "PT02", "{\"os\":\"win\"}", SECRET);
         PaccWire.WsEnvelope tampered = env.toBuilder().setPayloadJson("{\"os\":\"hijacked\"}").build();
         assertFalse(c.verify(tampered));
@@ -34,15 +34,15 @@ class PaccWireCodecTest {
 
     @Test
     void wrongSecretFails() {
-        PaccWireCodec a = new PaccWireCodec(SECRET, 60_000);
+        PaccWireCodec a = new PaccWireCodec(SECRET, 60_000, new WssSessionKeys(false));
         PaccWire.WsEnvelope env = PaccWireCodec.build("inspect_offer", "s3", "PT03", "", SECRET);
-        PaccWireCodec b = new PaccWireCodec("another-secret", 60_000);
+        PaccWireCodec b = new PaccWireCodec("another-secret", 60_000, new WssSessionKeys(false));
         assertFalse(b.verify(env));
     }
 
     @Test
     void replayNonceFails() {
-        PaccWireCodec c = new PaccWireCodec(SECRET, 60_000);
+        PaccWireCodec c = new PaccWireCodec(SECRET, 60_000, new WssSessionKeys(false));
         PaccWire.WsEnvelope env = PaccWireCodec.build("inspect_ice", "s4", "PT04", "", SECRET);
         assertTrue(c.verify(env));
         // 同一信封重放 → nonce 已见，拒绝
@@ -51,7 +51,7 @@ class PaccWireCodecTest {
 
     @Test
     void differentNoncesDistinctAndVerifiable() {
-        PaccWireCodec c = new PaccWireCodec(SECRET, 60_000);
+        PaccWireCodec c = new PaccWireCodec(SECRET, 60_000, new WssSessionKeys(false));
         PaccWire.WsEnvelope e1 = PaccWireCodec.build("ping", "s5", "", "", SECRET);
         PaccWire.WsEnvelope e2 = PaccWireCodec.build("ping", "s5", "", "", SECRET);
         assertNotEquals(e1.getNonce(), e2.getNonce());

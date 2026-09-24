@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.domain.SecurityTotp;
 import com.potatotv.pacc.repository.SecurityTotpRepository;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -44,6 +45,7 @@ public class TotpService {
     private static final Logger log = LoggerFactory.getLogger(TotpService.class);
 
     private static final String PENDING_ISSUER = "pacc-2fa-pending";
+    private static final String ADMIN_PENDING_ISSUER = "pacc-admin-2fa-pending";
     private static final long PENDING_TTL_SECONDS = 300L; // 5 分钟
     private static final int RECOVERY_COUNT = 10;
     private static final String[] BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".split("");
@@ -128,21 +130,53 @@ public class TotpService {
 
     /** 签发登录第二步 pending 令牌（5 分钟有效，夹带 nonce 防重放）。 */
     public String issuePending(String pteid) {
-        Instant exp = Instant.now().plusSeconds(PENDING_TTL_SECONDS);
-        return Jwts.builder()
-                .issuer(PENDING_ISSUER)
-                .subject(pteid)
-                .id(randomId())
-                .expiration(Date.from(exp))
-                .signWith(pendingKey)
-                .compact();
+        return issuePending(pteid, PENDING_ISSUER, null);
     }
 
     /** 校验 pending 令牌并返回 PTEID；非法/越期抛出 SecurityException。 */
     public String parsePending(String pending) {
+        return parsePending(pending, PENDING_ISSUER).getSubject();
+    }
+
+    // -------------------------------- 管理员 2FA --------------------------------
+
+    /** 管理员第二步 pending 令牌的解析结果。 */
+    public record AdminPending(String identity, String role) {}
+
+    /**
+     * 签发管理员登录第二步 pending 令牌。
+     * <p>用独立 issuer：与玩家 pending 令牌即使落到对方端点也验不过，
+     * 避免两条登录链路互相成为对方的旁路。</p>
+     * <p>角色随令牌夹带——飞书身份的角色要靠白名单反查，第二步时已无授权码可换，
+     * 只能在第一步算好后带过来。令牌有签名与 5 分钟有效期，可信度等同于第一步结果。</p>
+     */
+    public String issueAdminPending(String identity, String role) {
+        return issuePending(identity, ADMIN_PENDING_ISSUER, role);
+    }
+
+    /** 校验管理员 pending 令牌；非法/越期抛出 SecurityException。 */
+    public AdminPending parseAdminPending(String pending) {
+        Claims c = parsePending(pending, ADMIN_PENDING_ISSUER);
+        return new AdminPending(c.getSubject(), c.get("arole", String.class));
+    }
+
+    private String issuePending(String subject, String issuer, String adminRole) {
+        Instant exp = Instant.now().plusSeconds(PENDING_TTL_SECONDS);
+        var builder = Jwts.builder()
+                .issuer(issuer)
+                .subject(subject)
+                .id(randomId())
+                .expiration(Date.from(exp));
+        if (adminRole != null) {
+            builder.claim("arole", adminRole);
+        }
+        return builder.signWith(pendingKey).compact();
+    }
+
+    private Claims parsePending(String pending, String issuer) {
         try {
-            return Jwts.parser().requireIssuer(PENDING_ISSUER).verifyWith(pendingKey).build()
-                    .parseSignedClaims(pending).getPayload().getSubject();
+            return Jwts.parser().requireIssuer(issuer).verifyWith(pendingKey).build()
+                    .parseSignedClaims(pending).getPayload();
         } catch (JwtException | IllegalArgumentException e) {
             throw new SecurityException("两步验证会话已失效，请重新登录");
         }

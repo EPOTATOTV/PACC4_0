@@ -1,9 +1,11 @@
 package com.potatotv.pacc.cluster;
 
+import com.potatotv.pacc.service.LoginLockout;
 import com.potatotv.pacc.service.LoginThrottle;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 /**
  * 多实例共享存储装配：默认进程内；当 {@code pacc.cluster.redis-enabled=true} 时切换为
@@ -13,6 +15,7 @@ import org.springframework.context.annotation.Configuration;
 public class ClusterConfig {
 
     @Bean
+    @Primary
     AttemptLedger attemptLedger(@Value("${pacc.cluster.redis-enabled:false}") boolean redisEnabled,
                                 @Value("${pacc.cluster.redis-host:127.0.0.1}") String host,
                                 @Value("${pacc.cluster.redis-port:6379}") int port,
@@ -21,6 +24,21 @@ public class ClusterConfig {
             return new RedisAttemptLedger(new RedisClient(host, port, auth, 2000), LoginThrottle.WINDOW_MS);
         }
         return new InMemoryAttemptLedger(LoginThrottle.WINDOW_MS);
+    }
+
+    /**
+     * 长窗锁定计数专用账本（15 分钟）。与短窗限流账本分开：窗口长度不同，
+     * 混用会让「5 次/60s」的限流被 15 分钟窗口稀释。多实例下同样走 Redis。
+     */
+    @Bean
+    AttemptLedger lockoutLedger(@Value("${pacc.cluster.redis-enabled:false}") boolean redisEnabled,
+                                @Value("${pacc.cluster.redis-host:127.0.0.1}") String host,
+                                @Value("${pacc.cluster.redis-port:6379}") int port,
+                                @Value("${pacc.cluster.redis-auth:}") String auth) {
+        if (redisEnabled) {
+            return new RedisAttemptLedger(new RedisClient(host, port, auth, 2000), LoginLockout.WINDOW_MS);
+        }
+        return new InMemoryAttemptLedger(LoginLockout.WINDOW_MS);
     }
 
     @Bean

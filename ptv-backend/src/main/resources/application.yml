@@ -44,6 +44,12 @@ pacc:
     sig-secret: ${PACC_SIG_SECRET:}
     # 管理后台允许的跨域来源（Origin 白名单，逗号分隔）。
     allowed-origins: "https://admin.potatotv.asia,http://admin.potatotv.asia,http://localhost:5173,https://localhost:5173"
+    # 强制管理员两步验证（TOTP）。
+    # 开启后：登录必须完成第二步；且 X-Admin-Key 静态密钥直连被停用（否则同一密钥可绕过 2FA 调任意接口）。
+    # 开启顺序很重要——先在关闭状态下用登录会话调用 /api/admin/2fa/setup 与 /enable 完成绑定，
+    # 再打开本开关，否则未绑定的管理员会被挡在门外。
+    # 另外：开启后依赖 X-Admin-Key 的自动化脚本与桌面工具将无法直连，需改用会话令牌。
+    admin-2fa-required: ${PACC_SECURITY_ADMIN_2FA_REQUIRED:false}
   mail:
     # 仅 local 联调可开 stub；生产默认关闭（fail-closed：未配置真实 SMTP 时，找回邮件不实际发送）。
     stub-enabled: ${PACC_MAIL_STUB_ENABLED:false}
@@ -63,6 +69,16 @@ pacc:
     # 邮箱/手机验证码有效性窗口与同目标最小重发间隔
     ttl-minutes: 10
     resend-seconds: 60
+  auth:
+    lockout:
+      # 账户 / 来源 IP 的临时锁定：15 分钟窗口内累计失败达 10 次即拒绝登录，
+      # 与短窗限流（60s/5 次）叠加。计数随滑动窗口自然过期，锁定自动解除。
+      # 注意：阈值过低会误伤共用出口 IP 的场所（网吧 / 校园网），按实际流量调整。
+      max-failures: 10
+      # 渐进式延迟：每次失败后额外等待 base*failures 毫秒，上限 max-delay-ms。
+      # 延迟占用请求线程，上限不宜过大，否则洪峰下会耗尽线程池。
+      base-delay-ms: 80
+      max-delay-ms: 400
   detection:
     redscreen-threshold: 85        # 综合风险评分触发红屏阈值
     severe-threshold: 95           # 三级红屏阈值
@@ -85,6 +101,15 @@ pacc:
     baseline-scale: 3.0            # 基线 z-score 偏离映射尺度
   websocket:
     endpoint: /ws                # 玩家端 WebSocket 长连接端点
+  wss:
+    # 信封时间戳窗口（毫秒）
+    ts-window-ms: 60000
+    # 是否强制要求 WSS 会话级动态密钥。
+    # false：v1（静态密钥）与 v2（会话密钥）都接受，旧客户端不受影响。
+    # true：仅接受 v2，未完成 session_init 的客户端二进制信令会被拒绝——这是真正
+    #       让「静态密钥泄露也无法伪造信令」生效的开关，需客户端同步开启
+    #       pacc.client.wss.session-key.enabled 后再打开。
+    session-key-required: ${PACC_WSS_SESSION_KEY_REQUIRED:false}
   webhook:
     retry: 3
   ai:
@@ -95,6 +120,12 @@ pacc:
     # Lua 动态规则引擎（classpath:rules/*.lua，可热更新）
     enabled: true
     max-bonus: 15          # 规则命中加分上限
+  ratelimit:
+    # 通用令牌桶总开关（按身份 + 请求类别）；仅压测环境可关
+    enabled: ${PACC_RATELIMIT_ENABLED:true}
+    # 下载计数 /api/dl/track 的按来源 IP 自然日配额，超出返回 429。
+    # 只统计下载点击数，正常用户一天远达不到；共用出口 IP 的场所（网吧/校园网）可上调。
+    dl-track-per-day: ${PACC_RATELIMIT_DL_TRACK_PER_DAY:100}
 
 logging:
   level:

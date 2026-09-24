@@ -25,20 +25,29 @@ import java.util.Set;
  *   <li>会话令牌额外校验来源指纹（IP+UA），防止令牌被拿到其它设备上冒用；</li>
  *   <li>对管理接口做 Origin 校验，拒绝跨站来源的爬虫/伪造请求。</li>
  * </ol>
- * 登录入口（login / 飞书 OAuth）放行，由处理器内部完成校验与审计。
+ * 登录入口（login / login/2fa / 飞书 OAuth）放行，由处理器内部完成校验与审计。
+ * <p>{@code pacc.security.admin-2fa-required=true} 时静态 Key 直连被停用，原因见
+ * {@link #doFilterInternal} 中的说明。</p>
  */
 public class AdminKeyFilter extends OncePerRequestFilter {
 
     private final String expectedSha256;
     private final AdminTokenService adminTokenService;
     private final Set<String> allowedOrigins = new HashSet<>();
+    private final boolean admin2faRequired;
 
     /** 管理端会话 cookie 名（与 AdminAuthController 下发一致）。 */
     private static final String ADMIN_COOKIE = "pacc_admin";
 
     public AdminKeyFilter(String expectedKey, AdminTokenService adminTokenService, String allowedOriginsCsv) {
+        this(expectedKey, adminTokenService, allowedOriginsCsv, false);
+    }
+
+    public AdminKeyFilter(String expectedKey, AdminTokenService adminTokenService, String allowedOriginsCsv,
+                          boolean admin2faRequired) {
         this.expectedSha256 = sha256(expectedKey == null ? "" : expectedKey);
         this.adminTokenService = adminTokenService;
+        this.admin2faRequired = admin2faRequired;
         if (allowedOriginsCsv != null) {
             Arrays.stream(allowedOriginsCsv.split(","))
                     .map(String::trim).filter(s -> !s.isEmpty())
@@ -49,9 +58,11 @@ public class AdminKeyFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String uri = request.getRequestURI();
-        // 放行登录入口与登录态探测/登出（处理器内自行校验 cookie），其余 /api/admin/** 需认证
+        // 放行登录入口（含第二步验证）与登录态探测/登出（处理器内自行校验 cookie），其余 /api/admin/** 需认证。
+        // /api/admin/login/2fa 必须放行：此刻用户尚未持有会话，正是来换取会话的。
         return !uri.startsWith("/api/admin/")
                 || uri.equals("/api/admin/login")
+                || uri.equals("/api/admin/login/2fa")
                 || uri.equals("/api/admin/me")
                 || uri.equals("/api/admin/logout")
                 || uri.startsWith("/api/admin/feishu/");
@@ -79,6 +90,15 @@ public class AdminKeyFilter extends OncePerRequestFilter {
         boolean validSession = sessionRole != null;
         if (!validKey && !validSession) {
             respond(response, HttpServletResponse.SC_UNAUTHORIZED, "{\"error\":\"管理后台认证失败\"}");
+            return;
+        }
+        // 强制 2FA 环境下停用静态 Key 直连。同一个密钥既能走 /api/admin/login 完成两步验证，
+        // 也能塞进 X-Admin-Key 头直接调任意管理接口；若不封这条路，持有密钥者跳过第二步即可全权访问，
+        // 2FA 就成了摆设。代价是自动化脚本/桌面工具在该环境下无法再用密钥直连，
+        // 因此默认关闭该开关，由运维在完成绑定后再开启。
+        if (admin2faRequired && validKey && !validSession) {
+            respond(response, HttpServletResponse.SC_FORBIDDEN,
+                    "{\"error\":\"本环境要求管理员两步验证，静态密钥直连已停用，请通过登录流程获取会话\"}");
             return;
         }
         // 透出操作人身份与角色，供审计切面/拦截器读取：

@@ -47,6 +47,7 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
     private final InspectSignalBus inspectSignalBus;
     private final MapBpEventBus mapBpEventBus;
     private final PaccWireCodec paccWireCodec;
+    private final WssSessionKeys sessionKeys;
 
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
@@ -102,20 +103,65 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
     }
 
     /**
-     * 二进制帧 = protobuf 查端信令信封：验签后按 {@code inspect_*} 转发给管理端信号总线
-     * （与 JSON 文本帧事件/红屏链路并存）。text 帧仍走 {@link #handleTextMessage}。
+     * 二进制帧 = protobuf 查端信令信封：验签后转发给管理端信号总线；另有两条会话密钥控制消息在此处理。
+     * <p>密钥流程：
+     * <ul>
+     *   <li>session_init（v1 静态密钥引导）→ 派生并登记会话，回 session_ready（v2 会话密钥）；</li>
+     *   <li>session_rekey（v2 会话密钥）→ 链式轮换，回 session_ack；</li>
+     *   <li>其余 inspect_*（v2 会话密钥）→ 验签后转发。</li>
+     * </ul>
+     * 会话密钥建立前，任何 inspect_* 都进不来（强制模式 v1 被拒；非强制模式下旧客户端仍可用 v1）。</p>
      */
     @Override
     protected void handleBinaryMessage(@NonNull WebSocketSession session, @NonNull BinaryMessage message) {
         String pteid = (String) session.getAttributes().get("pteid");
         try {
             PaccWire.WsEnvelope env = paccWireCodec.parse(message.getPayload().array());
+            String type = env.getType();
             if (!paccWireCodec.verify(env)) {
-                log.warn("信封校验失败（可能抓包重放/篡改）pteid={} type={} session={}",
-                        pteid, env.getType(), session.getId());
+                log.warn("信封校验失败（可能抓包重放/篡改/会话密钥失效）pteid={} type={} session={}",
+                        pteid, type, session.getId());
                 return;
             }
-            String type = env.getType();
+            if (WssSessionKeys.INIT_TYPE.equals(type)) {
+                // 用静态密钥（v1）引导握手的初帧：必须在会话建立前可验，故由 verify 的 v1 分支放行
+                String sid = env.getSessionId();
+                String salt = parseSalt(env.getPayloadJson());
+                if (sid == null || sid.isBlank()) {
+                    log.warn("session_init 缺 session_id pteid={}", pteid);
+                    return;
+                }
+                if (salt == null) {
+                    log.warn("session_init 缺盐或盐非法 pteid={} sid={}", pteid, sid);
+                    return;
+                }
+                WssSessionKeys.Session reg = sessionKeys.open(sid, salt, pteid, paccWireCodec.staticSecret());
+                if (reg == null) {
+                    log.warn("session_init 被拒（非法盐或会话超限）pteid={} sid={}", pteid, sid);
+                    return;
+                }
+                // 记下本连接的会话密钥 id，断线时据此销毁密钥
+                session.getAttributes().put("paccSessionId", sid);
+                String readyPayload = "{\"keyId\":\"" + sid + "\"}";
+                session.sendMessage(new BinaryMessage(
+                        paccWireCodec.buildWithSessionKey(WssSessionKeys.READY_TYPE, sid, pteid,
+                                readyPayload, reg.keyHex()).toByteArray()));
+                log.info("WSS 会话密钥已建立 pteid={} sid={} session={}", pteid, sid, session.getId());
+                return;
+            }
+            if (WssSessionKeys.REKEY_TYPE.equals(type)) {
+                long epoch = parseEpoch(env.getPayloadJson());
+                WssSessionKeys.Session rotated = sessionKeys.rotate(env.getSessionId(), epoch);
+                if (rotated == null) {
+                    log.warn("session_rekey epoch 校验失败，拒绝轮换 pteid={} sid={}", pteid, env.getSessionId());
+                    return;
+                }
+                session.sendMessage(new BinaryMessage(
+                        paccWireCodec.buildWithSessionKey(WssSessionKeys.ACK_TYPE, env.getSessionId(), pteid,
+                                "{\"epoch\":" + rotated.epoch() + "}", rotated.keyHex()).toByteArray()));
+                log.info("WSS 会话密钥已轮换 pteid={} sid={} epoch={}", pteid, env.getSessionId(), rotated.epoch());
+                return;
+            }
             if (type == null || !type.startsWith("inspect_")) {
                 log.debug("二进制信封忽略 type={} pteid={}", type, pteid);
                 return;
@@ -124,6 +170,34 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
             log.info("查端信令(protobuf) {} pteid={} forwarded={} session={}", type, pteid, forwarded, session.getId());
         } catch (Exception e) {
             log.warn("解析二进制信封失败 pteid={} err={}", pteid, e.getMessage());
+        }
+    }
+
+    /** 从 {@code {"salt":"..."}} 取盐；也容忍直接把裸十六进制盐当 payload 的写法。 */
+    private String parseSalt(String payloadJson) {
+        if (payloadJson == null || payloadJson.isBlank()) return null;
+        String s = payloadJson.trim();
+        if (s.startsWith("{")) {
+            try {
+                String v = mapper.readTree(s).path("salt").asText("");
+                return v.isBlank() ? null : v;
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        if (s.startsWith("\"") && s.endsWith("\"") && s.length() >= 2) {
+            return s.substring(1, s.length() - 1);
+        }
+        return s;
+    }
+
+    /** 从 {@code {"epoch":N}} 提取当前 epoch；解析失败回 0（与 epoch 起始一致，双保险）。 */
+    private long parseEpoch(String payloadJson) {
+        try {
+            var n = mapper.readTree(payloadJson == null ? "{}" : payloadJson).path("epoch");
+            return n.asLong(0);
+        } catch (Exception e) {
+            return 0L;
         }
     }
 
@@ -206,6 +280,12 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
         if (pteid != null) {
             onlineStatusService.unregister(pteid, session);
             log.info("PTV 玩家端下线 pteid={} session={}", pteid, session.getId());
+        }
+        // 立即销毁本连接的会话密钥：连接已断，密钥再留着只是徒增泄露面。
+        // 重连时客户端会重新走 session_init 派生新盐、新密钥（不复用旧密钥）。
+        Object sid = session.getAttributes().get("paccSessionId");
+        if (sid instanceof String s && !s.isBlank()) {
+            sessionKeys.close(s);
         }
         mapBpEventBus.onDisconnect(session);
     }

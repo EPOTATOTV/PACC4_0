@@ -1,10 +1,14 @@
 package com.potatotv.pacc.controller;
 
 import com.potatotv.pacc.domain.AdminLoginLog;
+import com.potatotv.pacc.domain.SecurityTotp;
 import com.potatotv.pacc.repository.AdminLoginLogRepository;
+import com.potatotv.pacc.repository.SecurityTotpRepository;
 import com.potatotv.pacc.service.AdminTokenService;
 import com.potatotv.pacc.service.FeishuAuthService;
+import com.potatotv.pacc.service.LoginLockout;
 import com.potatotv.pacc.service.LoginThrottle;
+import com.potatotv.pacc.service.TotpService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -42,10 +46,13 @@ public class AdminAuthController {
     private static final Logger log = LoggerFactory.getLogger(AdminAuthController.class);
 
     private final LoginThrottle throttle;
+    private final LoginLockout lockout;
     private final AdminLoginLogRepository loginLogRepository;
     private final FeishuAuthService feishuAuthService;
     private final AdminTokenService adminTokenService;
     private final com.potatotv.pacc.config.PermissionInterceptor permissionInterceptor;
+    private final TotpService totpService;
+    private final SecurityTotpRepository totpRepository;
 
     @Value("${pacc.security.admin-api-key}")
     private String operatorKey;
@@ -53,16 +60,29 @@ public class AdminAuthController {
     @Value("${pacc.security.super-admin-key:}")
     private String superAdminKey;
 
+    /**
+     * 是否要求所有管理员都必须绑定 2FA。开启前必须先把各管理员身份绑定完成，
+     * 否则未绑定者会被挡在门外（届时只能用 PACC_SECURITY_ADMIN_2FA_REQUIRED=false 临时放开）。
+     */
+    @Value("${pacc.security.admin-2fa-required:false}")
+    private boolean admin2faRequired;
+
     public AdminAuthController(LoginThrottle throttle,
+                               LoginLockout lockout,
                                AdminLoginLogRepository loginLogRepository,
                                FeishuAuthService feishuAuthService,
                                AdminTokenService adminTokenService,
-                               com.potatotv.pacc.config.PermissionInterceptor permissionInterceptor) {
+                               com.potatotv.pacc.config.PermissionInterceptor permissionInterceptor,
+                               TotpService totpService,
+                               SecurityTotpRepository totpRepository) {
         this.throttle = throttle;
+        this.lockout = lockout;
         this.loginLogRepository = loginLogRepository;
         this.feishuAuthService = feishuAuthService;
         this.adminTokenService = adminTokenService;
         this.permissionInterceptor = permissionInterceptor;
+        this.totpService = totpService;
+        this.totpRepository = totpRepository;
     }
 
     @PostMapping("/login")
@@ -70,7 +90,8 @@ public class AdminAuthController {
                                    HttpServletResponse response) {
         String ip = clientIp(request);
         String scope = "admin:" + ip;
-        if (!throttle.allowed(scope)) {
+        // 长窗锁定与短窗限流都按来源 IP 计：管理密钥是高价值静态凭据，必须压制慢速爆破
+        if (lockout.isLocked(scope) || !throttle.allowed(scope)) {
             log.warn("管理后台登录被限流 ip={}", ip);
             return ResponseEntity.status(429).body(Map.of("error", "尝试过于频繁，请稍后再试"));
         }
@@ -84,15 +105,22 @@ public class AdminAuthController {
         }
         if (role == null) {
             throttle.hit(scope);
+            lockout.recordFailure(scope);
+            lockout.applyProgressiveDelay(scope);
             record(ip, fingerprint(key), "key", null, "fail");
             log.warn("管理后台登录失败 ip={}", ip);
             return ResponseEntity.status(401).body(Map.of("error", "管理密钥错误"));
         }
         throttle.clear(scope);
+        lockout.reset(scope);
+        String identity = "super|" + role;
+        // 第二步闸门：已绑定 2FA 则改发 pending 令牌，本步不下发会话 cookie
+        ResponseEntity<?> gate = secondStepGate(ip, identity, role, "key");
+        if (gate != null) return gate;
         record(ip, fingerprint(key), "key", role, "success");
         log.info("管理后台登录成功 ip={} role={}", ip, role);
         // 会话令牌仅写入 HttpOnly cookie，响应体不暴露，防 XSS 窃取
-        String token = adminTokenService.create("super|" + role, role, fingerprint(ip, request.getHeader("User-Agent")));
+        String token = adminTokenService.create(identity, role, fingerprint(ip, request.getHeader("User-Agent")));
         setAdminCookie(response, token, SESSION_MAX_AGE);
         return ResponseEntity.ok(Map.of("ok", true, "role", role));
     }
@@ -126,6 +154,14 @@ public class AdminAuthController {
             } else {
                 String userId = user.get().userId();
                 String role = user.get().role();
+                // 第二步闸门：浏览器回跳场景不能用 JSON 承载 pending，改写入短时 HttpOnly cookie，
+                // 前端凭 ?twofa=1 弹出验证码输入框。令牌不进 URL，避免落到访问日志与 Referer。
+                if (needsSecondStep(userId)) {
+                    record(ip, userId, "feishu", role, "2fa_pending");
+                    setAdmin2faCookie(response, totpService.issueAdminPending(userId, role));
+                    response.sendRedirect(loginRedirect(request) + "?twofa=1");
+                    return;
+                }
                 record(ip, userId, "feishu", role, "success");
                 log.info("飞书登录成功 ip={} userId={} role={}", ip, userId, role);
                 String token = adminTokenService.create(userId, role, fingerprint(ip, request.getHeader("User-Agent")));
@@ -167,6 +203,8 @@ public class AdminAuthController {
         String userId = user.get().userId();
         String role = user.get().role();
         throttle.clear(scope);
+        ResponseEntity<?> gate = secondStepGate(ip, userId, role, "feishu");
+        if (gate != null) return gate;
         record(ip, userId, "feishu", role, "success");
         log.info("飞书登录成功 ip={} userId={} role={}", ip, userId, role);
         String token = adminTokenService.create(userId, role, fingerprint(ip, request.getHeader("User-Agent")));
@@ -194,16 +232,223 @@ public class AdminAuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
         setAdminCookie(response, "", 0);
+        setAdmin2faCookie(response, "");
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
+    // -------------------------------- 管理员两步验证 --------------------------------
+
+    /** 管理员 2FA 在 t_security_totp 中的存储键：加前缀与玩家 PTEID 隔离，避免同一主键空间被撞。 */
+    private static String totpKey(String identity) {
+        return "admin:" + identity;
+    }
+
+    /** 该管理员身份是否已绑定 2FA。 */
+    private boolean needsSecondStep(String identity) {
+        return totpService.enabled(totpKey(identity));
+    }
+
+    /**
+     * 第一步登录通过后的第二步闸门。返回非 null 表示不应下发会话 cookie，调用方须直接返回该响应。
+     * <p>已绑定 → 返回 pending 令牌；未绑定但配置要求强制 → 拒绝（提示先去绑定）。</p>
+     */
+    private ResponseEntity<?> secondStepGate(String ip, String identity, String role, String method) {
+        if (needsSecondStep(identity)) {
+            record(ip, identity, method, role, "2fa_pending");
+            log.info("管理员需完成第二步验证 identity={} ip={}", identity, ip);
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("twofa_required", true);
+            out.put("pending", totpService.issueAdminPending(identity, role));
+            return ResponseEntity.ok(out);
+        }
+        if (admin2faRequired) {
+            record(ip, identity, method, role, "2fa_required");
+            log.warn("管理员未绑定 2FA 被拒绝 identity={} ip={}", identity, ip);
+            return ResponseEntity.status(403)
+                    .body(Map.of("error", "本环境要求管理员启用两步验证，请先在已登录会话中完成绑定"));
+        }
+        return null;
+    }
+
+    /**
+     * 管理员登录第二步：校验 pending 令牌 + TOTP（或一次性恢复码），通过后签发会话 cookie。
+     * <p>pending 可来自请求体（Key 登录返回）或 HttpOnly cookie（飞书回跳写入）。</p>
+     */
+    @PostMapping("/login/2fa")
+    public ResponseEntity<?> login2fa(@RequestBody Map<String, String> body, HttpServletRequest request,
+                                      HttpServletResponse response) {
+        String ip = clientIp(request);
+        String scope = "admin-2fa:" + ip;
+        if (lockout.isLocked(scope) || !throttle.allowed(scope)) {
+            log.warn("管理员 2FA 校验被限流 ip={}", ip);
+            return ResponseEntity.status(429).body(Map.of("error", "尝试过于频繁，请稍后再试"));
+        }
+        String pending = body.get("pending");
+        if (pending == null || pending.isBlank()) {
+            pending = cookieValue(request, ADMIN_2FA_COOKIE);
+        }
+        if (pending == null || pending.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "登录会话已失效，请重新登录"));
+        }
+        TotpService.AdminPending ap;
+        try {
+            ap = totpService.parseAdminPending(pending);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+        }
+        if (!totpService.validate(totpKey(ap.identity()), body.get("code"))) {
+            throttle.hit(scope);
+            lockout.recordFailure(scope);
+            lockout.applyProgressiveDelay(scope);
+            record(ip, ap.identity(), "totp", null, "fail");
+            log.warn("管理员 2FA 校验失败 identity={} ip={}", ap.identity(), ip);
+            return ResponseEntity.status(401).body(Map.of("error", "验证码不正确或已失效"));
+        }
+        throttle.clear(scope);
+        lockout.reset(scope);
+        String token = adminTokenService.create(ap.identity(), ap.role(),
+                fingerprint(ip, request.getHeader("User-Agent")));
+        setAdminCookie(response, token, SESSION_MAX_AGE);
+        setAdmin2faCookie(response, "");
+        record(ip, ap.identity(), "totp", ap.role(), "success");
+        log.info("管理员 2FA 校验通过 identity={} role={} ip={}", ap.identity(), ap.role(), ip);
+        return ResponseEntity.ok(Map.of("ok", true, "role", ap.role() == null ? "" : ap.role()));
+    }
+
+    /** 绑定第一步：生成 TOTP 种子并返回 otpauth 链接（此时尚未启用，须再调 enable 验证一次）。 */
+    @PostMapping("/2fa/setup")
+    public ResponseEntity<?> twofaSetup(HttpServletRequest request) {
+        String identity = (String) request.getAttribute("adminActor");
+        if (identity == null || identity.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("error", "未登录"));
+        }
+        String key = totpKey(identity);
+        byte[] seed = new byte[20];
+        new java.security.SecureRandom().nextBytes(seed);
+        String b32 = base32Encode(seed);
+        String otpauth = "otpauth://totp/PACC:" + identity + "?secret=" + b32 + "&issuer=PACC&period=30&digits=6";
+        totpRepository.findById(key).ifPresentOrElse(x -> {
+            x.setSecret(b32);
+            x.setEnabled(false);
+            x.setUpdatedAt(java.time.Instant.now());
+            totpRepository.save(x);
+        }, () -> totpRepository.save(SecurityTotp.builder()
+                .pteid(key)
+                .secret(b32)
+                .enabled(false)
+                .createdAt(java.time.Instant.now())
+                .build()));
+        log.info("管理员生成 TOTP 种子 identity={}", identity);
+        return ResponseEntity.ok(Map.of("secret", b32, "otpauth", otpauth));
+    }
+
+    /** 绑定第二步：校验一次动态码后正式启用。 */
+    @PostMapping("/2fa/enable")
+    public ResponseEntity<?> twofaEnable(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        String identity = (String) request.getAttribute("adminActor");
+        if (identity == null || identity.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("error", "未登录"));
+        }
+        String key = totpKey(identity);
+        SecurityTotp rec = totpRepository.findById(key).orElse(null);
+        if (rec == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "请先获取 TOTP 密钥"));
+        }
+        if (!totpService.isValidTotp(key, body.get("code"))) {
+            return ResponseEntity.badRequest().body(Map.of("error", "验证码不正确或已过期"));
+        }
+        rec.setEnabled(true);
+        rec.setUpdatedAt(java.time.Instant.now());
+        totpRepository.save(rec);
+        log.info("管理员启用 2FA identity={}", identity);
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    /** 管理员 2FA 状态。 */
+    @GetMapping("/2fa/status")
+    public ResponseEntity<?> twofaStatus(HttpServletRequest request) {
+        String identity = (String) request.getAttribute("adminActor");
+        if (identity == null || identity.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("error", "未登录"));
+        }
+        String key = totpKey(identity);
+        return ResponseEntity.ok(Map.of(
+                "enabled", totpService.enabled(key),
+                "required", admin2faRequired,
+                "recovery_ready", totpService.status(key).getOrDefault("recovery_ready", false)));
+    }
+
+    /** 生成一次性恢复码（明文仅此刻返回一次）。 */
+    @PostMapping("/2fa/recovery")
+    public ResponseEntity<?> twofaRecovery(HttpServletRequest request) {
+        String identity = (String) request.getAttribute("adminActor");
+        if (identity == null || identity.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("error", "未登录"));
+        }
+        String key = totpKey(identity);
+        if (!totpService.enabled(key)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "请先启用两步验证"));
+        }
+        return ResponseEntity.ok(Map.of("recovery_codes", totpService.generateRecoveryCodes(key)));
+    }
+
+    /** 解绑 2FA：须提供当前动态码或一次性恢复码。强制模式下禁止解绑，否则闸门会被绕过。 */
+    @PostMapping("/2fa/disable")
+    public ResponseEntity<?> twofaDisable(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        String identity = (String) request.getAttribute("adminActor");
+        if (identity == null || identity.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("error", "未登录"));
+        }
+        if (admin2faRequired) {
+            return ResponseEntity.status(403)
+                    .body(Map.of("error", "本环境要求管理员必须启用两步验证，无法解绑"));
+        }
+        if (!totpService.disable(totpKey(identity), body.get("code"))) {
+            return ResponseEntity.badRequest().body(Map.of("error", "验证码不正确，无法解绑两步验证"));
+        }
+        log.warn("管理员解绑 2FA identity={}", identity);
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    /** 与 PlayerP0Controller 同一套 Base32 编码，保证 otpauth 链接可被通用验证器识别。 */
+    private static String base32Encode(byte[] data) {
+        final String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        StringBuilder sb = new StringBuilder();
+        int buffer = 0, bits = 0;
+        for (byte b : data) {
+            buffer = (buffer << 8) | (b & 0xff);
+            bits += 8;
+            while (bits >= 5) {
+                sb.append(alphabet.charAt((buffer >>> (bits - 5)) & 0x1f));
+                bits -= 5;
+            }
+        }
+        if (bits > 0) {
+            sb.append(alphabet.charAt((buffer << (5 - bits)) & 0x1f));
+        }
+        return sb.toString();
+    }
+
     private static final String ADMIN_COOKIE = "pacc_admin";
+    private static final String ADMIN_2FA_COOKIE = "pacc_admin_2fa";
     /** 与 AdminTokenService 的 12h 会话有效期保持一致。 */
     private static final long SESSION_MAX_AGE = 12 * 60 * 60;
+    /** 与 TotpService 的 pending 有效期（5 分钟）一致。 */
+    private static final long PENDING_MAX_AGE = 5 * 60;
 
     /** 写入 HttpOnly 管理会话 cookie；Path=/ 使所有管理接口自动携带。 */
     private static void setAdminCookie(HttpServletResponse response, String value, long maxAgeSeconds) {
-        StringBuilder sb = new StringBuilder(ADMIN_COOKIE).append('=').append(value)
+        response.addHeader("Set-Cookie", adminCookieHeader(ADMIN_COOKIE, value, maxAgeSeconds));
+    }
+
+    /** 第二步 pending 令牌 cookie：仅在飞书浏览器回跳链路使用，验证通过后立即清空。 */
+    private static void setAdmin2faCookie(HttpServletResponse response, String value) {
+        long maxAge = value == null || value.isEmpty() ? 0 : PENDING_MAX_AGE;
+        response.addHeader("Set-Cookie", adminCookieHeader(ADMIN_2FA_COOKIE, value == null ? "" : value, maxAge));
+    }
+
+    private static String adminCookieHeader(String name, String value, long maxAgeSeconds) {
+        StringBuilder sb = new StringBuilder(name).append('=').append(value)
                 .append("; Path=/; HttpOnly; SameSite=Lax");
         if (maxAgeSeconds > 0) {
             sb.append("; Max-Age=").append(maxAgeSeconds);
@@ -213,7 +458,7 @@ public class AdminAuthController {
                 || Boolean.parseBoolean(System.getenv("PACC_HTTPS_DEPLOY"))) {
             sb.append("; Secure");
         }
-        response.addHeader("Set-Cookie", sb.toString());
+        return sb.toString();
     }
 
     private static String cookieValue(HttpServletRequest request, String name) {
