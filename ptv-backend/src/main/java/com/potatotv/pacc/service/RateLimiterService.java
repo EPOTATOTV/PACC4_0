@@ -28,8 +28,18 @@ public class RateLimiterService {
     @Value("${pacc.ratelimit.enabled:true}")
     private boolean enabled;
 
+    /** /api/dl/track 的按 IP 自然日配额（0 或负数表示不限）。 */
+    @Value("${pacc.ratelimit.dl-track-per-day:100}")
+    private int dlTrackPerDay;
+
     // discountedId -> bucket tokens
     private final Map<String, TokenBucket> buckets = new ConcurrentHashMap<>();
+
+    // 日配额 key -> 当日计数
+    private final Map<String, DailyCounter> dailyCounters = new ConcurrentHashMap<>();
+
+    /** 日配额表的键上限：超过后先清理隔日残留，仍超则放弃计数（统计接口宁可少记也不误伤）。 */
+    private static final int DAILY_MAX_KEYS = 20_000;
 
     /** 令牌桶：固定速率补充 + 突发容量。 */
     private static final class TokenBucket {
@@ -67,5 +77,55 @@ public class RateLimiterService {
         String key = category + ":" + who;
         TokenBucket tb = buckets.computeIfAbsent(key, k -> new TokenBucket(cfg.capacity(), cfg.perSecond()));
         return tb.tryAcquire();
+    }
+
+    /**
+     * 自然日配额（UTC 零点滚动）：同一 key 一天内最多 maxPerDay 次。
+     * <p>与令牌桶维度不同——令牌桶防瞬时洪峰，日配额防长时间低频刷量。
+     * 进程内实现，重启清零；多实例部署时可替换为 Redis 计数。</p>
+     */
+    public boolean allowDaily(String who, int maxPerDay) {
+        if (!enabled || maxPerDay <= 0 || who == null || who.isBlank()) {
+            return true;
+        }
+        long today = System.currentTimeMillis() / 86_400_000L;
+        DailyCounter counter = dailyCounters.get(who);
+        if (counter == null) {
+            if (dailyCounters.size() >= DAILY_MAX_KEYS) {
+                dailyCounters.entrySet().removeIf(e -> !e.getValue().isSameDay(today));
+                if (dailyCounters.size() >= DAILY_MAX_KEYS) {
+                    return true;
+                }
+            }
+            counter = dailyCounters.computeIfAbsent(who, k -> new DailyCounter());
+        }
+        return counter.tryAcquire(today, maxPerDay);
+    }
+
+    /** 下载计数上报：按来源 IP 计自然日配额。 */
+    public boolean allowDailyTrack(String clientIp) {
+        return allowDaily("dl-track:ip:" + clientIp, dlTrackPerDay);
+    }
+
+    /** 日配额计数器：跨日自动清零。 */
+    private static final class DailyCounter {
+        private long day = Long.MIN_VALUE;
+        private int used;
+
+        synchronized boolean tryAcquire(long today, int maxPerDay) {
+            if (day != today) {
+                day = today;
+                used = 0;
+            }
+            if (used >= maxPerDay) {
+                return false;
+            }
+            used++;
+            return true;
+        }
+
+        synchronized boolean isSameDay(long today) {
+            return day == today;
+        }
     }
 }

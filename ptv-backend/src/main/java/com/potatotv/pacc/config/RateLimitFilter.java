@@ -18,6 +18,9 @@ import java.io.IOException;
  */
 public class RateLimitFilter extends OncePerRequestFilter {
 
+    /** 下载计数上报：匿名接口，除通用令牌桶外还要按 IP 计每日配额。 */
+    private static final String DL_TRACK_PATH = "/api/dl/track";
+
     private final RateLimiterService rateLimiterService;
 
     public RateLimitFilter(RateLimiterService rateLimiterService) {
@@ -32,17 +35,26 @@ public class RateLimitFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
             return;
         }
+        // 下载计数：先按 IP 卡每日配额（防长时间低频刷量），再走通用令牌桶
+        if (DL_TRACK_PATH.equals(uri) && !rateLimiterService.allowDailyTrack(clientIp(request))) {
+            reject(response);
+            return;
+        }
         String who = identity(request);
         String method = request.getMethod();
         boolean write = !("GET".equals(method) || "HEAD".equals(method) || "OPTIONS".equals(method));
         boolean sensitive = isSensitive(uri);
         if (!rateLimiterService.allow(who, write, sensitive)) {
-            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"error\":\"请求过于频繁，请稍后再试\"}");
+            reject(response);
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    private static void reject(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"error\":\"请求过于频繁，请稍后再试\"}");
     }
 
     /** 请求身份：优先管理端操作人 / 玩家 PTEID，回退客户端 IP。 */

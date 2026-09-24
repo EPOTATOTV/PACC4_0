@@ -10,9 +10,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * 下载站服务：下发发布物信息、累加下载计数。
@@ -43,28 +46,47 @@ public class DlService {
         row.setCount(row.getCount() + 1);
     }
 
-    /** 管理端汇总：近 N 天逐日趋势（按平台 × 产物展开），外加各平台累计。 */
+    /**
+     * 管理端汇总：近 N 天各平台累计 + 「天 × 平台」等长序列，供管理端折线图直接对位。
+     * dates 与每个 series.data 长度一致（缺数据的日子补 0），前端不用再对齐日期。
+     */
     @Transactional(readOnly = true)
     public Map<String, Object> adminStats(int days) {
-        LocalDate start = LocalDate.now().minusDays(days);
-        List<DlDownloadStat> rows = statRepository.findByDayDateGreaterThanEqual(start);
+        LocalDate today = LocalDate.now();
+        List<DlDownloadStat> rows = statRepository.findByDayDateGreaterThanEqual(today.minusDays(days - 1L));
+
+        List<String> dates = new ArrayList<>(days);
+        for (int i = days - 1; i >= 0; i--) {
+            dates.add(today.minusDays(i).toString());
+        }
 
         Map<String, Long> byPlatform = new LinkedHashMap<>();
-        Map<String, Long> perDay = new LinkedHashMap<>();
-        for (int i = days - 1; i >= 0; i--) {
-            perDay.put(LocalDate.now().minusDays(i).toString(), 0L);
-        }
+        // 平台 → 日期 → 计数；TreeMap 让平台顺序稳定，图表图例不会随查询顺序跳
+        Map<String, Map<String, Long>> byPlatformDay = new TreeMap<>();
         for (DlDownloadStat r : rows) {
             byPlatform.merge(r.getPlatform(), r.getCount(), Long::sum);
-            String d = r.getDayDate().toString();
-            perDay.merge(d, r.getCount(), Long::sum);
+            byPlatformDay.computeIfAbsent(r.getPlatform(), k -> new HashMap<>())
+                    .merge(r.getDayDate().toString(), r.getCount(), Long::sum);
         }
+
+        List<Map<String, Object>> series = new ArrayList<>();
+        for (Map.Entry<String, Map<String, Long>> e : byPlatformDay.entrySet()) {
+            Map<String, Long> dayMap = e.getValue();
+            List<Long> counts = new ArrayList<>(days);
+            for (String d : dates) {
+                counts.add(dayMap.getOrDefault(d, 0L));
+            }
+            Map<String, Object> one = new LinkedHashMap<>();
+            one.put("platform", e.getKey());
+            one.put("data", counts);
+            series.add(one);
+        }
+
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("days", days);
         out.put("platform", byPlatform);
-        out.put("trend", perDay.entrySet().stream()
-                .map(e -> Map.<String, Object>of("date", e.getKey(), "count", e.getValue()))
-                .toList());
+        out.put("dates", dates);
+        out.put("series", series);
         return out;
     }
 
