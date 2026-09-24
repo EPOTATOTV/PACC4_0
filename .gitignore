@@ -9,6 +9,8 @@ out/
 # .NET 编译产物
 bin/
 obj/
+# Gradle 构建缓存（各模块本地生成，含锁文件与哈希索引）
+**/.gradle/
 # 下载站发布二进制（由脚本构建产出，不入库）
 deploy/dl-web/files/*.zip
 deploy/dl-web/files/*.apk
@@ -20,8 +22,13 @@ deploy/dl-web/archive/
 node_modules/
 .vite/
 coverage/
+# 测试报告（JUnit XML 等，由 test:ci 产出，仅供 CI 上传 artifact）
+reports/
 # TypeScript 增量构建缓存（产物，不入库）
 *.tsbuildinfo
+# tsconfig.node.json 用 emitDeclarationOnly 避免生成 vite.config.js（.js 会盖过 .ts），
+# 代价是每次构建都产出这个 .d.ts：属产物，不入库
+vite.config.d.ts
 
 # --- IDE ---
 .idea/

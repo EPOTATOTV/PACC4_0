@@ -171,6 +171,29 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <!-- JaCoCo 覆盖率：prepare-agent 挂在 initialize，report 挂在 test 之后。
+                 因此 `mvn package` 一次就能同时产出 surefire 报告与 site/jacoco/，
+                 CI 直接取产物，不需要额外跑一遍 test（重复跑会拖慢构建）。 -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

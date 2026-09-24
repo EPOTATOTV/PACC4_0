@@ -60,10 +60,46 @@ jobs:
       - name: 构建玩家端 ptv-client
         working-directory: ptv-client
         run: mvn -B -q package
+      - name: 校验 ptv-client 发行产物已加固
+        working-directory: ptv-client
+        run: |
+          set -euo pipefail
+          JAR=$(ls target/ptv-client-*.jar | head -n1)
+          echo "检查产物：$JAR"
+          # 入口类是唯一对外契约，必须保留
+          unzip -l "$JAR" | grep -q 'com/potatotv/paccclient/PaccClient.class' \
+            || { echo "::error::产物缺少入口类 PaccClient"; exit 1; }
+          # 原始业务包路径必须已被 -repackageclasses 抹平
+          if unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/(detection|transport|signature|store|ops|probe)/'; then
+            echo "::error::发行 JAR 未混淆：仍存在原始业务包路径"; exit 1
+          fi
+          # 必须存在短名混淆类，防止 ProGuard 被误跳过
+          unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/[a-z]{1,3}\.class' \
+            || { echo "::error::未发现混淆后的短类名，ProGuard 可能未执行"; exit 1; }
       - name: 生成后端 SBOM (CycloneDX)
         working-directory: ptv-backend
         run: mvn -B -q org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
         continue-on-error: true
+      # 测试失败时报告最需要被看到，所以用 always()：即便上面构建挂了也把报告捞出来
+      - name: 上传后端测试报告与覆盖率
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-reports
+          path: |
+            ptv-backend/target/surefire-reports/
+            ptv-backend/target/site/jacoco/
+          if-no-files-found: ignore
+      # PR 页面覆盖率：需在仓库 Secrets 里配 CODECOV_TOKEN（私有仓库必需）。
+      # 未配置时该步骤会失败但被 continue-on-error 吞掉，不会把 CI 拖红。
+      - name: 上传覆盖率到 Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          files: ptv-backend/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
       - name: 上传制品
         uses: actions/upload-artifact@v4
         with:
@@ -86,9 +122,40 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: ptv-frontend/package-lock.json
-      - name: 安装依赖并构建
+      - name: 安装依赖
         working-directory: ptv-frontend
-        run: npm ci && npm run build
+        run: npm ci
+      - name: 运行单元测试
+        working-directory: ptv-frontend
+        run: npm run test:ci
+      - name: 上传前端测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-reports
+          path: ptv-frontend/reports/
+          if-no-files-found: ignore
+      - name: 构建
+        working-directory: ptv-frontend
+        run: npm run build
+      - name: 校验发行产物不含 Source Map
+        working-directory: ptv-frontend
+        run: |
+          set -euo pipefail
+          if find dist -name '*.map' | grep -q .; then
+            echo "::error::dist 中存在 Source Map，会完整还原前端源码"
+            find dist -name '*.map'
+            exit 1
+          fi
+          if grep -rl 'sourceMappingURL' dist; then
+            echo "::error::产物中仍引用 sourceMappingURL"
+            exit 1
+          fi
+          # 防止 vite.config.js 覆盖 vite.config.ts 导致加固配置失效
+          if [ -f vite.config.js ]; then
+            echo "::error::存在 vite.config.js，Vite 会优先读取它并忽略 vite.config.ts"
+            exit 1
+          fi
       - name: 上传制品
         uses: actions/upload-artifact@v4
         with:
