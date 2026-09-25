@@ -17,7 +17,7 @@
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Potatotv PACC");
 MODULE_DESCRIPTION("PACC-PTV low-level detection (Linux)");
-MODULE_VERSION("5.0.0");
+MODULE_VERSION("5.4.0");
 
 #define PACC_MAX_PID   64
 #define PACC_DEBUGFS   "pacc"

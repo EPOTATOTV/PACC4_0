@@ -39,7 +39,7 @@ final class ReportServer {
                 Map<String, Object> body = new LinkedHashMap<>();
                 body.put("ok", true);
                 body.put("agent", "ptv-java-agent");
-                body.put("version", "5.0.0");
+                body.put("version", "5.4.0");
                 body.put("loaded_classes", loaded.get());
                 body.put("captured_classes", captured);
                 body.put("pid", ProcessHandle.current().pid());

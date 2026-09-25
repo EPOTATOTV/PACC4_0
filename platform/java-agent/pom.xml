@@ -6,7 +6,7 @@
 
     <groupId>com.potatotv.pacc</groupId>
     <artifactId>ptv-agent</artifactId>
-    <version>5.0.0</version>
+    <version>5.4.0</version>
     <packaging>jar</packaging>
     <name>PACC Java 版探针</name>
     <description>PACC v5.0 Java 版进程内探针：字节码特征扫描 + 类装载监控 + 本地上报。</description>

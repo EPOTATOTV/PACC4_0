@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class PaccJavaAgent {
 
-    private static final String VERSION = "5.0.0";
+    private static final String VERSION = "5.4.0";
 
     /** 统一识别结果通道（既有 /findings 输出通道，复用而非新增传输）。 */
     private static final Findings FINDINGS = new Findings();

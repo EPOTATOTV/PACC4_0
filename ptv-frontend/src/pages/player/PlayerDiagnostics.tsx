@@ -19,7 +19,7 @@ export default function PlayerDiagnostics() {
   function exportJson() {
     const payload = {
       app: 'PACC 玩家端',
-      version: 'v5.0.0',
+      version: 'v5.4.0',
       exported_at: new Date().toISOString(),
       user_agent: navigator.userAgent,
       pteid,

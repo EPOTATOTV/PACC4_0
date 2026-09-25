@@ -1,6 +1,6 @@
 {
   "name": "pacc-mobile",
-  "version": "5.0.0",
+  "version": "5.4.0",
   "private": true,
   "description": "PACC v5.0 移动端 App（Capacitor + 复用 ptv-frontend 构建产物，远程管理与查看）",
   "scripts": {

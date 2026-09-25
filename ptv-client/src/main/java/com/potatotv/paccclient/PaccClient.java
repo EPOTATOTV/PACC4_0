@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 public final class PaccClient {
 
     /** 与桌面壳/版本元数据保持一致，供本地控制服务状态上报。 */
-    private static final String APP_VERSION = "5.0.0";
+    private static final String APP_VERSION = "5.4.0";
 
     public static void main(String[] args) {
         ClientConfig cfg = ClientConfig.load();

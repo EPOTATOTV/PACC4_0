@@ -12,11 +12,11 @@ interface ReleaseCard {
 
 // 客户端下载（正式对外发布在 deploy/dl-web/files/）。仅展示版本信息与跳转入口。
 const RELEASES: ReleaseCard[] = [
-  { platform: 'Windows', arch: 'x64', version: '5.0.0', note: '推荐 · 覆盖主流 PC', url: '/files/pacc-setup-5.0.0-x64.exe', sha256Note: 'SHA256 校验随包提供' },
-  { platform: 'macOS', arch: 'Apple Silicon', version: '5.0.0', note: 'macOS 13+', url: '/files/pacc-5.0.0-arm64.dmg', sha256Note: 'SHA256 校验随包提供' },
-  { platform: 'Android', arch: 'arm64', version: '5.0.0', note: 'Android 8.0+', url: '/files/pacc-5.0.0-android.apk', sha256Note: 'SHA256 校验随包提供' },
-  { platform: 'iOS', arch: '通用', version: '5.0.0', note: 'App Store 上架版', url: '/files/pacc-5.0.0.ipa', sha256Note: 'SHA256 校验随包提供' },
-  { platform: 'Linux', arch: 'x64', version: '5.0.0', note: 'Ubuntu 20.04+', url: '/files/pacc-5.0.0-linux.tar.gz', sha256Note: 'SHA256 校验随包提供' },
+  { platform: 'Windows', arch: 'x64', version: '5.4.0', note: '推荐 · 覆盖主流 PC', url: '/files/pacc-setup-5.4.0-x64.exe', sha256Note: 'SHA256 校验随包提供' },
+  { platform: 'macOS', arch: 'Apple Silicon', version: '5.4.0', note: 'macOS 13+', url: '/files/pacc-5.4.0-arm64.dmg', sha256Note: 'SHA256 校验随包提供' },
+  { platform: 'Android', arch: 'arm64', version: '5.4.0', note: 'Android 8.0+', url: '/files/pacc-5.4.0-android.apk', sha256Note: 'SHA256 校验随包提供' },
+  { platform: 'iOS', arch: '通用', version: '5.4.0', note: 'App Store 上架版', url: '/files/pacc-5.4.0.ipa', sha256Note: 'SHA256 校验随包提供' },
+  { platform: 'Linux', arch: 'x64', version: '5.4.0', note: 'Ubuntu 20.04+', url: '/files/pacc-5.4.0-linux.tar.gz', sha256Note: 'SHA256 校验随包提供' },
 ]
 
 export default function PlayerDownload() {

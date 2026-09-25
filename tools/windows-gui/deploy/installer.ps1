@@ -3,7 +3,7 @@
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/deploy/installer.ps1
 #
 # 职责：校验权限 -> 安装 Windows 服务 -> 注册底层检测模块 -> 生成配置基线。
-# 需要：PACC 客户端（ptv-client-5.0.0.jar 或原生探针）、所在目录下的 pacc-client.properties。
+# 需要：PACC 客户端（ptv-client-5.4.0.jar 或原生探针）、所在目录下的 pacc-client.properties。
 
 param(
     [string]$ServiceName = "PaccProtect",
@@ -52,5 +52,5 @@ pacc.log.level=INFO
 
 # 4) 注册 Windows 服务（示例：以 nssm 包装 Java 客户端；部署时替换为真实探针/驱动）
 #    生产环境请使用 WHQL 签名驱动安装器注册底层模块。
-Write-Host "已就绪。请将 ptv-client-5.0.0.jar / 原生探针部署到 $BinDir 并配置服务。" -ForegroundColor Yellow
+Write-Host "已就绪。请将 ptv-client-5.4.0.jar / 原生探针部署到 $BinDir 并配置服务。" -ForegroundColor Yellow
 Write-Host "安装完成。" -ForegroundColor Green

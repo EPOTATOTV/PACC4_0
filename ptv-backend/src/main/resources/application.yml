@@ -193,7 +193,7 @@ springdoc:
     path: /swagger-ui.html
   info:
     title: PACC PTV 管控后端 API
-    version: 5.0.0
+    version: 5.4.0
     description: PACC 管理后台 / 玩家门户 / 开放 API 接口文档（仅功能描述，不含内部检测逻辑）
   # 仅扫描控制器包，避免把内部组件卷入文档
   packages-to-scan: com.potatotv.pacc.controller

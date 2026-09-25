@@ -56,7 +56,7 @@ public partial class MainWindow : Window
 
         string appDir = InstallDir ?? AppContext.BaseDirectory;
         string binDir = System.IO.Path.Combine(appDir, "bin");
-        string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-5.0.0.jar");
+        string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-5.4.0.jar");
         string versionFile = System.IO.Path.Combine(binDir, "probe.version");
         string sealFile = probeFile + ProbeIntegrity.SealSuffix;
 
@@ -99,13 +99,13 @@ public partial class MainWindow : Window
         try
         {
             string binDir = System.IO.Path.Combine(InstallDir ?? AppContext.BaseDirectory, "bin");
-            string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-5.0.0.jar");
+            string probeFile = System.IO.Path.Combine(binDir, "ptv-agent-5.4.0.jar");
             if (ProbeIntegrity.Verify(probeFile, probeFile + ProbeIntegrity.SealSuffix)
                 != ProbeIntegrity.State.Mismatch) return;
 
             StatusText.Text = "警告：本地探针文件与安装时不一致，检测可能已失效";
             MessageBox.Show(this,
-                "本地探针文件（bin\\ptv-agent-5.0.0.jar）与安装时记录的摘要不一致。\n\n" +
+                "本地探针文件（bin\\ptv-agent-5.4.0.jar）与安装时记录的摘要不一致。\n\n" +
                 "这通常意味着文件被替换或修改，检测结果不再可信。\n" +
                 "建议从 dl.potatotv.asia 重新安装客户端。",
                 "PACC 完整性告警", MessageBoxButton.OK, MessageBoxImage.Warning);

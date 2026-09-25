@@ -40,7 +40,7 @@ services:
     build:
       context: .
       dockerfile: ptv-backend/Dockerfile
-    image: pacc/ptv-backend:5.0.0
+    image: pacc/ptv-backend:5.4.0
     container_name: pacc-backend
     restart: unless-stopped
     depends_on:
@@ -83,7 +83,7 @@ services:
     build:
       context: .
       dockerfile: ptv-frontend/Dockerfile
-    image: pacc/ptv-frontend:5.0.0
+    image: pacc/ptv-frontend:5.4.0
     container_name: pacc-frontend
     restart: unless-stopped
     depends_on:
@@ -108,7 +108,7 @@ services:
     build:
       context: .
       dockerfile: deploy/gateway/Dockerfile
-    image: pacc/gateway:5.0.0
+    image: pacc/gateway:5.4.0
     container_name: pacc-gateway
     restart: unless-stopped
     depends_on:
@@ -127,7 +127,7 @@ services:
     build:
       context: deploy/gateway-go
       dockerfile: Dockerfile
-    image: pacc/gateway-go:5.0.0
+    image: pacc/gateway-go:5.4.0
     container_name: pacc-gateway-go
     restart: unless-stopped
     depends_on:
@@ -152,7 +152,7 @@ services:
     build:
       context: deploy/ai
       dockerfile: Dockerfile
-    image: pacc/ai:5.0.0
+    image: pacc/ai:5.4.0
     container_name: pacc-ai
     restart: unless-stopped
     environment:

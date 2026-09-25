@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from .engine import engine
 from .profiler import profiler
 
-app = FastAPI(title="PACC AI 推理服务", version="5.0.0")
+app = FastAPI(title="PACC AI 推理服务", version="5.4.0")
 
 
 class Feature(BaseModel):
@@ -75,7 +75,7 @@ class AdaptRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "UP", "service": "pacc-ai", "version": "5.0.0", "n": engine.n}
+    return {"status": "UP", "service": "pacc-ai", "version": "5.4.0", "n": engine.n}
 
 
 @app.get("/api/model/info")

@@ -60,7 +60,7 @@ public final class ClientConfig {
         this.remember = getBool(p, "pacc.client.remember", "PACC_CLIENT_REMEMBER", false);
         this.reconnectDelaySeconds = getInt(p, "pacc.client.reconnect.delay.seconds", "PACC_CLIENT_RECONNECT_DELAY_SECONDS", 5);
         this.autoReconnect = getBool(p, "pacc.client.reconnect.enabled", "PACC_CLIENT_AUTO_RECONNECT", true);
-        this.signatureVersion = get(p, "pacc.client.signature.version", "PACC_CLIENT_SIGNATURE_VERSION", "v5.0.0");
+        this.signatureVersion = get(p, "pacc.client.signature.version", "PACC_CLIENT_SIGNATURE_VERSION", "v5.4.0");
         // 两个签名密钥不提供内置默认值：产物中一旦出现明文默认密钥，
         // 任何拿到发行件的人都能伪造 WSS 上报与特征库包。缺失即拒绝启动（fail-closed）。
         this.wssSignSecret = requireSecret(p, "pacc.client.wss.sign.secret", "pacc.client.wss-secret",

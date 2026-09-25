@@ -41,6 +41,10 @@
     })();
   </script>
 
+  <!-- 版本号唯一来源；scripts/bump-version.sh 会同步 js/config.js 的 PACC_VERSION。
+       放在样式之前同步加载：只有几百字节，避免版本徽标出现短暂的空档。 -->
+  <script src="js/config.js"></script>
+
   <link rel="icon" href="favicon.ico" />
   <link rel="preload" as="font" type="font/ttf" href="fonts/RussoOne.ttf" crossorigin />
   <link rel="stylesheet" href="styles.css" />
@@ -54,7 +58,7 @@
     "description": "PACC 反作弊客户端：内核级与运行时双重防护，覆盖 Windows、Linux、Android、iOS 与 HarmonyOS。",
     "applicationCategory": "SecurityApplication",
     "operatingSystem": "Windows 10, Windows 11, Linux, Android 8.0+, iOS 15+, HarmonyOS NEXT",
-    "softwareVersion": "5.0.0",
+    "softwareVersion": "5.4.0",
     "url": "https://dl.potatotv.asia",
     "downloadUrl": "https://dl.potatotv.asia/files/pacc-client-windows-x64-v5.0.0.zip",
     "publisher": {
@@ -138,7 +142,7 @@
   <section class="download" id="download">
     <div class="section-head">
       <h2 data-i18n="dl.title">客户端下载</h2>
-      <span class="version mono">v5.0.0</span>
+      <span class="version mono">v5.4.0</span>
     </div>
     <p class="sub" data-i18n="dl.sub">五种端到端，选适配您设备的那份。下载后请核对校验和。</p>
 
@@ -490,5 +494,14 @@
   <script src="js/i18n.js" defer></script>
   <script src="js/motion.js" defer></script>
   <script src="js/site.js" defer></script>
+  <script>
+    // 版本徽标跟随 config.js，避免 HTML 里再写一份版本号导致两边不一致
+    (function () {
+      var cfg = window.PACC_CONFIG;
+      if (!cfg || !cfg.PACC_VERSION) return;
+      var badge = document.querySelector('.version.mono');
+      if (badge) badge.textContent = 'v' + cfg.PACC_VERSION;
+    })();
+  </script>
 </body>
 </html>
