@@ -116,6 +116,11 @@ pacc:
     # AI 推理服务（Python / FastAPI，deploy/ai）。启用后风险评分按 15% 权重融合 AI 分
     enabled: false
     inference-url: http://ai:8000
+  model:
+    # v5.2 §6.1 模型训练流水线：.paccm 模型产物目录（默认「数据目录下的 models/」）
+    store-dir: ${PACC_MODEL_STORE_DIR:${PACC_DATA_DIR:data}/models}
+    # 模型签名私钥（PKCS#8 Base64，RSA）。未配置时发布不签名并在签名列写空串（绝不伪造签名）
+    signing-key: ${PACC_MODEL_SIGNING_KEY:}
   rules:
     # Lua 动态规则引擎（classpath:rules/*.lua，可热更新）
     enabled: true
