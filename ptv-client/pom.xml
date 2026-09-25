@@ -6,7 +6,7 @@
 
     <groupId>com.potatotv.pacc</groupId>
     <artifactId>ptv-client</artifactId>
-    <version>5.0.0</version>
+    <version>5.4.0</version>
     <name>PACC 玩家端用户态服务</name>
     <description>PACC v5.0 玩家端检测层：本地检测引擎、WSS 上报、红屏接收。</description>
 
@@ -55,6 +55,12 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.3.0</version>
                 <configuration>
+                    <!-- 强制每次 package 都从 classes 重建 jar：
+                         ProGuard 是「原地」混淆（injar == outjar），若 jar 插件因时间戳判定跳过重建，
+                         下一轮 package 就会把上一轮已混淆的 jar 再喂给 ProGuard，造成二次混淆
+                         （映射表出现 a -> a、混淆计数异常偏低）。开发机上跑不带 clean 的
+                         mvn package 时尤其容易踩到。 -->
+                    <forceCreation>true</forceCreation>
                     <archive>
                         <manifest>
                             <mainClass>com.potatotv.paccclient.PaccClient</mainClass>
@@ -107,4 +113,94 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- ======================================================================
+         opt-in：构建期字符串加密（设计文档 3.2.3）
+         默认关闭！原因：它需要 platform/string-protect 先 install 到本地仓库
+         （mvn -f platform/string-protect/pom.xml install），CI 只单独构建 ptv-client、
+         并不预先安装该模块。放在默认链上会让 CI 因解析不到依赖而变红；
+         且生成的 PaccSecretStrings 目前没有源码调用点（消费方改造是后续源码变更），
+         默认链上多出一个死类没有收益。故以属性开关显式启用，零风险。
+
+         启用方式：
+           1) mvn -B -f platform/string-protect/pom.xml install
+           2) cd ptv-client && mvn -B -Dpacc.stringprotect.enabled=true package
+         步骤 2 会生成 com.potatotv.paccclient.protect.PaccSecretStrings（密文端点/密钥键），
+         它由 proguard-rules.pro 末尾的 -keep 规则保住、不被收缩删除。
+         ====================================================================== -->
+    <profiles>
+        <profile>
+            <id>string-protect</id>
+            <activation>
+                <property>
+                    <name>pacc.stringprotect.enabled</name>
+                    <value>true</value>
+                </property>
+            </activation>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.potatotv.pacc</groupId>
+                    <artifactId>string-protect</artifactId>
+                    <version>5.4.0</version>
+                </dependency>
+            </dependencies>
+
+            <build>
+                <plugins>
+                    <!-- 声明顺序即同阶段执行顺序：先把生成源码目录挂进编译源根，再跑生成器，
+                         之后的 compile 阶段才能看到 PaccSecretStrings.java。 -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.5.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-generated-protect-sources</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>${project.build.directory}/generated-sources/pacc-protect</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.1</version>
+                        <executions>
+                            <execution>
+                                <id>generate-secret-strings</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <configuration>
+                                    <mainClass>com.potatotv.pacc.protect.StringProtectorGenerator</mainClass>
+                                    <arguments>
+                                        <!-- 参数：<outFile> <package> <class> <key> <literal>... -->
+                                        <argument>${project.build.directory}/generated-sources/pacc-protect/com/potatotv/paccclient/protect/PaccSecretStrings.java</argument>
+                                        <argument>com.potatotv.paccclient.protect</argument>
+                                        <argument>PaccSecretStrings</argument>
+                                        <argument>0x5AC3</argument>
+                                        <!-- 敏感字面量：WSS / API 端点 + 命名密钥键（与 build-client.ps1 写入的键一致） -->
+                                        <argument>wss://pacc.potatotv.asia/ws/ptv</argument>
+                                        <argument>https://api.potatotv.asia</argument>
+                                        <argument>pacc.client.wss.sign.secret</argument>
+                                        <argument>pacc.client.signature.secret</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

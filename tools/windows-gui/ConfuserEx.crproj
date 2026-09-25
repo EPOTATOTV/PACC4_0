@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PACC PaccManager（C# / .NET 8 WPF）ConfuserEx 加固模板。
+
+  与 obfuscar.xml 的关系：
+    - obfuscar.xml 是**发行构建链默认使用**的混淆器（build-client.ps1 步骤 1b 调用，纯重命名 + 字符串加密，
+      WPF 友好、可重复、无运行时副作用）。
+    - 本文件是**可选的加强档**，由 tools/windows-gui/confuserex-protect.ps1 手动执行，额外叠加控制流、
+      常量、反调试、反 dump、反篡改保护。它**不在** build-client.ps1 / CI 的默认路径里。
+
+  重要取舍（诚实标注）：
+    - ConfuserEx 上游自 2019 年起基本停止维护（mkaring/ConfuserEx），对 .NET 8 的程序集只做保守验证；
+      升级 .NET 版本后需重新回归。
+    - anti tamper / anti debug / anti dump 会注入运行时自检代码，**与杀软/EDR、见惯的启发式扫描存在真实
+      误报代价**：可能被拦截、可能拖慢启动、也可能在个别受管环境里引发假崩溃。发行前必须在真实终端回归。
+    - 因此默认发行走 Obfuscar；只有在明确接受上述代价时才切换到本档。
+
+  占位符由脚本填充（与 obfuscar.xml 的 PATH_FILLED_BY_SCRIPT 同一套路）：
+    {{BASE_DIR}}   —— dotnet publish 的输出目录（含 PaccManager.dll 与全部运行时依赖）
+    {{OUTPUT_DIR}} —— ConfuserEx 输出目录（脚本回填 dll 后再删除，绝不留进发布目录）
+-->
+<project outputDir="{{OUTPUT_DIR}}" baseDir="{{BASE_DIR}}" xmlns="http://confuser.codeplex.com">
+
+  <!-- 规则 1：默认对所有类型施加完整保护（preset=none 表示不使用内置预设，逐项显式声明）。 -->
+  <rule pattern="true" preset="none" inherit="false">
+    <!-- 重命名：unicode 模式产出不可读类/成员名；renPublic=false 保留 public 成员名，
+         避免破坏 System.Text.Json 反序列化（ReleaseInfo）与任何按公开 API 名的调用。 -->
+    <protection id="rename">
+      <argument name="mode" value="unicode" />
+      <argument name="renPublic" value="false" />
+    </protection>
+    <!-- 控制流：switch 模式（用 switch 分派打散原始分支结构）。 -->
+    <protection id="ctrl flow">
+      <argument name="type" value="switch" />
+    </protection>
+    <!-- 常量：dynamic 模式（字面量改为运行时动态还原，strings/ILSpy 里看不到明文）。 -->
+    <protection id="constants">
+      <argument name="mode" value="dynamic" />
+    </protection>
+    <!-- 资源加密：内嵌资源改为运行时解密。 -->
+    <protection id="resources" />
+    <!-- 反逆向自检四件套（有误报代价，见上方说明）。 -->
+    <protection id="anti debug" />
+    <protection id="anti dump" />
+    <protection id="anti ildasm" />
+    <protection id="anti tamper" />
+  </rule>
+
+  <!-- 规则 2：WPF 承载 BAML 的类型**整体豁免**。
+       App / MainWindow 里是 x:Class + 事件处理器 + x:Name 控件，重命名会让 BAML 与后台字段失联
+       （表现为启动即 XamlParseException 或控件为 null）。继承 inherit=false 表示清空上一条规则
+      对这两个类型累积的保护——既不重命名也不做控制流/常量处理。 -->
+  <rule pattern="PaccManager\.App|PaccManager\.MainWindow" preset="none" inherit="false" />
+
+  <module path="PaccManager.dll" />
+</project>
