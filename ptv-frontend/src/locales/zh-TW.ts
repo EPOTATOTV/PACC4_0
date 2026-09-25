@@ -41,6 +41,13 @@ const zhTW: Record<string, string> = {
   'nav.motionConfig': '動效配置',
   'nav.releases': '版本發布',
   'nav.exportCenter': '數據導出',
+  // v5.2 智能檢測運營（管理端補齊）
+  'nav.group.v52': '智能檢測運營',
+  'nav.v52Model': '模型管理',
+  'nav.v52Profile': '行為畫像',
+  'nav.v52Reputation': '信譽管理',
+  'nav.v52Replay': '查端回放',
+  'nav.v52Devices': '硬體指紋',
 
   'player.overview': '我的概覽',
   'player.group.protection': '防護與監控',

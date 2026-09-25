@@ -105,6 +105,18 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    groupKey: 'v52',
+    groupLabel: '智能检测运营',
+    groupI18nKey: 'nav.group.v52',
+    items: [
+      { key: '/v52/model', to: '/v52/model', label: '模型管理', i18nKey: 'nav.v52Model' },
+      { key: '/v52/profile', to: '/v52/profile', label: '行为画像', i18nKey: 'nav.v52Profile' },
+      { key: '/v52/reputation', to: '/v52/reputation', label: '信誉管理', i18nKey: 'nav.v52Reputation' },
+      { key: '/v52/replay', to: '/v52/replay', label: '查端回放', i18nKey: 'nav.v52Replay' },
+      { key: '/v52/devices', to: '/v52/devices', label: '硬件指纹', i18nKey: 'nav.v52Devices' },
+    ],
+  },
+  {
     groupKey: 'docs',
     groupLabel: '文档与协议',
     groupI18nKey: 'nav.group.docs',
@@ -154,6 +166,11 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/motion': { titleKey: 'nav.motionConfig', groupKey: 'nav.group.p1' },
   '/releases': { titleKey: 'nav.releases', groupKey: 'nav.group.p1' },
   '/export': { titleKey: 'nav.exportCenter', groupKey: 'nav.group.p1' },
+  '/v52/model': { titleKey: 'nav.v52Model', groupKey: 'nav.group.v52' },
+  '/v52/profile': { titleKey: 'nav.v52Profile', groupKey: 'nav.group.v52' },
+  '/v52/reputation': { titleKey: 'nav.v52Reputation', groupKey: 'nav.group.v52' },
+  '/v52/replay': { titleKey: 'nav.v52Replay', groupKey: 'nav.group.v52' },
+  '/v52/devices': { titleKey: 'nav.v52Devices', groupKey: 'nav.group.v52' },
 }
 
 /** 根据当前路径匹配选中的菜单 key */

@@ -38,6 +38,13 @@ const ko = {
   'nav.motionConfig': '모션 설정',
   'nav.releases': '버전 배포',
   'nav.exportCenter': '데이터 내보내기',
+  // v5.2 지능형 탐지 운영 (관리 콘솔)
+  'nav.group.v52': '지능형 탐지 운영',
+  'nav.v52Model': '모델 관리',
+  'nav.v52Profile': '행동 프로필',
+  'nav.v52Reputation': '평판 관리',
+  'nav.v52Replay': '단말 리플레이',
+  'nav.v52Devices': '하드웨어 지문',
 
   // 플레이어 포털 네비게이션
   'player.overview': '내 개요',

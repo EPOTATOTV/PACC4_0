@@ -43,6 +43,13 @@ const zhCN = {
   'nav.motionConfig': '动效配置',
   'nav.releases': '版本发布',
   'nav.exportCenter': '数据导出',
+  // v5.2 智能检测运营（管理端补齐）
+  'nav.group.v52': '智能检测运营',
+  'nav.v52Model': '模型管理',
+  'nav.v52Profile': '行为画像',
+  'nav.v52Reputation': '信誉管理',
+  'nav.v52Replay': '查端回放',
+  'nav.v52Devices': '硬件指纹',
 
   // 玩家门户导航
   'player.overview': '我的概览',

@@ -39,6 +39,11 @@ import Exports from './pages/p1/Exports'
 import Effectiveness from './pages/p1/Effectiveness'
 import DetectorConfig from './pages/p1/DetectorConfig'
 import EffectConfig from './pages/p1/EffectConfig'
+import ModelManager from './pages/v52/ModelManager'
+import BehaviorProfile from './pages/v52/BehaviorProfile'
+import ReputationManager from './pages/v52/ReputationManager'
+import ReplayManager from './pages/v52/ReplayManager'
+import DeviceFingerprint from './pages/v52/DeviceFingerprint'
 import PlayerPortal from './pages/player/PlayerPortal'
 import PlayerScreenShare from './pages/player/PlayerScreenShare'
 
@@ -129,6 +134,11 @@ export default function App() {
           <Route path="/effectiveness" element={<Effectiveness />} />
           <Route path="/config" element={<DetectorConfig />} />
           <Route path="/motion" element={<EffectConfig />} />
+          <Route path="/v52/model" element={<ModelManager />} />
+          <Route path="/v52/profile" element={<BehaviorProfile />} />
+          <Route path="/v52/reputation" element={<ReputationManager />} />
+          <Route path="/v52/replay" element={<ReplayManager />} />
+          <Route path="/v52/devices" element={<DeviceFingerprint />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </PageTransition>

@@ -41,6 +41,13 @@ const en: Record<string, string> = {
   'nav.motionConfig': 'Motion Config',
   'nav.releases': 'Releases',
   'nav.exportCenter': 'Data Export',
+  // v5.2 AI detection operations (admin console)
+  'nav.group.v52': 'AI Detection Ops',
+  'nav.v52Model': 'Model Versions',
+  'nav.v52Profile': 'Behavior Profile',
+  'nav.v52Reputation': 'Reputation',
+  'nav.v52Replay': 'Replay Archive',
+  'nav.v52Devices': 'Device Fingerprints',
 
   'player.overview': 'My Overview',
   'player.group.protection': 'Protection & Monitor',

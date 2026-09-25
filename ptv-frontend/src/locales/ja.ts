@@ -38,6 +38,13 @@ const ja = {
   'nav.motionConfig': 'モーション設定',
   'nav.releases': 'バージョン配信',
   'nav.exportCenter': 'データエクスポート',
+  // v5.2 インテリジェント検出運用（管理コンソール）
+  'nav.group.v52': 'インテリジェント検出運用',
+  'nav.v52Model': 'モデル管理',
+  'nav.v52Profile': '行動プロファイル',
+  'nav.v52Reputation': 'レピュテーション',
+  'nav.v52Replay': '端末リプレイ',
+  'nav.v52Devices': 'ハードウェア指紋',
 
   // 玩家门户导航
   'player.overview': 'マイ概要',

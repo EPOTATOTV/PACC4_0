@@ -1211,3 +1211,238 @@ export interface EffectConfigAuditRow {
   summary: string
   createdAt: number
 }
+
+// ===================== v5.2 智能检测运营（管理端补齐） =====================
+// 字段与后端视图一致使用 snake_case；模型状态/类型为后端常量（draft|gray|active|rollback、XGBOOST|AUTOENCODER）。
+
+/** 模型版本（/api/admin/v52/model/versions）。 */
+export interface V52ModelVersion {
+  id: string
+  model_type: string
+  version: string
+  file_url?: string
+  sha256?: string
+  accuracy: number
+  false_positive_rate: number
+  recall?: number
+  training_samples: number
+  status: string
+  gray_percent: number
+  created_at: string
+  published_at: string
+  /** 仅详情/生效版本接口返回（列表接口不含签名） */
+  signature?: string
+}
+
+/** 手动训练结果（/api/admin/v52/model/train）。未达门禁时 trained=false 并给出 reason。 */
+export interface V52TrainResult {
+  trained: boolean
+  reason?: string
+  operator?: string
+  window_days?: number
+  samples?: number
+  feature_dim?: number
+  positives?: number
+  negatives?: number
+  split?: string
+  train_samples?: number
+  eval_samples?: number
+  models?: AnyRow[]
+}
+
+/** 行为画像视图（/api/admin/v52/profile/{pteid}）。无画像行时 exists=false，仅返回基础字段。 */
+export interface V52BehaviorProfile {
+  pteid: string
+  exists: boolean
+  mean_cps?: number
+  cps_std?: number
+  mean_aim_smoothness?: number
+  aim_smoothness_std?: number
+  mean_speed?: number
+  speed_std?: number
+  total_sessions?: number
+  total_detections?: number
+  false_positives?: number
+  reputation_score?: number
+  reputation_level?: string
+  profile_version?: number
+  sample_count: number
+  stability: number
+  observed_seconds: number
+  adaptive_multiplier: number
+  fingerprint_mutation: boolean
+  first_seen_at?: string
+  updated_at?: string
+}
+
+/** 风险/高危玩家（信誉分 < 500，按分值升序）。 */
+export interface V52HighRiskPlayer {
+  pteid: string
+  reputation_score: number
+  reputation_level: string
+  false_positives: number
+  updated_at: string
+}
+
+/** 信誉等级对应的检测策略。 */
+export interface V52ReputationPolicy {
+  threshold_percent_delta: number
+  threshold_multiplier: number
+  l0_only: boolean
+  force_l2: boolean
+  full_feature_report: boolean
+}
+
+/** 信誉审计明细（仅 v5.2 口径，scale 固定 0-1000）。 */
+export interface V52ReputationLog {
+  delta: number
+  score_after: number
+  reason: string
+  source: string
+  scale: string
+  created_at: string
+}
+
+/** 玩家信誉详情（/api/admin/v52/profile/{pteid}/reputation）。 */
+export interface V52ReputationDetail {
+  pteid: string
+  score: number
+  max_score: number
+  level: string
+  legacy_scale_score: number
+  policy: V52ReputationPolicy
+  logs: V52ReputationLog[]
+}
+
+/** 人工调整信誉的返回：applied=false 表示未记账（分值已在上限/下限）。 */
+export interface V52ReputationAdjustResult {
+  applied: boolean
+  reputation: V52ReputationDetail
+}
+
+/** 查端回放元数据（不含密钥与内容）。 */
+export interface V52ReplayRow {
+  id: string
+  alert_id: string
+  pteid: string
+  frames: number
+  width: number
+  height: number
+  fps: number
+  duration_ms: number
+  size_bytes: number
+  sha256: string
+  created_at: string
+  expires_at: string
+}
+
+export interface V52ReplayList {
+  items: V52ReplayRow[]
+  retention_days: number
+}
+
+// ===================== v5.3 管理端只读聚合（/api/admin/v53/**） =====================
+
+/** 硬件指纹明细（§2.5）。 */
+export interface V53DeviceFingerprintRow {
+  fingerprint_hash: string
+  pteid: string
+  first_seen_at: string
+  last_seen_at: string
+  seen_count: number
+  /** 该玩家最近一次登录平台（取自设备表，作为环境参考） */
+  platform: string
+  /** 持有同一指纹的账号数 */
+  shared_count: number
+  shared_pteids: string[]
+  shared_account: boolean
+  /** 该玩家过手多枚指纹（设备突变） */
+  mutation: boolean
+}
+
+export interface V53DeviceList {
+  items: V53DeviceFingerprintRow[]
+  listed: number
+  shared_total: number
+  mutation_total: number
+  limit: number
+  truncated: boolean
+}
+
+export interface V53TrendPoint {
+  date: string
+  session_seconds: number
+  online_hours: number
+  event_count: number
+}
+
+export interface V53HourPoint {
+  hour: number
+  session_seconds: number
+  online_hours: number
+}
+
+/** 画像基线：只有聚合值，后端没有逐日明细，不能当作时间序列。 */
+export interface V53TrendBaseline {
+  exists: boolean
+  mean_cps?: number
+  cps_std?: number
+  mean_aim_smoothness?: number
+  aim_smoothness_std?: number
+  mean_speed?: number
+  speed_std?: number
+  sample_count?: number
+  total_sessions?: number
+  total_detections?: number
+  false_positives?: number
+  reputation_score?: number
+  reputation_level?: string
+  profile_version?: number
+  first_seen_at?: string
+  updated_at?: string
+}
+
+export interface V53Trend {
+  pteid: string
+  days: number
+  daily: V53TrendPoint[]
+  hourly: V53HourPoint[]
+  baseline: V53TrendBaseline
+}
+
+export interface V53Policy {
+  threshold_percent_delta: number
+  threshold_multiplier: number
+  l0_only: boolean
+  force_l2: boolean
+  full_feature_report: boolean
+}
+
+export interface V53ReputationBucket {
+  level: string
+  min_score: number
+  max_score: number
+  count: number
+  average_score: number
+  share: number
+  sample_policy: V53Policy
+}
+
+export interface V53Rule {
+  event: string
+  label: string
+  delta: number
+}
+
+export interface V53ReputationOverview {
+  total: number
+  buckets: V53ReputationBucket[]
+  rules: V53Rule[]
+  initial_score: number
+  min_score: number
+  max_score: number
+  clean_hour_bonus_cap: number
+  average_score: number
+  lowest_score: number
+  highest_score: number
+}
