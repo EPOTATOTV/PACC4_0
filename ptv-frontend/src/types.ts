@@ -1691,3 +1691,221 @@ export interface V54KeyAudit {
   chain: V54SecurityChain
   items: V54KeyAuditRow[]
 }
+
+// ===================== DF（Deep Fortress）Alpha 1.0.0 · 新增端点契约 =====================
+// 与后端并行新增的端点对齐。字段一律可选：后端仍在演进，缺字段按「无数据」渲染，
+// 前端不假设固定形状，也不使用 any。
+
+/** BI 实时大屏快照（/bi/realtime）内联的最新红屏事件行。 */
+export interface BiRealtimeRedscreen {
+  alertId?: string
+  cheatType?: string
+  level?: string
+  state?: string
+  occurredAt?: string
+}
+
+/** BI 实时大屏快照（/bi/realtime）：在线数、近期检测/红屏量、待查验与最新红屏事件流。 */
+export interface BiRealtime {
+  online?: number
+  detection_last_hour?: number
+  detection_last_24h?: number
+  redscreen_last_hour?: number
+  redscreen_last_24h?: number
+  pending_inspect?: number
+  recent_redscreens?: BiRealtimeRedscreen[]
+}
+
+/** DF §4.1.1 流式检测单阶段耗时（/df/stream/metrics.stageTimings 的值）。 */
+export interface DfStageTiming {
+  p50Ms?: number
+  p95Ms?: number
+  count?: number
+}
+
+/** DF §4.1.1 流式检测运行指标（/df/stream/metrics），A18 延迟观测面。 */
+export interface DfStreamMetrics {
+  p50Ms?: number
+  p95Ms?: number
+  p99Ms?: number
+  meanMs?: number
+  maxMs?: number
+  eventsProcessed?: number
+  detections?: number
+  ringBufferDrops?: number
+  ringBufferSize?: number
+  ringBufferCapacity?: number
+  aiRefinements?: number
+  stageTimings?: Record<string, DfStageTiming>
+  idleCpuPercentEstimate?: number
+}
+
+/** §4.3.2 告警降噪统计（/alerts/noise/stats，验收 A23 降噪率的量化口径）。 */
+export interface AlertNoiseStats {
+  windowHours?: number
+  rawCount?: number
+  aggregatedCount?: number
+  suppressedCount?: number
+  /** (raw - aggregated) / raw，0~1。 */
+  reductionRate?: number
+}
+
+/** §4.3.2 聚合告警组（/alerts/groups → rows，实体直出，字段为驼峰）。 */
+export interface AlertNoiseGroup {
+  id?: string
+  tenantId?: string
+  playerId?: string
+  familyCode?: string
+  ruleId?: string
+  severity?: number
+  priority?: string
+  signalCount?: number
+  rawAlertIds?: string
+  status?: string
+  firstSeenAt?: string
+  lastSeenAt?: string
+  createdAt?: string
+}
+
+/** §4.3.2 跨规则家族相关性（/alerts/groups → correlated）。 */
+export interface AlertCorrelation {
+  familyCode?: string
+  groupCount?: number
+  signalCount?: number
+  maxSeverity?: number
+  groupIds?: string[]
+}
+
+/** §4.3.2 聚合组列表响应。 */
+export interface AlertNoiseGroupPage {
+  rows?: AlertNoiseGroup[]
+  total?: number
+  page?: number
+  totalPages?: number
+  correlated?: AlertCorrelation[]
+}
+
+/** §4.3.2 误报抑制规则。 */
+export interface AlertSuppressionRule {
+  id?: string
+  name?: string
+  pattern?: string
+  familyCode?: string
+  reason?: string
+  enabled?: boolean
+  hitCount?: number
+  lastHitAt?: string
+  createdBy?: string
+  createdAt?: string
+}
+
+/** §4.3.3 自动化规则（/automation/rules）。 */
+export interface AutomationRuleRow {
+  code?: string
+  name?: string
+  trigger?: string
+  action?: string
+  enabled?: boolean
+  threshold?: number
+  windowMin?: number
+  cooldownMin?: number
+  builtin?: boolean
+  lastFiredAt?: string
+  updatedAt?: string
+}
+
+/** §4.3.3 自动化执行审计行（/automation/executions → rows）。 */
+export interface AutomationExecutionRow {
+  id?: number
+  ruleCode?: string
+  actionCode?: string
+  status?: string
+  detail?: string
+  reversible?: boolean
+  reverted?: boolean
+  revertDetail?: string
+  executedAt?: string
+  executedBy?: string
+}
+
+export interface AutomationExecutionPage {
+  rows?: AutomationExecutionRow[]
+  total?: number
+  page?: number
+  totalPages?: number
+}
+
+/** §4.2.2 插件市场条目（/plugins，下划线字段）。 */
+export interface PluginMarketRow {
+  plugin_id?: string
+  name?: string
+  description?: string
+  type?: string
+  author?: string
+  plugin_version?: string
+  status?: string
+  downloads?: number
+  avg_rating?: number
+  rating_count?: number
+  created_at?: string
+  published_at?: string
+}
+
+export interface PluginMarketList {
+  rows?: PluginMarketRow[]
+  total?: number
+  page?: number
+  total_pages?: number
+}
+
+/** §4.2.2 插件运行时条目（/plugins/runtime，驼峰字段）。declaredApis 为逗号分隔串。 */
+export interface PluginRuntimeRow {
+  id?: string
+  name?: string
+  version?: string
+  state?: string
+  cpuMs?: number
+  errorCount?: number
+  declaredApis?: string
+  classPath?: string
+  loadedAt?: string
+  updatedAt?: string
+}
+
+/** §4.2.3 单项配额用量。 */
+export interface TenantQuotaMetric {
+  used?: number
+  max?: number
+}
+
+/** §4.2.3 单租户配额视图（/tenant/quota → rows）。 */
+export interface TenantQuotaRow {
+  tenantId?: string
+  players?: TenantQuotaMetric
+  detectionVolume?: TenantQuotaMetric
+  storageMb?: TenantQuotaMetric
+  updatedAt?: string
+}
+
+export interface TenantQuotaView {
+  rows?: TenantQuotaRow[]
+  total?: number
+}
+
+/** §4.2.3 计费计量流水行（/tenant/usage → rows）。 */
+export interface TenantUsageRow {
+  id?: number
+  tenantId?: string
+  metric?: string
+  quantity?: number
+  unitPrice?: number
+  amount?: number
+  occurredAt?: string
+}
+
+export interface TenantUsageView {
+  tenantId?: string
+  rows?: TenantUsageRow[]
+  rowCount?: number
+  totalAmount?: number
+}

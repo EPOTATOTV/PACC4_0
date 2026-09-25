@@ -55,6 +55,13 @@ const zhCN = {
   'nav.v54Apm': 'APM 性能监控',
   'nav.v54Security': '安全审计',
   'nav.v54Keys': '密钥管理',
+  // DF（Deep Fortress）Alpha 1.0.0
+  'nav.group.df': '深度堡垒 DF',
+  'nav.dfScreen': '数据可视化大屏',
+  'nav.dfAlertNoise': '告警降噪',
+  'nav.dfAutomation': '自动化响应',
+  'nav.dfPlugins': '插件运行时',
+  'nav.dfTenantQuota': '租户配额',
 
   // 玩家门户导航
   'player.overview': '我的概览',

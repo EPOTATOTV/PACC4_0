@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Spin } from 'antd'
 import { api } from './api/client'
 import Layout from './components/Layout'
@@ -47,11 +47,17 @@ import DeviceFingerprint from './pages/v52/DeviceFingerprint'
 import ApmMonitor from './pages/v54/ApmMonitor'
 import SecurityAudit from './pages/v54/SecurityAudit'
 import KeyManagement from './pages/v54/KeyManagement'
+import DfScreen from './pages/df/DfScreen'
+import DfAlertNoise from './pages/df/AlertNoise'
+import DfAutomation from './pages/df/Automation'
+import DfPluginRuntime from './pages/df/PluginRuntime'
+import DfTenantQuota from './pages/df/TenantQuota'
 import PlayerPortal from './pages/player/PlayerPortal'
 import PlayerScreenShare from './pages/player/PlayerScreenShare'
 
 export default function App() {
   // 先声明 Hook（必须无条件、固定顺序），再做路径分支渲染，避免条件调用 Hook
+  const { pathname } = useLocation()
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [role, setRole] = useState<string>('')
 
@@ -67,12 +73,12 @@ export default function App() {
   }, [])
 
   // 玩家自助门户独立于管理端鉴权，路径以 /portal 开头即进入
-  if (window.location.pathname.startsWith('/portal')) {
+  if (pathname.startsWith('/portal')) {
     return <PlayerPortal />
   }
 
   // 远程查端屏幕共享页：桌面壳 WebView 以 /screen-share 打开，独立于管理端鉴权
-  if (window.location.pathname.startsWith('/screen-share')) {
+  if (pathname.startsWith('/screen-share')) {
     return <PlayerScreenShare />
   }
 
@@ -92,10 +98,15 @@ export default function App() {
     )
   }
 
+  // DF §4.3.1 数据可视化大屏：全屏墙显，脱离 Layout（无侧栏/面包屑），仅保留登录态校验
+  if (pathname.startsWith('/df/screen')) {
+    return <DfScreen />
+  }
+
   // 「文档与协议」分组（含内部技术资料）仅超级管理员可访问；非超管直接访问时重定向回数据大盘
   const isSuper = role === 'super-admin'
   const gatedDocs = ['/detection41', '/countermeasure', '/v46', '/v47', '/openapi', '/bi']
-  if (!isSuper && gatedDocs.some((p) => window.location.pathname === p || window.location.pathname.startsWith(p + '/'))) {
+  if (!isSuper && gatedDocs.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
     return <Navigate to="/" replace />
   }
 
@@ -145,6 +156,10 @@ export default function App() {
           <Route path="/v54/apm" element={<ApmMonitor />} />
           <Route path="/v54/security" element={<SecurityAudit />} />
           <Route path="/v54/keys" element={<KeyManagement />} />
+          <Route path="/df/alerts-noise" element={<DfAlertNoise />} />
+          <Route path="/df/automation" element={<DfAutomation />} />
+          <Route path="/df/plugins" element={<DfPluginRuntime />} />
+          <Route path="/df/tenant-quota" element={<DfTenantQuota />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </PageTransition>

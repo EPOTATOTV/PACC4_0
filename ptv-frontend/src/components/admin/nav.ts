@@ -127,6 +127,18 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    groupKey: 'df',
+    groupLabel: '深度堡垒 DF',
+    groupI18nKey: 'nav.group.df',
+    items: [
+      { key: '/df/screen', to: '/df/screen', label: '数据可视化大屏', i18nKey: 'nav.dfScreen' },
+      { key: '/df/alerts-noise', to: '/df/alerts-noise', label: '告警降噪', i18nKey: 'nav.dfAlertNoise' },
+      { key: '/df/automation', to: '/df/automation', label: '自动化响应', i18nKey: 'nav.dfAutomation' },
+      { key: '/df/plugins', to: '/df/plugins', label: '插件运行时', i18nKey: 'nav.dfPlugins' },
+      { key: '/df/tenant-quota', to: '/df/tenant-quota', label: '租户配额', i18nKey: 'nav.dfTenantQuota' },
+    ],
+  },
+  {
     groupKey: 'docs',
     groupLabel: '文档与协议',
     groupI18nKey: 'nav.group.docs',
@@ -184,6 +196,11 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/v54/apm': { titleKey: 'nav.v54Apm', groupKey: 'nav.group.v54' },
   '/v54/security': { titleKey: 'nav.v54Security', groupKey: 'nav.group.v54' },
   '/v54/keys': { titleKey: 'nav.v54Keys', groupKey: 'nav.group.v54' },
+  '/df/screen': { titleKey: 'nav.dfScreen', groupKey: 'nav.group.df' },
+  '/df/alerts-noise': { titleKey: 'nav.dfAlertNoise', groupKey: 'nav.group.df' },
+  '/df/automation': { titleKey: 'nav.dfAutomation', groupKey: 'nav.group.df' },
+  '/df/plugins': { titleKey: 'nav.dfPlugins', groupKey: 'nav.group.df' },
+  '/df/tenant-quota': { titleKey: 'nav.dfTenantQuota', groupKey: 'nav.group.df' },
 }
 
 /** 根据当前路径匹配选中的菜单 key */

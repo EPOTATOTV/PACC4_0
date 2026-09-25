@@ -29,7 +29,7 @@ echarts.use([
  * 使用 echarts/core 按需注册，避免整包引入。
  * 首次拿到有数据的结果集时补一次入场（画布随容器一起抬起），之后的数据刷新不再重播。
  */
-export default function EChart({ option, height = 260 }: { option: EChartsOption; height?: number }) {
+export default function EChart({ option, height = 260 }: { option: EChartsOption; height?: number | string }) {
   const ref = useRef<HTMLDivElement>(null)
   const chartRef = useRef<echarts.ECharts | null>(null)
   const revealed = useRef(false)

@@ -50,6 +50,13 @@ const ja = {
   'nav.v54Apm': 'APM モニタリング',
   'nav.v54Security': 'セキュリティ監査',
   'nav.v54Keys': '鍵管理',
+  // DF（Deep Fortress）Alpha 1.0.0
+  'nav.group.df': 'ディープフォートレス DF',
+  'nav.dfScreen': '可視化ウォール',
+  'nav.dfAlertNoise': 'アラートノイズ低減',
+  'nav.dfAutomation': '自動応答',
+  'nav.dfPlugins': 'プラグインランタイム',
+  'nav.dfTenantQuota': 'テナントクォータ',
 
   // 玩家门户导航
   'player.overview': 'マイ概要',

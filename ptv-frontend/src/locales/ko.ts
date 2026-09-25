@@ -50,6 +50,13 @@ const ko = {
   'nav.v54Apm': 'APM 모니터링',
   'nav.v54Security': '보안 감사',
   'nav.v54Keys': '키 관리',
+  // DF(Deep Fortress) Alpha 1.0.0
+  'nav.group.df': '딥 포트리스 DF',
+  'nav.dfScreen': '시각화 월',
+  'nav.dfAlertNoise': '알림 노이즈 감소',
+  'nav.dfAutomation': '자동 대응',
+  'nav.dfPlugins': '플러그인 런타임',
+  'nav.dfTenantQuota': '테넌트 할당량',
 
   // 플레이어 포털 네비게이션
   'player.overview': '내 개요',

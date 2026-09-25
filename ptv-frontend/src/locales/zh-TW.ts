@@ -53,6 +53,13 @@ const zhTW: Record<string, string> = {
   'nav.v54Apm': 'APM 效能監控',
   'nav.v54Security': '安全稽核',
   'nav.v54Keys': '金鑰管理',
+  // DF（Deep Fortress）Alpha 1.0.0
+  'nav.group.df': '深度堡壘 DF',
+  'nav.dfScreen': '數據可視化大屏',
+  'nav.dfAlertNoise': '告警降噪',
+  'nav.dfAutomation': '自動化響應',
+  'nav.dfPlugins': '插件執行時',
+  'nav.dfTenantQuota': '租戶配額',
 
   'player.overview': '我的概覽',
   'player.group.protection': '防護與監控',

@@ -53,6 +53,13 @@ const en: Record<string, string> = {
   'nav.v54Apm': 'APM Monitoring',
   'nav.v54Security': 'Security Audit',
   'nav.v54Keys': 'Key Management',
+  // DF (Deep Fortress) Alpha 1.0.0
+  'nav.group.df': 'Deep Fortress DF',
+  'nav.dfScreen': 'Ops Wall',
+  'nav.dfAlertNoise': 'Alert Noise Reduction',
+  'nav.dfAutomation': 'Automated Response',
+  'nav.dfPlugins': 'Plugin Runtime',
+  'nav.dfTenantQuota': 'Tenant Quota',
 
   'player.overview': 'My Overview',
   'player.group.protection': 'Protection & Monitor',

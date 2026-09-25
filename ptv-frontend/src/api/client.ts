@@ -129,6 +129,18 @@ import type {
   V54ManagedKeyList,
   V54KeyAudit,
   V54KeyAuditRow,
+  BiRealtime,
+  DfStreamMetrics,
+  AlertNoiseStats,
+  AlertNoiseGroupPage,
+  AlertSuppressionRule,
+  AutomationRuleRow,
+  AutomationExecutionPage,
+  AutomationExecutionRow,
+  PluginMarketList,
+  PluginRuntimeRow,
+  TenantQuotaView,
+  TenantUsageView,
 } from '../types'
 
 // 管理后台凭据已迁至 HttpOnly 会话 cookie（pacc_admin）：JS 不再持有/读取密钥或令牌，
@@ -460,6 +472,8 @@ export const api = {
     redscreenHealth: () => request<BiRedscreenHealth>('/bi/redscreen-health'),
     playerProfile: () => request<BiPlayerProfile>('/bi/player-profile'),
     loginAudit: (days = 30) => request<BiLoginAudit>(`/bi/login-audit?days=${days}`),
+    /** 实时大屏快照：单次请求拿到在线数、近 1h/24h 检测与红屏量、待查验与最新红屏事件流。 */
+    realtime: () => request<BiRealtime>('/bi/realtime'),
   },
 
   redscreens: {
@@ -597,6 +611,11 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ enabled }),
       }),
+
+    // ---- §4.2.3 多租户配额 / 计费计量 ----
+    quota: () => request<TenantQuotaView>('/tenant/quota'),
+    usage: (tenantId?: string) =>
+      request<TenantUsageView>(`/tenant/usage${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ''}`),
   },
 
   // ---- v5.0 赛事直播转播：管理端 CRUD ----
@@ -744,7 +763,62 @@ export const api = {
         body: JSON.stringify({ note: note ?? '' }),
       }),
     stats: () => request<AlertStats>('/alerts/stats'),
+
+    // ---- §4.3.2 智能告警降噪：降噪率统计 / 聚合组 / 误报抑制规则 ----
+    noiseStats: (windowHours = 24) =>
+      request<AlertNoiseStats>(`/alerts/noise/stats?windowHours=${windowHours}`),
+    noiseGroups: (page = 0, size = 20, windowHours = 24) =>
+      request<AlertNoiseGroupPage>(`/alerts/groups?page=${page}&size=${size}&windowHours=${windowHours}`),
+    suppressions: () => request<AlertSuppressionRule[]>('/alerts/suppressions'),
+    addSuppression: (body: {
+      name: string
+      pattern: string
+      familyCode?: string
+      reason?: string
+    }) => request<AlertSuppressionRule>('/alerts/suppressions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    removeSuppression: (id: string) =>
+      request<{ deleted: string }>(`/alerts/suppressions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   },
+
+  // ---- §4.3.3 自动化响应：规则 / 启停 / 执行审计 ----
+  automation: {
+    rules: () => request<AutomationRuleRow[]>('/automation/rules'),
+    toggleRule: (code: string, enabled: boolean) =>
+      request<AutomationRuleRow>(`/automation/rules/${encodeURIComponent(code)}/toggle`, {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      }),
+    executions: (page = 0, size = 20) =>
+      request<AutomationExecutionPage>(`/automation/executions?page=${page}&size=${size}`),
+    revertExecution: (id: number) =>
+      request<AutomationExecutionRow>(`/automation/executions/${id}/revert`, { method: 'POST' }),
+  },
+
+  // ---- §4.2.2 插件运行时：市场条目 + 运行时热加载 / 卸载 ----
+  plugins: {
+    market: (status?: string, page = 0, size = 20) => {
+      const p = new URLSearchParams({ page: String(page), size: String(size) })
+      if (status) p.set('status', status)
+      return request<PluginMarketList>(`/plugins?${p.toString()}`)
+    },
+    runtime: () => request<PluginRuntimeRow[]>('/plugins/runtime'),
+    loadRuntime: (id: string, path?: string) =>
+      request<PluginRuntimeRow>(`/plugins/runtime/${encodeURIComponent(id)}/load`, {
+        method: 'POST',
+        body: JSON.stringify(path ? { path } : {}),
+      }),
+    unloadRuntime: (id: string) =>
+      request<PluginRuntimeRow>(`/plugins/runtime/${encodeURIComponent(id)}/unload`, { method: 'POST' }),
+  },
+
+  // ---- DF §4.1.1 流式检测运行指标（延迟百分位，A18 观测面） ----
+  df: {
+    streamMetrics: () => request<DfStreamMetrics>('/df/stream/metrics'),
+  },
+
   roles: {
     list: () => request<AdminRole[]>('/roles'),
     get: (id: string) => request<AdminRole>(`/roles/${id}`),
