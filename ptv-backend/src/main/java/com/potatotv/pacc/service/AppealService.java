@@ -80,6 +80,52 @@ public class AppealService {
         return a;
     }
 
+    /**
+     * v5.2 §7.4 写入 AI 自动复核结论并落到对应处理路径。
+     *
+     * <ul>
+     *   <li>{@code MISREPORT}：确认误报 → 走正式通过流程（撤销关联作弊记录 + 信誉恢复 + 通知玩家）；</li>
+     *   <li>{@code CONFIRMED}：确认违规 → 升到分析师（level2）人工复核，不自动驳回；</li>
+     *   <li>{@code INCONCLUSIVE}：证据不足 → 回落客服（level1）人工队列。</li>
+     * </ul>
+     *
+     * <p>幂等：仅当当前 {@code autoReview} 为 {@code PENDING} 时生效，重复调用不改变已定结论。</p>
+     *
+     * @param verdict 复核结论（{@code MISREPORT} / {@code CONFIRMED} / {@code INCONCLUSIVE}）
+     * @param score   复评分 0-100（写入 prescreenScore，作为人工复核的参考）
+     * @param comment 人类可读结论说明（写入 reviewComment）
+     * @return 更新后的申诉；申诉不存在或已复核过返回 {@code null}
+     */
+    @Transactional
+    public Appeal applyAutoReview(String id, String verdict, int score, String comment) {
+        Appeal a = appealRepository.findById(id).orElse(null);
+        if (a == null) return null;
+        if (!"PENDING".equals(a.getAutoReview())) return null;
+        a.setAutoReview(verdict);
+        a.setPrescreenScore(Math.max(0, Math.min(100, score)));
+        a.setReviewComment(comment == null ? "" : comment);
+        String v = verdict == null ? "" : verdict.toUpperCase(java.util.Locale.ROOT);
+        switch (v) {
+            case "MISREPORT" -> {
+                approve(a, "ai", "ai", comment);
+                return a;
+            }
+            case "CONFIRMED" -> {
+                a.setStatus("in_review");
+                a.setReviewStage("level2");
+                a.setReviewRole("analyst");
+            }
+            default -> {
+                a.setStatus("in_review");
+                a.setReviewStage("level1");
+                a.setReviewRole("support");
+            }
+        }
+        appealRepository.save(a);
+        log.info("AI 自动复核结论 appeal={} verdict={} score={}", id, v, score);
+        return a;
+    }
+
     private void approve(Appeal a, String reviewer, String role, String comment) {
         a.setStatus("approved");
         a.setReviewStage("final");

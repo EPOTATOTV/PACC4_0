@@ -10,6 +10,7 @@ import com.potatotv.pacc.repository.AccountRepository;
 import com.potatotv.pacc.repository.CheatRecordRepository;
 import com.potatotv.pacc.repository.RedscreenAlertRepository;
 import com.potatotv.pacc.repository.SuspicionFlagRepository;
+import com.potatotv.pacc.service.detection.v52.ThreatIntelExtractor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class RedscreenService {
     private final InspectService inspectService;
     private final WebhookDispatcher webhookDispatcher;
     private final NotificationService notificationService;
+    private final ThreatIntelExtractor threatIntelExtractor;
     private final ObjectMapper mapper;
 
     private final int redscreenThreshold;
@@ -55,6 +57,7 @@ public class RedscreenService {
                             InspectService inspectService,
                             WebhookDispatcher webhookDispatcher,
                             NotificationService notificationService,
+                            ThreatIntelExtractor threatIntelExtractor,
                             ObjectMapper mapper,
                             @Value("${pacc.detection.redscreen-threshold:85}") int redscreenThreshold,
                             @Value("${pacc.detection.severe-threshold:95}") int severeThreshold,
@@ -68,6 +71,7 @@ public class RedscreenService {
         this.inspectService = inspectService;
         this.webhookDispatcher = webhookDispatcher;
         this.notificationService = notificationService;
+        this.threatIntelExtractor = threatIntelExtractor;
         this.mapper = mapper;
         this.redscreenThreshold = redscreenThreshold;
         this.severeThreshold = severeThreshold;
@@ -129,6 +133,16 @@ public class RedscreenService {
 
         // 永久作弊记录 + 哈希链
         appendCheatRecord(alertId, pteid, cheatType, level, riskScore);
+
+        // v5.2 §6.3 威胁情报自动提取：事件明细 → IOC 入库（同事务；失败只记日志，不影响红屏处置）
+        try {
+            ThreatIntelExtractor.Extraction extraction =
+                    threatIntelExtractor.extractAndStore(cheatType, detail, alertId);
+            log.info("红屏事件 IOC 提取 alert={} 候选={} 新增={} 命中既有={}",
+                    alertId, extraction.candidates(), extraction.created().size(), extraction.matched().size());
+        } catch (Exception e) {
+            log.warn("IOC 自动提取失败 alert={} err={}", alertId, e.getMessage());
+        }
 
         // 账号状态标记
         if (account != null) {

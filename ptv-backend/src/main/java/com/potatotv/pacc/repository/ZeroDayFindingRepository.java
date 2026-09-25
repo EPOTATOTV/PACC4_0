@@ -18,5 +18,10 @@ public interface ZeroDayFindingRepository extends JpaRepository<ZeroDayFinding, 
      */
     List<ZeroDayFinding> findByStatusAndReviewedAtAfterOrderByReviewedAtDesc(ZeroDayFinding.Status status, Instant after);
 
+    /**
+     * v5.2 §7.4 申诉自动复核的信号来源：某玩家窗口内的零日发现（按创建时间倒序）。
+     */
+    List<ZeroDayFinding> findByPteidAndCreatedAtAfterOrderByCreatedAtDesc(String pteid, Instant after);
+
     long countByStatus(ZeroDayFinding.Status status);
 }

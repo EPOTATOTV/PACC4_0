@@ -14,6 +14,12 @@ public interface IocIndicatorRepository extends JpaRepository<IocIndicator, Long
 
     Optional<IocIndicator> findByValueAndType(String value, String type);
 
+    /**
+     * v5.2 §6.3 归族辅助：同类型下以指定前缀开头的既有 IOC。
+     * <p>调用方按固定长度前缀查询，把「同目录/同前缀」的一批指标归到同一族。</p>
+     */
+    Optional<IocIndicator> findFirstByTypeAndValueStartingWith(String type, String valuePrefix);
+
     Page<IocIndicator> findByState(String state, Pageable pageable);
 
     /** 全字段模糊检索（value / source_family / source_id / type）。 */
