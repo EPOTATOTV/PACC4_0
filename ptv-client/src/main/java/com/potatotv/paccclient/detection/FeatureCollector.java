@@ -9,6 +9,7 @@ import com.potatotv.paccclient.detection.samples.InputEvent;
 import com.potatotv.paccclient.detection.samples.Point2D;
 import com.potatotv.paccclient.detection.samples.PositionSample;
 import com.potatotv.paccclient.detection.samples.Vec3;
+import com.potatotv.paccclient.detection.stealth.StealthTelemetry;
 import com.potatotv.paccclient.detection.telemetry.EnvironmentTelemetry;
 import com.potatotv.paccclient.detection.telemetry.JvmTelemetry;
 import com.potatotv.paccclient.detection.telemetry.NetworkTelemetry;
@@ -68,6 +69,11 @@ public final class FeatureCollector {
         merge(values, backed, EnvironmentTelemetry.snapshot());
         merge(values, backed, JvmTelemetry.snapshot());
         merge(values, backed, NetworkTelemetry.snapshot());
+        // §4 隐身探针（PCIe DMA / IOMMU / 注入痕迹 / 调试通道 / 虚拟化 / 沙箱）：
+        // 结果带 TTL 缓存，命令不可用或非受支持平台只写已知项，不虚增覆盖度
+        if (PerfToggles.enabled(PerfToggles.STEALTH_PROBES)) {
+            merge(values, backed, StealthTelemetry.toTelemetry(StealthTelemetry.probe()));
+        }
 
         FeatureVector fv = new FeatureVector();
         int covered = 0;

@@ -1,8 +1,12 @@
 package com.potatotv.paccclient;
 
+import com.potatotv.paccclient.ai.LocalAiModel;
+import com.potatotv.paccclient.ai.ModelRepository;
+import com.potatotv.paccclient.ai.ModelSync;
 import com.potatotv.paccclient.control.DetectionController;
 import com.potatotv.paccclient.control.LocalControlServer;
 import com.potatotv.paccclient.detection.DetectionEngine;
+import com.potatotv.paccclient.detection.stealth.StealthTelemetry;
 import com.potatotv.paccclient.inspect.InspectAgent;
 import com.potatotv.paccclient.redscreen.FullScreenRed;
 import com.potatotv.paccclient.redscreen.RedscreenReceiver;
@@ -82,7 +86,20 @@ public final class PaccClient {
         OfflineQueue offlineQueue =
                 new OfflineQueue(storeDir.resolve("outbox.enc"), storePassword, 1000, true);
 
-        DetectionEngine engine = new DetectionEngine();
+        // ---- v5.2 端侧 AI：装载本地模型（下载链路见下方的 ModelSync 周期任务）----
+        ModelRepository modelRepository = new ModelRepository();
+        LocalAiModel localAi = new LocalAiModel();
+        try {
+            modelRepository.loadInto(localAi);
+        } catch (RuntimeException e) {
+            System.err.println("[PTV-Client] 本地模型装载失败（按无模型运行）: " + e.getMessage());
+        }
+        System.out.println("[PTV-Client] 端侧模型 loaded=" + localAi.loaded()
+                + " version=" + localAi.modelVersion());
+        // 隐身探针（§4）含系统命令扫描，后台线程预热一次，避免首个心跳被扫描拖慢
+        Thread.ofVirtual().name("ptv-stealth-warmup").start(StealthTelemetry::probe);
+
+        DetectionEngine engine = new DetectionEngine(localAi);
         // 远程查端代理：收到 inspect_* 信令时回传取证；出站经 protobuf 信封二进制帧上报
         InspectAgent inspectAgent = new InspectAgent();
         WssReporter reporter = new WssReporter(pteid, cfg.edition, cfg.buildConnectUri(token, pteid),
@@ -184,6 +201,18 @@ public final class PaccClient {
                 }
             }
         }, 10, 300, TimeUnit.SECONDS);
+
+        // v5.2 §2.1.3 模型下发同步：启动 45 秒后首次拉取，之后每 6 小时一次；失败保留现有模型
+        ModelSync modelSync = new ModelSync(cfg.serverUri, token, modelRepository);
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                if (modelSync.syncOnce(localAi)) {
+                    System.out.println("[PTV-Client] 端侧模型已更新 version=" + localAi.modelVersion());
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 模型同步异常（保留现有模型）: " + e.getMessage());
+            }
+        }, 45, 6 * 3600, TimeUnit.SECONDS);
 
         // 常驻运行，Ctrl+C 退出
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
