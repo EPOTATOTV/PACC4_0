@@ -112,6 +112,84 @@ public final class OpsClient {
         return s == null ? "" : s;
     }
 
+    /**
+     * v5.4 APM：批量上报秒级采样（body 已由 {@code ApmCollector} 编码为契约 JSON）。
+     * 返回是否上报成功——调用方据此决定丢弃还是保留本地缓冲。
+     */
+    public boolean reportApmBatch(String jsonBody) {
+        return post("/api/player/apm/batch", jsonBody);
+    }
+
+    /** v5.4 安全：上报反调试/反注入/完整性事件批（body 已由 {@code SecurityReporter} 编码）。 */
+    public boolean reportSecurityEvents(String jsonBody) {
+        return post("/api/player/security/events", jsonBody);
+    }
+
+    /**
+     * v5.4 远程证明：领取一次挑战，返回 challenge_id 与 nonce；失败返回 null。
+     */
+    public AttestationChallenge requestAttestationChallenge(String clientVersion, String platform,
+                                                            String codeHash, String configHash) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("client_version", clientVersion);
+        body.put("platform", platform);
+        body.put("code_hash", codeHash);
+        body.put("config_hash", configHash);
+        HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/player/attestation/challenge"))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(Json.encode(body), StandardCharsets.UTF_8))
+                .timeout(Duration.ofSeconds(6)).build();
+        try {
+            HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+            if (r.statusCode() / 100 != 2 || r.body() == null) return null;
+            Map<String, Object> parsed = Json.decodeObject(r.body());
+            String challengeId = stringValue(parsed.get("challenge_id"));
+            String nonce = stringValue(parsed.get("nonce"));
+            if (challengeId.isEmpty()) return null;
+            return new AttestationChallenge(challengeId, nonce);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception e) {
+            System.err.println("[PTV-Ops] 领取证明挑战失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * v5.4 远程证明：提交应答，返回服务端原始响应体；HTTP 非 2xx 或异常返回 null。
+     */
+    public String respondAttestation(String jsonBody) {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/player/attestation/respond"))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .timeout(Duration.ofSeconds(6)).build();
+        try {
+            HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+            if (r.statusCode() / 100 != 2) {
+                System.err.println("[PTV-Ops] 证明应答被拒绝 HTTP " + r.statusCode());
+                return null;
+            }
+            return r.body();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception e) {
+            System.err.println("[PTV-Ops] 证明应答提交失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    /** 远程证明挑战（challenge_id + nonce）。 */
+    public record AttestationChallenge(String challengeId, String nonce) {
+    }
+
     /** 拉取生效远程配置（{config:{key:value}}）。失败返回空 Map。 */
     public Map<String, Object> fetchRemoteConfig() {
         HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/player/ops/config/active"))

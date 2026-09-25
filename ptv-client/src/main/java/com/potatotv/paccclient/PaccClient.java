@@ -3,6 +3,8 @@ package com.potatotv.paccclient;
 import com.potatotv.paccclient.ai.LocalAiModel;
 import com.potatotv.paccclient.ai.ModelRepository;
 import com.potatotv.paccclient.ai.ModelSync;
+import com.potatotv.paccclient.apm.ApmCollector;
+import com.potatotv.paccclient.apm.ClientHealthMetrics;
 import com.potatotv.paccclient.control.DetectionController;
 import com.potatotv.paccclient.control.LocalControlServer;
 import com.potatotv.paccclient.detection.DetectionEngine;
@@ -11,6 +13,9 @@ import com.potatotv.paccclient.inspect.InspectAgent;
 import com.potatotv.paccclient.redscreen.FullScreenRed;
 import com.potatotv.paccclient.redscreen.RedscreenReceiver;
 import com.potatotv.paccclient.redscreen.SessionRecorder;
+import com.potatotv.paccclient.security.CodeIntegrityService;
+import com.potatotv.paccclient.security.ProcessProtector;
+import com.potatotv.paccclient.security.SecurityReporter;
 import com.potatotv.paccclient.store.HardwareFingerprintV2;
 import com.potatotv.paccclient.store.MachineFingerprint;
 import com.potatotv.paccclient.store.OfflineQueue;
@@ -161,6 +166,8 @@ public final class PaccClient {
             System.err.println("[PTV-Client] 启动中断: " + e.getMessage());
             return;
         }
+        // 链路已连上：健康维度据此上报 client_wss_connected
+        ClientHealthMetrics.SINK.setWssConnected(true);
 
         // 后台周期采样上报：封装为可被本地控制服务启停的控制器（默认启动驱动，行为不变）
         DetectionController detector = new DetectionController(engine, reporter,
@@ -172,12 +179,52 @@ public final class PaccClient {
 
         // ---- v4.7 运维客户端：远程配置、崩溃上报、性能上报、特征库热更新（尽力而为，失败不阻断）----
         OpsClient opsClient = new OpsClient(cfg.serverUri, token);
+
+        // ---- v5.4 APM：系统/游戏/检测/客户端健康四类指标的秒级采样与批量上报 ----
+        // 采集器不认识 HTTP，传输经 BatchSink 注入；发送结果回填健康指标（上报成功率/积压条数）。
+        ApmCollector apmCollector = new ApmCollector(payload -> opsClient.reportApmBatch(payload));
+        apmCollector.start();
+
+        // ---- v5.4 安全：代码完整性、进程自保护、反调试/反注入评估与远程证明（尽力而为）----
+        CodeIntegrityService integrityService = new CodeIntegrityService();
+        ProcessProtector processProtector = new ProcessProtector();
+        ProcessProtector.ProtectionReport protection = processProtector.apply();
+        System.out.println("[PTV-Client] 进程自保护 coredump=" + protection.coredumpDisabled()
+                + " crashHandler=" + protection.crashHandlerInstalled()
+                + " 非守护线程=" + protection.nonDaemonThreads());
+
+        SecurityReporter securityReporter = new SecurityReporter(
+                body -> opsClient.reportSecurityEvents(body),
+                body -> opsClient.reportSecurityEvents(body));
+        securityReporter.setIntegrityService(integrityService);
+        securityReporter.setSignSecret(cfg.wssSignSecret);
+        String clientConfigHash = integrityService.resolveConfigHash("pacc-client.properties");
+        ClientHealthMetrics.SINK.setConfigHash(clientConfigHash);
+        securityReporter.setConfigHash(clientConfigHash);
+        securityReporter.setAttestationTransport(new SecurityReporter.AttestationTransport() {
+            @Override
+            public SecurityReporter.Challenge challenge(String codeHash, String configHash) {
+                OpsClient.AttestationChallenge c = opsClient.requestAttestationChallenge(
+                        ApmCollector.CLIENT_VERSION, ApmCollector.platform(), codeHash, configHash);
+                return c == null ? null : new SecurityReporter.Challenge(c.challengeId(), c.nonce());
+            }
+
+            @Override
+            public String respond(String challengeId, String nonce, String codeHash, String configHash,
+                                  Map<String, String> runtimeState, String signature, long elapsedMs) {
+                return opsClient.respondAttestation(SecurityReporter.encodeRespondBody(
+                        challengeId, nonce, codeHash, configHash, runtimeState, signature, elapsedMs));
+            }
+        });
+        securityReporter.start(60);
+
         SignatureSync signatureSync = new SignatureSync(cfg.sigSecret);
         ScheduledExecutorService opsScheduler = Executors.newSingleThreadScheduledExecutor(
                 r -> Thread.ofVirtual().name("ptv-ops").unstarted(r));
 
         // 未捕获异常兜底：上报崩溃堆栈后退出
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            ClientHealthMetrics.SINK.onCrash();
             opsClient.reportCrash(cfg.signatureVersion, osName(), archName(), platformName(),
                     stackOf(e), contextJson(cfg), null);
             System.err.println("[PTV-Client] 未捕获异常: " + e);
@@ -233,6 +280,7 @@ public final class PaccClient {
         SessionRecorder recorder = new SessionRecorder(maskPteid(pteid));
         recorder.startRingBuffer();
         RedscreenReceiver.onActivated((level, alertId) -> recorder.onRedScreen(alertId, recording -> {
+            ClientHealthMetrics.SINK.onRedscreen();
             boolean ok = opsClient.uploadReplay(recording.alertId(), recording.cipher(),
                     recording.key(), recording.iv(), recording.frames(), recording.width(),
                     recording.height(), recording.fps(), recording.durationMillis(),
@@ -244,10 +292,13 @@ public final class PaccClient {
 
         // 常驻运行，Ctrl+C 退出
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            // 先声明正常关闭：退出守卫据此不把 Ctrl+C 记成崩溃
+            processProtector.markCleanExit();
             detector.stop();
             recorder.stop();
             if (control != null) control.close();
             opsScheduler.shutdownNow();
+            apmCollector.stop();
             reporter.close();
             System.out.println("[PTV-Client] 玩家端已退出");
         }));
