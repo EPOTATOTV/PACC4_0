@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,6 +34,9 @@ public interface IocIndicatorRepository extends JpaRepository<IocIndicator, Long
     long countByState(String state);
 
     long countBySubscribedTrue();
+
+    /** v5.4 §4.3.3 自动化触发：统计窗口内新入库的 IOC 数量（新型威胁出现即触发规则灰度）。 */
+    long countByFirstSeenAfter(Instant since);
 
     long countBySeverityGreaterThanEqual(int severity);
 

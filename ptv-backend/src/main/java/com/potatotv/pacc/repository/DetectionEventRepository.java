@@ -12,6 +12,10 @@ public interface DetectionEventRepository extends JpaRepository<DetectionEvent, 
 
     long countByOccurredAtBetween(Instant start, Instant end);
 
+    /** v5.4 §4.3.3 自动化触发：窗口内活跃客户端数（去重玩家），作为崩溃率分母。 */
+    @Query("select count(distinct d.pteid) from DetectionEvent d where d.occurredAt between :start and :end")
+    long countDistinctPteidBetween(@Param("start") Instant start, @Param("end") Instant end);
+
     List<DetectionEvent> findByOccurredAtAfter(Instant start);
 
     @Query("select d.eventType, count(d) from DetectionEvent d where d.occurredAt between :start and :end group by d.eventType")

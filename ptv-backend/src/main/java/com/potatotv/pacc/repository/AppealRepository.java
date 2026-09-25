@@ -21,6 +21,9 @@ public interface AppealRepository extends JpaRepository<Appeal, String> {
 
     long countByStatus(String status);
 
+    /** v5.4 §4.3.3 自动化触发：按 AI 复核结论统计申诉数（MISREPORT 占比即误报成功率）。 */
+    long countByAutoReview(String autoReview);
+
     /** 按阶段+状态分组统计申诉数，供 BI 申诉分析报表使用。 */
     @Query("select a.reviewStage, a.status, count(a) from Appeal a " +
             "where a.createdAt between :start and :end group by a.reviewStage, a.status")
