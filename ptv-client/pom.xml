@@ -19,7 +19,7 @@
         <proguard.version>7.6.1</proguard.version>
         <!-- 必须与 proguard-base 的传递依赖一致：7.6.1 -> proguard-core 9.1.7 -->
         <proguard.core.version>9.1.7</proguard.core.version>
-        <protobuf.version>3.23.2</protobuf.version>
+        <protobuf.version>3.25.5</protobuf.version>
     </properties>
 
     <!-- 玩家端运行时依赖：仅引入 protobuf（WSS 查端信令信封，见 proto/pacc_wire.proto），
