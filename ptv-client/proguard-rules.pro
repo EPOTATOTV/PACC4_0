@@ -139,8 +139,12 @@
 # ---------------------------------------------------------------------------
 -keep class com.potatotv.paccclient.protect.PaccSecretStrings { public static *; }
 
-# 资源文件原样保留（pacc-client.properties 由 ClientConfig 按路径读取）
--keepdirectories
+# 资源文件（pacc-client.properties 由 ClientConfig 按路径读取、META-INF/MANIFEST.MF）
+# 由 ProGuard 默认从 injar 原样复制，无需 -keepdirectories。
+# 反过来：一旦开启 -keepdirectories，ProGuard 会把输入 jar 里「被保留类所在包」的目录条目
+# 一并写回产物，于是 com/potatotv/paccclient/detection/federated/ 这类原业务子包名即便
+# 一个类都没留下，也会以空目录条目形式暴露包结构——这正是 CI 约束 (b) 判红的直接原因。
+# 判定依据以「有内容的条目」为准，空目录条目没有任何保留价值。
 
 # 库依赖引用缺失只告警不中断（protobuf 作为 library jar 提供，JDK 模块类由 ProGuard 自动识别）
 -ignorewarnings
