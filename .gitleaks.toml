@@ -1,0 +1,22 @@
+# PACC 密钥扫描（gitleaks）配置
+#
+# 保持默认规则集不变：这里只做「已确认的误报」精确豁免，不放宽任何真实凭据的检测。
+# 新增豁免必须写明「为什么不是凭据」，否则下次审计无法判断该条是否还成立。
+title = "PACC gitleaks 配置"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """前端导航表里的 i18n 键名被 generic-api-key 误判。
+nav.ts 用 `i18nKey: 'nav.xxx'` / `titleKey: 'nav.xxx'` 声明「这个菜单项取哪条翻译」，
+值是键名（如 nav.v52Reputation），不带任何凭据语义；generic-api-key 的判定是
+「字段名含 key + 冒号 + 高熵字符串」，于是把键名当成了 API Key。
+豁免只作用于 generic-api-key 规则、只作用于该文件的这一种行形态，
+不整文件放行——将来在同一文件里真写出密钥，仍然会被扫出来。"""
+paths = ['''ptv-frontend/src/components/admin/nav\.ts$''']
+regexTarget = "line"
+regexes = [
+  '''\b(i18nKey|groupI18nKey|titleKey)\s*:\s*'nav\.[A-Za-z0-9.]+'''',
+]
+targetRules = ["generic-api-key"]
