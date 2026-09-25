@@ -332,7 +332,7 @@ fn parse_status_u32(status: &str, key: &str) -> Option<u32> {
 fn parse_input_events(raw: &[u8]) -> Vec<InputSample> {
     const REC: usize = 24;
     let mut out = Vec::new();
-    for chunk in raw.chunks_exact(REC) {
+    for chunk in raw.as_chunks::<REC>().0 {
         let sec = i64::from_ne_bytes(chunk[0..8].try_into().unwrap());
         let usec = i64::from_ne_bytes(chunk[8..16].try_into().unwrap());
         let ev_type = u16::from_ne_bytes(chunk[16..18].try_into().unwrap());

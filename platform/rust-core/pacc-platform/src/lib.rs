@@ -85,6 +85,16 @@ pub fn current() -> Box<dyn Platform> {
 
 /// 为无法真实落地的平台生成一份**诚实的最小实现**：能力全为 false，接口一律返回
 /// [`PlatformError::Unsupported`]。这样上层能明确知道「无数据」而非「数据正常」。
+///
+/// 调用方只有 windows / android / ios / harmonyos 四个模块。这四个模块本身是 cfg 门控的，
+/// 所以在 Linux 这类有原生实现的目标上宏没有调用点——不加同样的 cfg，Linux 构建会以
+/// `unused_macros` 判红（本地 Windows 编译看不到，CI 的 Linux runner 必挂）。
+#[cfg(any(
+    target_os = "windows",
+    target_os = "android",
+    target_os = "ios",
+    target_env = "ohos"
+))]
 macro_rules! unsupported_platform {
     ($name:ident, $os:expr, $reason:expr) => {
         pub struct $name;
@@ -145,6 +155,12 @@ macro_rules! unsupported_platform {
     };
 }
 
+#[cfg(any(
+    target_os = "windows",
+    target_os = "android",
+    target_os = "ios",
+    target_env = "ohos"
+))]
 pub(crate) use unsupported_platform;
 
 /// 未列入受支持目标时的兜底实现（同样只返回 Unsupported）。
