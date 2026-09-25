@@ -60,6 +60,41 @@ PaccDispatchCreateClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
     return PaccCompleteIrp(Irp, STATUS_SUCCESS, 0);
 }
 
+// 排空某一类别的环形事件。用户侧长度仅作上限参考，最终以容量与输出缓冲为准。
+static NTSTATUS
+PaccDrainEvents(ULONG eventClass, PIRP Irp, PIO_STACK_LOCATION irpSp, PULONG pInfo)
+{
+    ULONG outLen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
+    ULONG inLen  = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+    PVOID sysBuf = Irp->AssociatedIrp.SystemBuffer;
+    ULONG headerSize = (ULONG)sizeof(PACC_EVENT_BATCH);
+
+    if (sysBuf == NULL) return STATUS_INVALID_PARAMETER;
+    if (outLen < headerSize + sizeof(PACC_EVENT)) return STATUS_BUFFER_TOO_SMALL;
+
+    ULONG maxCount = (outLen - headerSize) / (ULONG)sizeof(PACC_EVENT);
+    if (maxCount > PACC_EVENT_RING_CAPACITY) maxCount = PACC_EVENT_RING_CAPACITY;
+    if (maxCount == 0) return STATUS_BUFFER_TOO_SMALL;
+
+    if (inLen >= sizeof(PACC_DRAIN_REQUEST)) {
+        PPACC_DRAIN_REQUEST req = (PPACC_DRAIN_REQUEST)sysBuf;
+        if (req->MaxCount != 0 && req->MaxCount < maxCount) maxCount = req->MaxCount;
+    }
+
+    PPACC_EVENT_BATCH batch  = (PPACC_EVENT_BATCH)sysBuf;
+    PPACC_EVENT       events = (PPACC_EVENT)((PUCHAR)sysBuf + headerSize);
+    ULONG count = PaccEventDrain(eventClass, events, maxCount);
+
+    PACC_EVENT_STATS stats;
+    PaccEventGetStats(&stats);
+    batch->Class   = eventClass;
+    batch->Count   = count;
+    batch->Dropped = stats.Dropped;
+
+    *pInfo = headerSize + count * (ULONG)sizeof(PACC_EVENT);
+    return STATUS_SUCCESS;
+}
+
 NTSTATUS
 PaccDispatchDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
@@ -129,6 +164,82 @@ PaccDispatchDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
         break;
     }
 
+    // ---- 事件排空：进程 / 镜像 / 线程 / 注册表 ----
+    case IOCTL_PACC_DRAIN_PROCESS_EVENTS:
+        status = PaccDrainEvents(PACC_EVENT_CLASS_PROCESS, Irp, irpSp, &info);
+        break;
+    case IOCTL_PACC_DRAIN_IMAGE_EVENTS:
+        status = PaccDrainEvents(PACC_EVENT_CLASS_IMAGE, Irp, irpSp, &info);
+        break;
+    case IOCTL_PACC_DRAIN_THREAD_EVENTS:
+        status = PaccDrainEvents(PACC_EVENT_CLASS_THREAD, Irp, irpSp, &info);
+        break;
+    case IOCTL_PACC_DRAIN_REGISTRY_EVENTS:
+        status = PaccDrainEvents(PACC_EVENT_CLASS_REGISTRY, Irp, irpSp, &info);
+        break;
+
+    // ---- 计数器归零（返回归零后的快照）----
+    case IOCTL_PACC_RESET_EVENT_COUNTERS: {
+        if (Irp->AssociatedIrp.SystemBuffer == NULL ||
+            irpSp->Parameters.DeviceIoControl.OutputBufferLength < sizeof(PACC_EVENT_STATS)) {
+            status = STATUS_BUFFER_TOO_SMALL;
+            break;
+        }
+        PaccEventResetCounters();
+        PACC_EVENT_STATS snapshot;
+        PaccEventGetStats(&snapshot);
+        RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer, &snapshot, sizeof(snapshot));
+        info = sizeof(snapshot);
+        status = STATUS_SUCCESS;
+        break;
+    }
+
+    // ---- SSDT 完整性状态 ----
+    case IOCTL_PACC_QUERY_SSDT_STATUS: {
+        if (Irp->AssociatedIrp.SystemBuffer == NULL ||
+            irpSp->Parameters.DeviceIoControl.OutputBufferLength < sizeof(PACC_SSDT_STATUS)) {
+            status = STATUS_BUFFER_TOO_SMALL;
+            break;
+        }
+        PACC_SSDT_STATUS ssdt;
+        status = PaccSsdtQuery(&ssdt);
+        if (NT_SUCCESS(status)) {
+            RtlCopyMemory(Irp->AssociatedIrp.SystemBuffer, &ssdt, sizeof(ssdt));
+            info = sizeof(ssdt);
+        }
+        break;
+    }
+
+    // ---- 已加载驱动枚举 + 签名核验（分页）----
+    case IOCTL_PACC_QUERY_DRIVER_STATUS: {
+        ULONG outLen = irpSp->Parameters.DeviceIoControl.OutputBufferLength;
+        ULONG inLen  = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+        PVOID sysBuf = Irp->AssociatedIrp.SystemBuffer;
+        ULONG headerSize = (ULONG)FIELD_OFFSET(PACC_DRIVER_REPORT, Entries);
+
+        if (sysBuf == NULL || outLen < headerSize + sizeof(PACC_DRIVER_ENTRY)) {
+            status = STATUS_BUFFER_TOO_SMALL;
+            break;
+        }
+        if (inLen != 0 && inLen < sizeof(PACC_DRIVER_QUERY)) {
+            status = STATUS_INVALID_PARAMETER;   // 输入结构不完整
+            break;
+        }
+
+        PACC_DRIVER_QUERY query;
+        RtlZeroMemory(&query, sizeof(query));
+        if (inLen >= sizeof(PACC_DRIVER_QUERY)) {
+            RtlCopyMemory(&query, sysBuf, sizeof(query));   // 先取输入，再写输出
+        }
+
+        status = PaccDriverScanQuery(&query, (PPACC_DRIVER_REPORT)sysBuf, outLen);
+        if (NT_SUCCESS(status)) {
+            PPACC_DRIVER_REPORT report = (PPACC_DRIVER_REPORT)sysBuf;
+            info = headerSize + report->Returned * (ULONG)sizeof(PACC_DRIVER_ENTRY);
+        }
+        break;
+    }
+
     default:
         status = STATUS_INVALID_DEVICE_REQUEST;
         break;
@@ -169,8 +280,16 @@ VOID
 PaccUnload(PDRIVER_OBJECT DriverObject)
 {
     UNICODE_STRING link = RTL_CONSTANT_STRING(PACC_SYMLINK_NAME);
-    IoDeleteSymbolicLink(&link);
+
+    // 按注册的逆序反注册，确保不泄漏任何回调。
     PaccObHookUninitialize();
+    PaccRegMonUninitialize();
+    PaccImageMonUninitialize();
+    PaccProcessMonUninitialize();
+    PaccSsdtUninitialize();
+    PaccEventUninitialize();
+
+    IoDeleteSymbolicLink(&link);
     if (DriverObject->DeviceObject) {
         IoDeleteDevice(DriverObject->DeviceObject);
     }
@@ -188,7 +307,19 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
     g_paccBlockedOpCount = 0;
     g_paccDeniedLogCount = 0;
 
+    // 1) 事件环形缓冲是关键资源：分配失败即拒绝加载（fail closed），不留空缓冲。
+    status = PaccEventInitialize();
+    if (!NT_SUCCESS(status)) {
+        DbgPrint("[PACC] DriverEntry abort: event ring init failed %x\n", status);
+        return status;
+    }
+
     PaccCreateDevice(DriverObject);
+    if (DriverObject->DeviceObject == NULL) {
+        DbgPrint("[PACC] DriverEntry abort: device creation failed\n");
+        PaccEventUninitialize();
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
 
     DriverObject->MajorFunction[IRP_MJ_CREATE]         = PaccDispatchCreateClose;
     DriverObject->MajorFunction[IRP_MJ_CLOSE]          = PaccDispatchCreateClose;
@@ -197,6 +328,22 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
         if (DriverObject->MajorFunction[i] == NULL) DriverObject->MajorFunction[i] = PaccDispatchDefault;
     }
     DriverObject->DriverUnload = PaccUnload;
+
+    // 2) SSDT 快照（最佳努力：定位失败仅记录，不影响其余能力）。
+    status = PaccSsdtInitialize();
+    if (!NT_SUCCESS(status)) {
+        DbgPrint("[PACC] SSDT snapshot unavailable %x\n", status);
+    }
+
+    // 3) 内核通知回调：逐个注册，失败记录但不阻断，各自内部保证状态一致。
+    status = PaccProcessMonInitialize();
+    if (!NT_SUCCESS(status)) DbgPrint("[PACC] process/thread monitor unavailable %x\n", status);
+
+    status = PaccImageMonInitialize();
+    if (!NT_SUCCESS(status)) DbgPrint("[PACC] image monitor unavailable %x\n", status);
+
+    status = PaccRegMonInitialize();
+    if (!NT_SUCCESS(status)) DbgPrint("[PACC] registry monitor unavailable %x\n", status);
 
     status = PaccObHookInitialize();
     if (!NT_SUCCESS(status)) {
