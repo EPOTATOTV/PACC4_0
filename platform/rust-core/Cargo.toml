@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = [
+    "pacc-platform",
+    "pacc-collector",
+    "pacc-engine",
+    "pacc-ml",
+    "pacc-stealth",
+    "pacc-behavior",
+    "pacc-core",
+]
+
+[workspace.package]
+version = "5.4.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "PACC DF Alpha 1.0.0 跨平台检测核心（设计文档 §4.2.1）"
+
+# 零第三方依赖：全部为标准库实现，便于离线构建、交叉编译与可信供应链审计。
+# 与 deploy/pipe-rust 保持同一发布档配置：体积优先 + 抹符号（检测核心符号名会暴露算法分块）。
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

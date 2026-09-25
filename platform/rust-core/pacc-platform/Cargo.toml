@@ -1,0 +1,9 @@
+[package]
+name = "pacc-platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PACC 平台抽象层：进程枚举 / 内存扫描 / 输入采样 / 反调试探针 / 安装完整性"
+
+[dependencies]
+# 零依赖

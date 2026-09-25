@@ -1,0 +1,9 @@
+[package]
+name = "pacc-behavior"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PACC 行为分析（时序 + 分布模型，设计文档 §2.2）"
+
+[dependencies]
+pacc-collector = { path = "../pacc-collector" }

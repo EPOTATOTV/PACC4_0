@@ -1,0 +1,24 @@
+[package]
+name = "pacc-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PACC 跨平台检测核心门面：re-export 各层并产出 libpacc_core"
+
+[lib]
+# cdylib 供桌面壳/移动端 JNI-FFI 装载；rlib 供同工作区的 Rust 客户端（linux-client）复用。
+name = "pacc_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pacc-platform = { path = "../pacc-platform" }
+pacc-collector = { path = "../pacc-collector" }
+pacc-engine = { path = "../pacc-engine" }
+pacc-ml = { path = "../pacc-ml" }
+pacc-stealth = { path = "../pacc-stealth" }
+pacc-behavior = { path = "../pacc-behavior" }
+
+# A21 性能基准：harness = false 表示自己计时，不引 criterion 之类依赖。
+[[bench]]
+name = "detection_path"
+harness = false

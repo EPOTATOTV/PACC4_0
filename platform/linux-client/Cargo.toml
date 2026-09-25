@@ -1,0 +1,28 @@
+[package]
+name = "pacc-linux-client"
+version = "5.4.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "PACC Linux 原生客户端：eBPF 事件优先、procfs 回退扫描，向 PACC 后端上报检测事件"
+
+# 独立包 + 独立工作区根：platform/rust-core 是另一个 workspace，
+# 两者用 path 依赖相连但不互相并入，避免 `cargo build` 时把对方的 target 搅在一起。
+[workspace]
+
+[[bin]]
+name = "pacc-linux-client"
+path = "src/main.rs"
+
+[dependencies]
+# 跨平台检测核心（facade）：特征向量、规则引擎、端侧 AI、隐身探针、行为分析。
+# 同时复用其公开的 json 模块解析 eBPF loader 的 NDJSON，避免再引入 JSON 库。
+pacc-core = { path = "../rust-core/pacc-core" }
+
+# 零第三方依赖：HTTP 客户端、UNIX socket、procfs 解析全部用标准库 + 极少量
+# 直连 libc 的 extern "C" 声明（仅用于安装 SIGTERM/SIGINT 处理器，见 main.rs）。
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

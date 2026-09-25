@@ -1,0 +1,9 @@
+[package]
+name = "pacc-collector"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PACC 特征采集：178 维特征向量 + 增量更新（设计文档 §2.2）"
+
+[dependencies]
+pacc-platform = { path = "../pacc-platform" }

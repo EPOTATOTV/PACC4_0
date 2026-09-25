@@ -1,0 +1,66 @@
+# PACC Linux 原生客户端配置示例
+#
+# 复制到 /etc/pacc/pacc-client.properties（install.sh 会自动放置一份）。
+# 键名与 Java 端 ptv-client 的 ClientConfig 完全一致，同一套部署文档对两端成立。
+#
+# 优先级：环境变量 > 本文件 > 内置默认值。
+#   环境变量一律为键名大写、点换下划线、加 PACC_CLIENT_ 前缀，
+#   例：pacc.client.server.uri -> PACC_CLIENT_SERVER_URI
+#
+# 本文件不含任何密钥默认值。令牌缺失就是匿名上报，由服务端决定是否拒收；
+# 绝不要在发行件里留明文密钥。
+
+# ---- 上报目标 ----
+
+# 后端基础地址（不含路径）。生产环境建议指向本机网关而非公网。
+# 只支持 http://：零依赖构建没有 TLS，写 https:// 会明确报错而不是静默降级成明文。
+pacc.client.server.uri=http://127.0.0.1:8080
+
+# 事件上报路径。以 http:// 开头时视为完整 URL 并覆盖上面的 server.uri。
+pacc.client.events.path=/api/player/security/events
+
+# 玩家访问令牌，作为 Authorization: Bearer 发送。留空即匿名上报。
+pacc.client.token=
+
+# ---- 身份 ----
+
+# 玩家 PTEID。服务端会校验令牌主体与之一致，填错会被 401 拒收。
+pacc.client.pteid=PT0000000001
+
+# 版本渠道。服务端 edition 白名单必须包含该值。
+pacc.client.edition=LINUX
+
+# ---- 采集节奏 ----
+
+# 检测与上报周期（秒）。最小 1，最大 3600；0 会被拒绝（会变成忙循环）。
+pacc.client.heartbeat.seconds=15
+
+# 一次上报最多携带的事件数。超出时保留前 N 条并把真实总数写进 total_events。
+pacc.client.max.events.per.report=20
+
+# HTTP 连接与读写超时（秒）。
+pacc.client.http.timeout.seconds=6
+
+# 只上报可疑事件。开启后低风险的周期心跳不会上云，避免刷云端配额。
+# 排障时可设为 false 观察全量上报。
+pacc.client.report.only.suspicious=true
+
+# ---- 事件源 ----
+
+# eBPF 事件源开关。关闭则直接走 procfs。
+pacc.client.ebpf.enabled=true
+
+# kernel-linux loader 监听的 UNIX socket（NDJSON 一行一事件）。
+# loader 未运行 / socket 不存在时客户端会退避重连并回退 procfs，不会忙循环。
+pacc.client.ebpf.socket=/run/pacc/pacc-ldm.sock
+
+# procfs 回退扫描开关。eBPF 不可用时它是唯一的事件源，一般不要关。
+pacc.client.procfs.enabled=true
+
+# ---- 端侧 AI 模型（可选）----
+
+# 模型文件路径。留空则 AI 判定走回退（回退分不参与最终判定）。
+# pacc.client.model.path=/etc/pacc/model.bin
+
+# 模型期望签名。配置后装载时强校验，不匹配则拒绝装载并按无模型运行。
+# pacc.client.model.signature=
