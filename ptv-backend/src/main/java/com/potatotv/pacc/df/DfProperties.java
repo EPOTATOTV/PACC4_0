@@ -35,6 +35,11 @@ public class DfProperties {
         private List<String> allowedApis = List.of("feature:read", "result:emit", "metric:read", "log");
         /** 热加载时扫描 classes 的最大数量（目录型插件）。 */
         private int maxScanClasses = 512;
+        /**
+         * 插件包目录：热加载请求里的 path 一律按「相对本目录」解析，越界即拒绝。
+         * 这是插件加载唯一被允许的取件范围，改大它等于放宽沙箱的入口面。
+         */
+        private String pluginDir = "plugins";
     }
 
     /** §4.2.3 多租户隔离与配额。 */

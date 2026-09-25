@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,6 +41,10 @@ public class PluginSandbox {
 
     private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
 
+    /** 元数据取不到时用的占位：声明为空，白名单校验会把它判成「未声明特权 API」而非放行。 */
+    private static final PluginMetadata UNKNOWN_METADATA =
+            new PluginMetadata("unknown", "unknown", "0.0.0", "unknown", null, null);
+
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "plugin-sandbox-" + THREAD_SEQ.incrementAndGet());
         t.setDaemon(true);
@@ -57,7 +62,7 @@ public class PluginSandbox {
      * @return 检测结果；任何异常/超限都转为失败占位结果
      */
     public DetectionResult execute(DetectionPlugin plugin, DetectionContext ctx, PluginRuntime runtime) {
-        PluginMetadata meta = safeMetadata(plugin);
+        PluginMetadata meta = metadata(plugin, runtime);
         // 1) API 白名单
         for (String api : meta.declaredApis()) {
             if (!props.getPlugin().getAllowedApis().contains(api)) {
@@ -123,12 +128,61 @@ public class PluginSandbox {
                 : DetectionResult.clean();
     }
 
-    private PluginMetadata safeMetadata(DetectionPlugin plugin) {
+    /**
+     * 读取插件元数据，与 detect 一样受超时 / CPU 记账约束。
+     *
+     * <p>元数据决定后续的 API 白名单判定，属于安全判定输入，不能放在调用方线程裸奔：
+     * 插件完全可以在 {@code getMetadata()} 里长时间阻塞或抛异常，
+     * 那样沙箱只包住 detect 就等于边界形同虚设。失败时退化为「未知元数据」占位，
+     * 由后续白名单校验把声明不明的插件挡下（默认拒绝），而不是放行。</p>
+     */
+    public PluginMetadata metadata(DetectionPlugin plugin, PluginRuntime runtime) {
         try {
-            PluginMetadata m = plugin.getMetadata();
-            return m == null ? new PluginMetadata("unknown", "unknown", "0.0.0", "unknown", null, null) : m;
+            PluginMetadata m = guarded(runtime, "getMetadata", plugin::getMetadata);
+            return m == null ? UNKNOWN_METADATA : m;
         } catch (RuntimeException e) {
-            return new PluginMetadata("unknown", "unknown", "0.0.0", "unknown", null, null);
+            return UNKNOWN_METADATA;
+        }
+    }
+
+    /**
+     * 在沙箱约束内执行插件初始化。
+     *
+     * <p>生命周期入口（initialize）与 detect 同等对待：超时、CPU 记账、异常隔离一个不少。
+     * 失败向上抛，由 {@code PluginManager} 记为 ERROR 并让加载整体失败——
+     * 初始化失败的插件不应以「已加载」的状态留在运行时。</p>
+     */
+    public void initialize(DetectionPlugin plugin, PluginRuntime runtime) {
+        guarded(runtime, "initialize", () -> {
+            plugin.initialize();
+            return null;
+        });
+    }
+
+    /** 沙箱内受约束调用：超时中断 + CPU 记账 + 异常归一，无论成败都计入 CPU。 */
+    private <T> T guarded(PluginRuntime runtime, String stage, Callable<T> body) {
+        long start = System.nanoTime();
+        try {
+            return EXECUTOR.submit(body).get(props.getPlugin().getTimeoutMs(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            bumpError(runtime);
+            throw new IllegalStateException("插件 " + stage + " 超时(" + props.getPlugin().getTimeoutMs() + "ms)");
+        } catch (ExecutionException e) {
+            bumpError(runtime);
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            log.warn("插件调用异常 stage={} err={}", stage, cause.toString());
+            throw new IllegalStateException("插件 " + stage + " 异常: " + cause.getClass().getSimpleName(), cause);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            bumpError(runtime);
+            throw new IllegalStateException("插件 " + stage + " 被中断", e);
+        } catch (RuntimeException e) {
+            // 提交/取值阶段的意外异常同样计入并上抛
+            bumpError(runtime);
+            throw e;
+        } finally {
+            runtime.setCpuMs(runtime.getCpuMs() + (System.nanoTime() - start) / 1_000_000L);
+            runtime.setUpdatedAt(java.time.Instant.now());
         }
     }
 

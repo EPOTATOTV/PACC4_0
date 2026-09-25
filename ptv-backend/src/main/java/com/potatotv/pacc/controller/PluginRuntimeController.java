@@ -37,7 +37,10 @@ public class PluginRuntimeController {
         return pluginManager.listPlugins().stream().map(this::view).toList();
     }
 
-    /** 按插件市场条目热加载：路径取请求体 path，缺省回退市场条目的 package_url。 */
+    /**
+     * 按插件市场条目热加载：路径取请求体 path（相对插件目录的相对路径，越界由服务层拒绝），
+     * 缺省回退市场条目的 package_url。
+     */
     @PostMapping("/{id}/load")
     @RequirePermission("system:update")
     public ResponseEntity<?> load(@PathVariable String id,

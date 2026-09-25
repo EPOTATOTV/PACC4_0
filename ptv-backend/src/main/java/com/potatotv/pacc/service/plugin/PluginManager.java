@@ -14,11 +14,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,9 +60,9 @@ public class PluginManager {
     private record Loaded(DetectionPlugin plugin, ChildFirstClassLoader loader, PluginRuntime runtime) { }
 
     /**
-     * 按文件路径热加载插件；插件标识取类名。
+     * 按相对路径热加载插件；插件标识取类名。
      *
-     * @param path jar 文件或 classes 目录路径
+     * @param path 相对 {@code pacc.df.plugin.dir} 的 jar 文件或 classes 目录路径
      * @return 运行时登记
      */
     public PluginRuntime loadPlugin(String path) {
@@ -66,7 +73,8 @@ public class PluginManager {
      * 热加载插件。
      *
      * @param pluginId 插件标识；为空时取插件元数据/类名。若命中插件市场条目则复用其名称与版本
-     * @param path     jar 文件或 classes 目录路径
+     * @param path     相对 {@code pacc.df.plugin.dir} 的 jar 文件或 classes 目录路径；
+     *                 绝对路径、越界路径与摘要不符的包一律拒绝（见 {@link #resolvePluginArtifact}）
      * @return 运行时登记
      */
     public PluginRuntime loadPlugin(String pluginId, String path) {
@@ -74,29 +82,35 @@ public class PluginManager {
             throw new IllegalArgumentException("插件路径不能为空");
         }
         Optional<Plugin> market = pluginId == null ? Optional.empty() : pluginRepository.findById(pluginId);
+        // 沙箱从加载那一刻就开始生效：initialize/getMetadata 同样吃超时与 CPU 预算，
+        // 因此先用一个只用于记账的临时登记承接计数，登记正式落库后再并入。
+        PluginRuntime pending = PluginRuntime.builder().pluginId(pluginId == null ? "pending" : pluginId).build();
+        ChildFirstClassLoader loader = null;
         try {
-            File target = new File(path);
+            File target = resolvePluginArtifact(path, market);
             URL[] urls = { target.toURI().toURL() };
-            ChildFirstClassLoader loader = new ChildFirstClassLoader(urls, getClass().getClassLoader());
+            loader = new ChildFirstClassLoader(urls, getClass().getClassLoader());
             Class<? extends DetectionPlugin> type = resolvePluginClass(loader, target);
             DetectionPlugin instance = type.getDeclaredConstructor().newInstance();
-            instance.initialize();
-            PluginMetadata meta = instance.getMetadata();
+            sandbox.initialize(instance, pending);
+            PluginMetadata meta = sandbox.metadata(instance, pending);
             String id = pluginId != null && !pluginId.isBlank() ? pluginId
-                    : (meta != null && meta.pluginId() != null && !meta.pluginId().isBlank()
+                    : (meta.pluginId() != null && !meta.pluginId().isBlank()
                             ? meta.pluginId() : type.getSimpleName());
             PluginRuntime runtime = runtimeRepository.findById(id).orElseGet(() -> PluginRuntime.builder().pluginId(id).build());
-            runtime.setName(market.map(Plugin::getName)
-                    .orElseGet(() -> meta != null && meta.name() != null ? meta.name() : id));
-            runtime.setVersion(market.map(Plugin::getPluginVersion)
-                    .orElseGet(() -> meta != null && meta.version() != null ? meta.version() : "1.0.0"));
+            // 半途失败过（例如上一次 initialize 超时）也要把计入的 CPU 与错误数留下，便于管理端看到「这个插件有问题」
+            runtime.setCpuMs(runtime.getCpuMs() + pending.getCpuMs());
+            runtime.setErrorCount(runtime.getErrorCount() + pending.getErrorCount());
+            String marketName = market.map(Plugin::getName).orElse(null);
+            runtime.setName(marketName != null ? marketName : (meta.name() != null ? meta.name() : id));
+            String marketVersion = market.map(Plugin::getPluginVersion).orElse(null);
+            runtime.setVersion(marketVersion != null ? marketVersion
+                    : (meta.version() != null ? meta.version() : "1.0.0"));
             runtime.setClassPath(path.length() > 512 ? path.substring(0, 512) : path);
             runtime.setState(PluginRuntime.ST_LOADED);
             runtime.setLoadedAt(Instant.now());
             runtime.setUpdatedAt(Instant.now());
-            if (meta != null) {
-                runtime.setDeclaredApis(String.join(",", meta.declaredApis()));
-            }
+            runtime.setDeclaredApis(String.join(",", meta.declaredApis()));
             Loaded prior = loaded.get(id);
             if (prior != null) {
                 closeQuietly(prior);
@@ -105,6 +119,14 @@ public class PluginManager {
             log.info("插件已加载 id={} version={} path={}", id, runtime.getVersion(), path);
             return runtimeRepository.save(runtime);
         } catch (Exception e) {
+            // 加载失败时类加载器不能留着：它持有 jar 文件句柄，反复失败会积压
+            if (loader != null) {
+                try {
+                    loader.close();
+                } catch (IOException closeFailed) {
+                    log.warn("加载失败的插件类加载器关闭异常 err={}", closeFailed.getMessage());
+                }
+            }
             PluginRuntime failed = pluginId == null ? null : runtimeRepository.findById(pluginId).orElse(null);
             if (failed != null) {
                 failed.setState(PluginRuntime.ST_ERROR);
@@ -113,6 +135,69 @@ public class PluginManager {
             }
             throw new IllegalArgumentException("插件加载失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 把请求里的 path 解析成「插件目录内」的真实文件，并比对市场登记摘要。
+     *
+     * <p>这是插件加载唯一的安全边界。path 由管理端请求体提供，若直接 {@code new File(path)}
+     * 交给类加载器，等于把「加载任意 jar 并执行其初始化代码」的能力交给任何持有
+     * {@code system:update} 的账号——包括加载系统自带 jar 去改写进程行为。
+     * 因此只接受相对路径，且解析后的真实位置必须仍在 {@code pacc.df.plugin.dir} 之内。</p>
+     *
+     * @param path   请求体给出的相对路径
+     * @param market 插件市场条目（若存在，其 signatureSha256 不为空时必须匹配）
+     * @return 插件目录内的真实文件或目录
+     */
+    private File resolvePluginArtifact(String path, Optional<Plugin> market) throws IOException {
+        Path root = Path.of(props.getPlugin().getPluginDir()).toAbsolutePath().normalize();
+        Path requested;
+        try {
+            requested = Path.of(path);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("插件路径非法: " + path);
+        }
+        if (requested.isAbsolute()) {
+            throw new IllegalArgumentException("插件路径必须是插件目录内的相对路径");
+        }
+        Path candidate = root.resolve(requested).normalize();
+        if (!candidate.startsWith(root)) {
+            throw new IllegalArgumentException("插件路径越界：不允许指向插件目录之外");
+        }
+        // normalize 只处理字面量，符号链接仍可能指到目录外，所以再用 realPath 复核一次。
+        Path real = candidate.toRealPath();
+        if (!real.startsWith(root.toRealPath())) {
+            throw new IllegalArgumentException("插件路径越界：符号链接指向插件目录之外");
+        }
+        if (!Files.isRegularFile(real) && !Files.isDirectory(real)) {
+            throw new IllegalArgumentException("插件路径不可读: " + path);
+        }
+        String expected = market.map(Plugin::getSignatureSha256).orElse(null);
+        if (expected != null && !expected.isBlank() && Files.isRegularFile(real)) {
+            String actual = sha256(real.toFile());
+            if (!actual.equalsIgnoreCase(expected.trim())) {
+                throw new IllegalArgumentException("插件包摘要与市场登记不一致，拒绝加载");
+            }
+        }
+        return real.toFile();
+    }
+
+    /** 文件 SHA-256（小写十六进制）。 */
+    private static String sha256(File file) throws IOException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("运行环境缺少 SHA-256", e);
+        }
+        try (InputStream in = new FileInputStream(file)) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                digest.update(buf, 0, n);
+            }
+        }
+        return HexFormat.of().formatHex(digest.digest());
     }
 
     /** 卸载插件：destroy + 关闭类加载器，运行时不复存在。 */
