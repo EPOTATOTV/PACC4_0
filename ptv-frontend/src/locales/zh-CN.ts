@@ -50,6 +50,11 @@ const zhCN = {
   'nav.v52Reputation': '信誉管理',
   'nav.v52Replay': '查端回放',
   'nav.v52Devices': '硬件指纹',
+  // v5.4 性能与安全加固（管理端补齐）
+  'nav.group.v54': '性能与安全加固',
+  'nav.v54Apm': 'APM 性能监控',
+  'nav.v54Security': '安全审计',
+  'nav.v54Keys': '密钥管理',
 
   // 玩家门户导航
   'player.overview': '我的概览',

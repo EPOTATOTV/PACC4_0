@@ -45,6 +45,11 @@ const ko = {
   'nav.v52Reputation': '평판 관리',
   'nav.v52Replay': '단말 리플레이',
   'nav.v52Devices': '하드웨어 지문',
+  // v5.4 성능 및 보안 강화 (관리 콘솔)
+  'nav.group.v54': '성능 및 보안 강화',
+  'nav.v54Apm': 'APM 모니터링',
+  'nav.v54Security': '보안 감사',
+  'nav.v54Keys': '키 관리',
 
   // 플레이어 포털 네비게이션
   'player.overview': '내 개요',

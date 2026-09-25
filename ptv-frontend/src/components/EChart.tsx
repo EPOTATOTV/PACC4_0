@@ -1,23 +1,26 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
-import { BarChart, LineChart, PieChart } from 'echarts/charts'
+import { BarChart, HeatmapChart, LineChart, PieChart } from 'echarts/charts'
 import {
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  VisualMapComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
 import { gsap, motionAllowed, motionDuration } from '../gsap'
 
-// 按需注册：折线图 / 柱状图 / 饼图 + 必要组件（体积优化）
+// 按需注册：折线图 / 柱状图 / 饼图 / 热力图 + 必要组件（体积优化）
 echarts.use([
   LineChart,
   BarChart,
   PieChart,
+  HeatmapChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  VisualMapComponent,
   CanvasRenderer,
 ])
 

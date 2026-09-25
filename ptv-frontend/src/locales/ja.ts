@@ -45,6 +45,11 @@ const ja = {
   'nav.v52Reputation': 'レピュテーション',
   'nav.v52Replay': '端末リプレイ',
   'nav.v52Devices': 'ハードウェア指紋',
+  // v5.4 パフォーマンスとセキュリティ強化（管理コンソール）
+  'nav.group.v54': '性能とセキュリティ強化',
+  'nav.v54Apm': 'APM モニタリング',
+  'nav.v54Security': 'セキュリティ監査',
+  'nav.v54Keys': '鍵管理',
 
   // 玩家门户导航
   'player.overview': 'マイ概要',

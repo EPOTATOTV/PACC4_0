@@ -48,6 +48,11 @@ const zhTW: Record<string, string> = {
   'nav.v52Reputation': '信譽管理',
   'nav.v52Replay': '查端回放',
   'nav.v52Devices': '硬體指紋',
+  // v5.4 效能與安全加固（管理端補齊）
+  'nav.group.v54': '效能與安全加固',
+  'nav.v54Apm': 'APM 效能監控',
+  'nav.v54Security': '安全稽核',
+  'nav.v54Keys': '金鑰管理',
 
   'player.overview': '我的概覽',
   'player.group.protection': '防護與監控',

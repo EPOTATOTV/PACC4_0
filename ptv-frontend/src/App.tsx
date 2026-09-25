@@ -44,6 +44,9 @@ import BehaviorProfile from './pages/v52/BehaviorProfile'
 import ReputationManager from './pages/v52/ReputationManager'
 import ReplayManager from './pages/v52/ReplayManager'
 import DeviceFingerprint from './pages/v52/DeviceFingerprint'
+import ApmMonitor from './pages/v54/ApmMonitor'
+import SecurityAudit from './pages/v54/SecurityAudit'
+import KeyManagement from './pages/v54/KeyManagement'
 import PlayerPortal from './pages/player/PlayerPortal'
 import PlayerScreenShare from './pages/player/PlayerScreenShare'
 
@@ -139,6 +142,9 @@ export default function App() {
           <Route path="/v52/reputation" element={<ReputationManager />} />
           <Route path="/v52/replay" element={<ReplayManager />} />
           <Route path="/v52/devices" element={<DeviceFingerprint />} />
+          <Route path="/v54/apm" element={<ApmMonitor />} />
+          <Route path="/v54/security" element={<SecurityAudit />} />
+          <Route path="/v54/keys" element={<KeyManagement />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </PageTransition>

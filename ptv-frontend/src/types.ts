@@ -1446,3 +1446,248 @@ export interface V53ReputationOverview {
   lowest_score: number
   highest_score: number
 }
+
+// ===================== v5.4 性能与安全加固（APM / 安全审计 / 密钥管理） =====================
+// 与后端冻结契约严格对齐；时间戳一律用 ISO 字符串，不做 Date 化处理。
+
+/** APM 指标目录项：指标名、展示名、单位与所属分组（system / game / detect）。 */
+export interface V54ApmCatalogEntry {
+  name: string
+  label: string
+  unit: string
+  group: string
+}
+
+/** APM 概览 KPI：窗口内聚合值，非时序。 */
+export interface V54ApmCards {
+  online_clients: number
+  avg_cpu_percent: number
+  avg_mem_mb: number
+  avg_fps_impact_percent: number
+  false_positive_rate: number
+  sample_count: number
+  client_versions: number
+}
+
+export interface V54ApmOverview {
+  hours: number
+  generated_at: string
+  cards: V54ApmCards
+  catalog: V54ApmCatalogEntry[]
+  available_platforms: string[]
+  available_versions: string[]
+}
+
+/** 单个指标在某一时刻的分位聚合点。 */
+export interface V54ApmTrendPoint {
+  t: string
+  avg: number
+  p50: number
+  p95: number
+  p99: number
+  max: number
+  count: number
+}
+
+export interface V54ApmTrend {
+  metric: string
+  hours: number
+  unit: string
+  label: string
+  points: V54ApmTrendPoint[]
+}
+
+export interface V54ApmMatrixCell {
+  platform: string
+  metric: string
+  p95: number
+}
+
+export interface V54ApmMatrix {
+  metrics: { name: string; label: string; unit: string }[]
+  platforms: string[]
+  cells: V54ApmMatrixCell[]
+}
+
+/** 某客户端版本相对基线的 P95 与回归判定。 */
+export interface V54ApmVersionRow {
+  client_ver: string
+  p95: number
+  sample_count: number
+  baseline: boolean
+  delta_percent: number
+  regressed: boolean
+}
+
+export interface V54ApmVersionRegression {
+  metric: string
+  unit: string
+  label: string
+  regression_threshold_percent: number
+  versions: V54ApmVersionRow[]
+}
+
+/** 指标在某一小时的异常点（相对均值/标准差的 sigma 偏离）。 */
+export interface V54ApmAnomaly {
+  hour: string
+  value: number
+  threshold: number
+  mean: number
+  stddev: number
+  sigma: number
+}
+
+export interface V54ApmAnomalyList {
+  metric: string
+  platform: string
+  items: V54ApmAnomaly[]
+}
+
+export interface V54ApmAlert {
+  id: string
+  alert_name: string
+  metric_name: string
+  platform: string
+  client_ver: string
+  level: string
+  threshold: number
+  observed: number
+  message: string
+  status: string
+  occurred_at: string
+  acked_by: string
+  acked_at: string
+}
+
+export interface V54ApmAlertList {
+  items: V54ApmAlert[]
+  open_total: number
+}
+
+/** 客户端安全事件；evidence 为后端存储的原始证据串（多为 JSON 文本）。 */
+export interface V54SecurityEvent {
+  id: string
+  pteid: string
+  event_type: string
+  level: string
+  client_version: string
+  platform: string
+  detail: string
+  evidence: string
+  occurred_at: string
+  received_at: string
+  seq: number
+  hash: string
+  prev_hash: string
+}
+
+export interface V54SecurityOverview {
+  cards: {
+    total: number
+    critical: number
+    high: number
+    by_type: { type: string; count: number }[]
+    by_level: { level: string; count: number }[]
+    chain_ok: boolean
+    chain_checked: number
+    chain_broken_at: number
+  }
+  recent: V54SecurityEvent[]
+}
+
+export interface V54SecurityEventList {
+  items: V54SecurityEvent[]
+  total: number
+}
+
+/**
+ * 审计哈希链校验结果。
+ * 后端字段名为 brokenAtSeq；为兼容后续可能的下划线命名，额外保留可选 broken_at。
+ */
+export interface V54SecurityChain {
+  ok: boolean
+  checked: number
+  brokenAtSeq?: number
+  broken_at?: number
+  detail: string
+}
+
+export interface V54AttestationRow {
+  id: string
+  pteid: string
+  platform: string
+  client_version: string
+  status: string
+  reason: string
+  elapsed_ms: number
+  code_hash: string
+  config_hash: string
+  issued_at: string
+  created_at: string
+}
+
+export interface V54AttestationList {
+  items: V54AttestationRow[]
+  pass_rate: number
+  total: number
+}
+
+export interface V54KnownHash {
+  id: string
+  label: string
+  kind: string
+  hash: string
+  active: boolean
+  created_by: string
+  created_at: string
+}
+
+export interface V54KnownHashList {
+  items: V54KnownHash[]
+}
+
+/** 托管密钥（层级派生 + 轮换生命周期）。 */
+export interface V54ManagedKey {
+  id: string
+  key_id: string
+  purpose: string
+  algorithm: string
+  state: string
+  version: number
+  derived_from: string
+  fingerprint: string
+  created_by: string
+  note: string
+  created_at: string
+  activated_at: string
+  rotated_at: string
+  expires_at: string
+  revoked_at: string
+  revoke_reason: string
+}
+
+export interface V54ManagedKeyList {
+  items: V54ManagedKey[]
+  root_configured: boolean
+  rotation_days: number
+  by_state: Record<string, number>
+  purposes: string[]
+}
+
+export interface V54KeyAuditRow {
+  id: string
+  key_id: string
+  action: string
+  from_state: string
+  to_state: string
+  operator: string
+  note: string
+  created_at: string
+  prev_hash: string
+  hash: string
+}
+
+export interface V54KeyAudit {
+  chain: V54SecurityChain
+  items: V54KeyAuditRow[]
+}

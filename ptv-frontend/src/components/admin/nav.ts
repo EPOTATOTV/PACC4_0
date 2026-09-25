@@ -117,6 +117,16 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    groupKey: 'v54',
+    groupLabel: '性能与安全加固',
+    groupI18nKey: 'nav.group.v54',
+    items: [
+      { key: '/v54/apm', to: '/v54/apm', label: 'APM 性能监控', i18nKey: 'nav.v54Apm' },
+      { key: '/v54/security', to: '/v54/security', label: '安全审计', i18nKey: 'nav.v54Security' },
+      { key: '/v54/keys', to: '/v54/keys', label: '密钥管理', i18nKey: 'nav.v54Keys' },
+    ],
+  },
+  {
     groupKey: 'docs',
     groupLabel: '文档与协议',
     groupI18nKey: 'nav.group.docs',
@@ -171,6 +181,9 @@ export const routeMeta: Record<string, { titleKey: string; groupKey: string }> =
   '/v52/reputation': { titleKey: 'nav.v52Reputation', groupKey: 'nav.group.v52' },
   '/v52/replay': { titleKey: 'nav.v52Replay', groupKey: 'nav.group.v52' },
   '/v52/devices': { titleKey: 'nav.v52Devices', groupKey: 'nav.group.v52' },
+  '/v54/apm': { titleKey: 'nav.v54Apm', groupKey: 'nav.group.v54' },
+  '/v54/security': { titleKey: 'nav.v54Security', groupKey: 'nav.group.v54' },
+  '/v54/keys': { titleKey: 'nav.v54Keys', groupKey: 'nav.group.v54' },
 }
 
 /** 根据当前路径匹配选中的菜单 key */

@@ -48,6 +48,11 @@ const en: Record<string, string> = {
   'nav.v52Reputation': 'Reputation',
   'nav.v52Replay': 'Replay Archive',
   'nav.v52Devices': 'Device Fingerprints',
+  // v5.4 performance & security hardening (admin console)
+  'nav.group.v54': 'Perf & Security Hardening',
+  'nav.v54Apm': 'APM Monitoring',
+  'nav.v54Security': 'Security Audit',
+  'nav.v54Keys': 'Key Management',
 
   'player.overview': 'My Overview',
   'player.group.protection': 'Protection & Monitor',
