@@ -57,7 +57,8 @@ public class PluginManager {
     /** 已加载插件的内存登记：pluginId → 实例/类加载器/运行时状态。 */
     private final Map<String, Loaded> loaded = new ConcurrentHashMap<>();
 
-    private record Loaded(DetectionPlugin plugin, ChildFirstClassLoader loader, PluginRuntime runtime) { }
+    private record Loaded(DetectionPlugin plugin, ChildFirstClassLoader loader, PluginRuntime runtime,
+                          PluginMetadata metadata) { }
 
     /**
      * 按相对路径热加载插件；插件标识取类名。
@@ -115,7 +116,7 @@ public class PluginManager {
             if (prior != null) {
                 closeQuietly(prior);
             }
-            loaded.put(id, new Loaded(instance, loader, runtime));
+            loaded.put(id, new Loaded(instance, loader, runtime, meta));
             log.info("插件已加载 id={} version={} path={}", id, runtime.getVersion(), path);
             return runtimeRepository.save(runtime);
         } catch (Exception e) {
@@ -129,11 +130,20 @@ public class PluginManager {
             }
             PluginRuntime failed = pluginId == null ? null : runtimeRepository.findById(pluginId).orElse(null);
             if (failed != null) {
+                // 失败路径同样要并入沙箱记账：initialize 超时/报错的代价不能因为加载失败就丢掉
+                failed.setCpuMs(failed.getCpuMs() + pending.getCpuMs());
+                failed.setErrorCount(failed.getErrorCount() + pending.getErrorCount());
                 failed.setState(PluginRuntime.ST_ERROR);
                 failed.setUpdatedAt(Instant.now());
                 runtimeRepository.save(failed);
             }
-            throw new IllegalArgumentException("插件加载失败: " + e.getMessage(), e);
+            log.warn("插件加载失败 path={} err={}", path, e.toString(), e);
+            if (e instanceof IllegalArgumentException) {
+                // 本类校验产生的文案（越界 / 摘要不符等）不含请求参数与绝对路径，可安全外传
+                throw (IllegalArgumentException) e;
+            }
+            // 其余（IO / 类加载 / 反射）的 message 里带插件目录绝对路径，一律换成通用文案
+            throw new IllegalArgumentException("插件加载失败：插件包无法解析或初始化失败", e);
         }
     }
 
@@ -145,6 +155,9 @@ public class PluginManager {
      * {@code system:update} 的账号——包括加载系统自带 jar 去改写进程行为。
      * 因此只接受相对路径，且解析后的真实位置必须仍在 {@code pacc.df.plugin.dir} 之内。</p>
      *
+     * <p>这里抛出的文案会经控制器原样回给调用方，因此只说明拒绝原因，
+     * 不带请求参数与服务端绝对路径；细节留给服务端日志。</p>
+     *
      * @param path   请求体给出的相对路径
      * @param market 插件市场条目（若存在，其 signatureSha256 不为空时必须匹配）
      * @return 插件目录内的真实文件或目录
@@ -155,7 +168,7 @@ public class PluginManager {
         try {
             requested = Path.of(path);
         } catch (RuntimeException e) {
-            throw new IllegalArgumentException("插件路径非法: " + path);
+            throw new IllegalArgumentException("插件路径非法");
         }
         if (requested.isAbsolute()) {
             throw new IllegalArgumentException("插件路径必须是插件目录内的相对路径");
@@ -170,10 +183,15 @@ public class PluginManager {
             throw new IllegalArgumentException("插件路径越界：符号链接指向插件目录之外");
         }
         if (!Files.isRegularFile(real) && !Files.isDirectory(real)) {
-            throw new IllegalArgumentException("插件路径不可读: " + path);
+            throw new IllegalArgumentException("插件路径不可读或不是可加载的插件包");
         }
         String expected = market.map(Plugin::getSignatureSha256).orElse(null);
-        if (expected != null && !expected.isBlank() && Files.isRegularFile(real)) {
+        if (expected != null && !expected.isBlank()) {
+            // 登记过摘要就必须能校验：classes 目录没有可比的包摘要，
+            // 不能因为「不是文件」就把完整性校验整段跳过。
+            if (!Files.isRegularFile(real)) {
+                throw new IllegalArgumentException("插件包已在市场登记摘要，目录形态无法校验，拒绝加载");
+            }
             String actual = sha256(real.toFile());
             if (!actual.equalsIgnoreCase(expected.trim())) {
                 throw new IllegalArgumentException("插件包摘要与市场登记不一致，拒绝加载");
@@ -220,12 +238,17 @@ public class PluginManager {
 
     /** 在沙箱内执行指定插件。 */
     public DetectionResult sandboxExecute(DetectionPlugin plugin, DetectionContext context) {
-        PluginRuntime runtime = loaded.values().stream()
+        Loaded target = loaded.values().stream()
                 .filter(x -> x.plugin() == plugin)
-                .map(Loaded::runtime)
                 .findFirst()
-                .orElseGet(() -> PluginRuntime.builder().pluginId("ad-hoc").build());
-        DetectionResult result = sandbox.execute(plugin, context, runtime);
+                .orElse(null);
+        PluginRuntime runtime = target == null
+                ? PluginRuntime.builder().pluginId("ad-hoc").build()
+                : target.runtime();
+        // 已加载插件的元数据在加载期已入沙箱取过一次，直接用缓存，免得每次 detect 多跑一趟沙箱线程
+        DetectionResult result = target == null
+                ? sandbox.execute(plugin, context, runtime)
+                : sandbox.execute(plugin, context, runtime, target.metadata());
         persistIfRegistered(runtime);
         return result;
     }
@@ -235,7 +258,7 @@ public class PluginManager {
         Map<String, DetectionResult> out = new LinkedHashMap<>();
         List<Loaded> snapshot = new ArrayList<>(loaded.values());
         for (Loaded l : snapshot) {
-            DetectionResult r = sandbox.execute(l.plugin(), context, l.runtime());
+            DetectionResult r = sandbox.execute(l.plugin(), context, l.runtime(), l.metadata());
             persistIfRegistered(l.runtime());
             out.put(l.runtime().getPluginId(), r);
         }

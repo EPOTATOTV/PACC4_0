@@ -1,6 +1,7 @@
 package com.potatotv.pacc.service.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,6 +40,7 @@ class PluginManagerPathBoundaryTest {
     private PluginRepository pluginRepository;
     private PluginRuntimeRepository runtimeRepository;
     private PluginManager manager;
+    private DfProperties props;
     private Path pluginDir;
 
     @BeforeEach
@@ -48,7 +50,7 @@ class PluginManagerPathBoundaryTest {
         runtimeRepository = mock(PluginRuntimeRepository.class);
         when(runtimeRepository.findById(anyString())).thenReturn(Optional.empty());
         when(runtimeRepository.save(any(PluginRuntime.class))).thenAnswer(inv -> inv.getArgument(0));
-        DfProperties props = new DfProperties();
+        props = new DfProperties();
         props.getPlugin().setPluginDir(pluginDir.toString());
         manager = new PluginManager(pluginRepository, runtimeRepository, new PluginSandbox(props), props);
     }
@@ -111,5 +113,51 @@ class PluginManagerPathBoundaryTest {
         assertEquals(PluginRuntime.ST_LOADED, runtime.getState());
         assertEquals("Fixture Plugin", runtime.getName());
         assertEquals("log", runtime.getDeclaredApis());
+    }
+
+    @Test
+    void directoryFormWithMarketDigestRejected() throws IOException {
+        // classes 目录没有可比的包摘要：登记过摘要的插件用目录形态提交时不能放行
+        Files.createDirectories(pluginDir.resolve("fixture/com/potatotv/pacc/service/plugin"));
+        when(pluginRepository.findById("p2")).thenReturn(Optional.of(Plugin.builder()
+                .pluginId("p2")
+                .name("目录形态的市场条目")
+                .pluginVersion("1.0.0")
+                .signatureSha256("0000000000000000000000000000000000000000000000000000000000000000")
+                .build()));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> manager.loadPlugin("p2", "fixture"));
+
+        assertTrue(e.getMessage().contains("目录形态无法校验"), e.getMessage());
+    }
+
+    @Test
+    void failedInitializeKeepsSandboxAccounting() throws IOException {
+        Path packaged = Files.createDirectories(pluginDir.resolve("blocking")
+                .resolve("com/potatotv/pacc/service/plugin"));
+        try (InputStream in = FixtureBlockingPlugin.class.getResourceAsStream("FixtureBlockingPlugin.class")) {
+            assertNotNull(in, "取不到测试用插件字节码");
+            Files.copy(in, packaged.resolve("FixtureBlockingPlugin.class"));
+        }
+        props.getPlugin().setTimeoutMs(120);
+        PluginRuntime existing = PluginRuntime.builder().pluginId("p9").build();
+        when(runtimeRepository.findById("p9")).thenReturn(Optional.of(existing));
+
+        assertThrows(IllegalArgumentException.class, () -> manager.loadPlugin("p9", "blocking"));
+
+        assertEquals(PluginRuntime.ST_ERROR, existing.getState());
+        assertEquals(1, existing.getErrorCount(), "初始化超时的错误数应落到运行时登记");
+        assertTrue(existing.getCpuMs() >= 100, "初始化超时的 CPU 记账不应丢失: " + existing.getCpuMs());
+    }
+
+    @Test
+    void loadFailureDoesNotEchoRequestPathOrServerPath() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> manager.loadPlugin(null, "ghost/missing.jar"));
+
+        String msg = e.getMessage();
+        assertFalse(msg.contains("ghost"), msg);
+        assertFalse(msg.contains(tmp.toString()), msg);
     }
 }

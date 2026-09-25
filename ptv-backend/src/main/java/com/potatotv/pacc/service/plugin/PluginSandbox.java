@@ -41,7 +41,12 @@ public class PluginSandbox {
 
     private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
 
-    /** 元数据取不到时用的占位：声明为空，白名单校验会把它判成「未声明特权 API」而非放行。 */
+    /**
+     * 元数据取不到时的占位：插件标识、展示名失去来源，声明清单按空处理。
+     *
+     * <p>白名单只约束「已声明」的特权 API——声明为空表示该插件没有申请特权 API，
+     * 属于合法状态、不会被拦下；兜住坏插件的是 detect 的超时与错误记账，不是这里的空声明。</p>
+     */
     private static final PluginMetadata UNKNOWN_METADATA =
             new PluginMetadata("unknown", "unknown", "0.0.0", "unknown", null, null);
 
@@ -62,7 +67,19 @@ public class PluginSandbox {
      * @return 检测结果；任何异常/超限都转为失败占位结果
      */
     public DetectionResult execute(DetectionPlugin plugin, DetectionContext ctx, PluginRuntime runtime) {
-        PluginMetadata meta = metadata(plugin, runtime);
+        return execute(plugin, ctx, runtime, metadata(plugin, runtime));
+    }
+
+    /**
+     * 同上，但元数据由调用方给定。
+     *
+     * <p>已加载插件在加载期已取过一次元数据并缓存，每次 detect 再往沙箱线程池跑一趟
+     * 只是白白多一次调度，因此由 {@code PluginManager} 把缓存直接传进来。</p>
+     *
+     * @param meta 加载期缓存的插件元数据（非空）
+     */
+    public DetectionResult execute(DetectionPlugin plugin, DetectionContext ctx, PluginRuntime runtime,
+                                   PluginMetadata meta) {
         // 1) API 白名单
         for (String api : meta.declaredApis()) {
             if (!props.getPlugin().getAllowedApis().contains(api)) {
@@ -82,7 +99,7 @@ public class PluginSandbox {
         try {
             result = future.get(props.getPlugin().getTimeoutMs(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            future.cancel(true);
+            cancelQuietly(future);
             bumpError(runtime);
             result = DetectionResult.failure("timeout");
         } catch (ExecutionException e) {
@@ -91,6 +108,7 @@ public class PluginSandbox {
             log.warn("插件执行异常 plugin={} err={}", meta.pluginId(), cause.toString());
             result = DetectionResult.failure(cause.getClass().getSimpleName() + ": " + cause.getMessage());
         } catch (InterruptedException e) {
+            cancelQuietly(future);
             Thread.currentThread().interrupt();
             bumpError(runtime);
             result = DetectionResult.failure("interrupted");
@@ -133,8 +151,9 @@ public class PluginSandbox {
      *
      * <p>元数据决定后续的 API 白名单判定，属于安全判定输入，不能放在调用方线程裸奔：
      * 插件完全可以在 {@code getMetadata()} 里长时间阻塞或抛异常，
-     * 那样沙箱只包住 detect 就等于边界形同虚设。失败时退化为「未知元数据」占位，
-     * 由后续白名单校验把声明不明的插件挡下（默认拒绝），而不是放行。</p>
+     * 那样沙箱只包住 detect 就等于边界形同虚设。失败时退化为「未知元数据」占位：
+     * 声明清单为空等于「未申请特权 API」，按白名单语义照常放行，
+     * 但这次失败已经计入错误数，坏插件会在运行时登记里留痕。</p>
      */
     public PluginMetadata metadata(DetectionPlugin plugin, PluginRuntime runtime) {
         try {
@@ -162,9 +181,12 @@ public class PluginSandbox {
     /** 沙箱内受约束调用：超时中断 + CPU 记账 + 异常归一，无论成败都计入 CPU。 */
     private <T> T guarded(PluginRuntime runtime, String stage, Callable<T> body) {
         long start = System.nanoTime();
+        Future<T> future = null;
         try {
-            return EXECUTOR.submit(body).get(props.getPlugin().getTimeoutMs(), TimeUnit.MILLISECONDS);
+            future = EXECUTOR.submit(body);
+            return future.get(props.getPlugin().getTimeoutMs(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
+            cancelQuietly(future);
             bumpError(runtime);
             throw new IllegalStateException("插件 " + stage + " 超时(" + props.getPlugin().getTimeoutMs() + "ms)");
         } catch (ExecutionException e) {
@@ -173,6 +195,7 @@ public class PluginSandbox {
             log.warn("插件调用异常 stage={} err={}", stage, cause.toString());
             throw new IllegalStateException("插件 " + stage + " 异常: " + cause.getClass().getSimpleName(), cause);
         } catch (InterruptedException e) {
+            cancelQuietly(future);
             Thread.currentThread().interrupt();
             bumpError(runtime);
             throw new IllegalStateException("插件 " + stage + " 被中断", e);
@@ -183,6 +206,18 @@ public class PluginSandbox {
         } finally {
             runtime.setCpuMs(runtime.getCpuMs() + (System.nanoTime() - start) / 1_000_000L);
             runtime.setUpdatedAt(java.time.Instant.now());
+        }
+    }
+
+    /**
+     * 中断仍在跑的任务（Future 可能尚未建立，故容 null）。
+     *
+     * <p>超时或中断后不 cancel，挂死的插件线程会永久占住池子，
+     * 连它加载过的 ClassLoader 也一并被钉住不放——反复失败就是持续泄漏。</p>
+     */
+    private static void cancelQuietly(Future<?> future) {
+        if (future != null) {
+            future.cancel(true);
         }
     }
 
