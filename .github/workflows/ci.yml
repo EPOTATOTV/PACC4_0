@@ -30,16 +30,73 @@ jobs:
     name: 密钥扫描 (gitleaks)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # 按需放开：gitleaks 需将发现的密钥写入 Code Scanning alerts
     permissions:
-      security-events: write
+      contents: read
+      security-events: write   # 上传 SARIF 到 Code Scanning
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+          fetch-depth: 0         # 要扫提交历史，必须全量 clone
+      # 用官方二进制，不用 gitleaks-action：本仓库属于组织，action 需要 GITLEAKS_LICENSE，
+      # 没配就直接红。二进制不需要 license，sha256 固定后可复现。
+      - name: 安装 gitleaks
+        run: |
+          set -euo pipefail
+          V=8.30.1
+          curl -fsSL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${V}/gitleaks_${V}_linux_x64.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+      - name: 扫描提交历史中的密钥
+        run: |
+          gitleaks git --redact --no-banner \
+            --report-format sarif --report-path gitleaks.sarif \
+            --log-opts="--all"
+      # 扫到密钥时上一步会以非 0 退出，报告仍要用 always() 捞出来
+      - name: 上传扫描结果
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+  # ---- 版本号一致性（A01 门禁）----
+  # 以 ptv-backend/pom.xml 的 <version> 为唯一基准，反查全仓库其余 40 余处版本字段。
+  # 任何一处没跟上（新增模块漏写、手工改动、合并冲突残留）都会在这里被拦下。
+  version-consistency:
+    name: 版本号一致性
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 取出基准版本
+        id: ver
+        run: |
+          set -euo pipefail
+          V=$(grep -A2 '<artifactId>ptv-backend</artifactId>' ptv-backend/pom.xml \
+              | sed -n 's:.*<version>\(.*\)</version>.*:\1:p' | head -n1)
+          if ! printf '%s' "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::无法从 ptv-backend/pom.xml 解析出版本号（得到 '$V'）"
+            exit 1
+          fi
+          echo "基准版本：$V"
+          echo "value=$V" >> "$GITHUB_OUTPUT"
+      - name: 校验全仓库版本号一致
+        run: bash scripts/bump-version.sh "${{ steps.ver.outputs.value }}" --check
+      - name: 打 tag 时校验 tag 与版本号一致
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACC_TAG_VERSION: ${{ steps.ver.outputs.value }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$TAG" != "$PACC_TAG_VERSION" ]; then
+            echo "::error::tag v$TAG 与代码内版本 $PACC_TAG_VERSION 不一致"
+            exit 1
+          fi
 
   # ---- 后端 / 玩家端（Java 21 + Maven）----
   java:
@@ -202,6 +259,117 @@ jobs:
           name: pipe-rust-bin
           path: deploy/pipe-rust/target/release/*
 
+  # ---- DF 平台：Rust 统一检测核心 + Linux 原生客户端 + eBPF（A10/A16/A17/A20）----
+  # 这一组源码在 Linux runner 上才编得动，Windows 开发机只做静态检查。
+  # 各步骤对「目录/文件还不存在」保持容忍：分支裁剪或尚未落地的部分直接跳过而不是报红，
+  # 但只要源码在，就必须真的编过、测过。
+  df-platform:
+    name: DF 平台构建 (Rust/eBPF/Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 探测源码是否存在
+        id: probe
+        run: |
+          set -euo pipefail
+          has() { [ -e "$1" ] && echo yes || echo no; }
+          echo "rust_core=$(has platform/rust-core/Cargo.toml)" >> "$GITHUB_OUTPUT"
+          echo "linux_client=$(has platform/linux-client/Cargo.toml)" >> "$GITHUB_OUTPUT"
+          echo "ebpf=$(has platform/kernel-linux/Makefile)" >> "$GITHUB_OUTPUT"
+
+      - name: 安装 Rust 工具链
+        if: steps.probe.outputs.rust_core == 'yes' || steps.probe.outputs.linux_client == 'yes'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: 缓存 cargo
+        if: steps.probe.outputs.rust_core == 'yes' || steps.probe.outputs.linux_client == 'yes'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            platform/rust-core
+            platform/linux-client
+
+      # A20：Rust 核心五平台抽象必须可编译
+      - name: 构建 Rust 统一检测核心
+        if: steps.probe.outputs.rust_core == 'yes'
+        working-directory: platform/rust-core
+        run: |
+          set -euo pipefail
+          cargo build --workspace --release
+          cargo test --workspace
+      - name: Rust 格式与 lint
+        if: steps.probe.outputs.rust_core == 'yes'
+        working-directory: platform/rust-core
+        run: |
+          cargo fmt --all -- --check
+          # linker_messages 放进白名单：cdylib 在 Windows 上链接时工具链会打印
+          # 「正在创建库 xxx.dll.lib」，这是链接器噪声不是代码问题，
+          # 否则 -D warnings 会因为跑在哪个平台而红。
+          cargo clippy --workspace --all-targets -- -D warnings -A linker_messages
+      - name: 上传 Rust 核心产物
+        if: steps.probe.outputs.rust_core == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-core-libs
+          path: platform/rust-core/target/release/*.so
+          if-no-files-found: ignore
+
+      # A16 / A17：Linux 原生客户端要能出安装包
+      - name: 构建 Linux 原生客户端
+        if: steps.probe.outputs.linux_client == 'yes'
+        working-directory: platform/linux-client
+        run: |
+          set -euo pipefail
+          cargo build --release
+          cargo test --release
+      - name: 打包 Linux 原生客户端
+        if: steps.probe.outputs.linux_client == 'yes'
+        working-directory: platform/linux-client
+        run: |
+          set -euo pipefail
+          if [ -x ./package.sh ]; then
+            ./package.sh
+            ls -l target/dist/
+          else
+            echo "::warning::platform/linux-client/package.sh 不存在，跳过打包"
+          fi
+      - name: 上传 Linux 客户端安装包
+        if: steps.probe.outputs.linux_client == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-client-packages
+          path: platform/linux-client/target/dist/*
+          if-no-files-found: warn
+
+      # A10 / A11：eBPF 程序需要 clang + libbpf + 与内核匹配的 BTF，环境面比 Rust 宽，
+      # 因此在工具链跑通前先不阻断流水线（见 kernel-linux/README）。
+      - name: 安装 eBPF 工具链
+        if: steps.probe.outputs.ebpf == 'yes'
+        continue-on-error: true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang llvm libbpf-dev bpftool linux-tools-common
+      - name: 构建 eBPF 程序
+        if: steps.probe.outputs.ebpf == 'yes'
+        working-directory: platform/kernel-linux
+        run: |
+          set -euo pipefail
+          if [ ! -f /sys/kernel/btf/vmlinux ]; then
+            echo "::warning::runner 内核无 BTF（/sys/kernel/btf/vmlinux 缺失），跳过 eBPF 编译"
+            exit 0
+          fi
+          make
+      - name: 上传 eBPF 目标文件
+        if: steps.probe.outputs.ebpf == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebpf-objects
+          path: platform/kernel-linux/*.o
+          if-no-files-found: ignore
+
   # ---- Python AI 服务 ----
   python:
     name: AI 服务校验
@@ -229,7 +397,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Trivy 文件系统扫描
-        uses: aquasecurity/trivy-action@0.28.0
+        # v0.36.0；注意标签带 v 前缀，写 0.36.0 会解析不到，job 会死在 Set up job
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
         with:
           scan-type: fs
           scan-ref: ptv-backend
