@@ -10,6 +10,7 @@ import com.potatotv.paccclient.detection.stealth.StealthTelemetry;
 import com.potatotv.paccclient.inspect.InspectAgent;
 import com.potatotv.paccclient.redscreen.FullScreenRed;
 import com.potatotv.paccclient.redscreen.RedscreenReceiver;
+import com.potatotv.paccclient.store.HardwareFingerprintV2;
 import com.potatotv.paccclient.store.MachineFingerprint;
 import com.potatotv.paccclient.store.OfflineQueue;
 import com.potatotv.paccclient.store.RedScreenStatePersistence;
@@ -213,6 +214,19 @@ public final class PaccClient {
                 System.err.println("[PTV-Client] 模型同步异常（保留现有模型）: " + e.getMessage());
             }
         }, 45, 6 * 3600, TimeUnit.SECONDS);
+
+        // v5.2 §7.1 硬件指纹上报：启动 20 秒后一次，之后每 12 小时一次（只上报摘要）
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                HardwareFingerprintV2.Snapshot fp = HardwareFingerprintV2.read();
+                if (opsClient.reportHardwareFingerprint(fp.fullHash())) {
+                    System.out.println("[PTV-Client] 硬件指纹已上报 维度=" + fp.components().size()
+                            + " 高稳定维度=" + fp.coverage() + "/" + HardwareFingerprintV2.STABLE_DIMENSIONS);
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 硬件指纹上报失败（不影响检测）: " + e.getMessage());
+            }
+        }, 20, 12 * 3600, TimeUnit.SECONDS);
 
         // 常驻运行，Ctrl+C 退出
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

@@ -2,6 +2,7 @@ package com.potatotv.pacc.controller;
 
 import com.potatotv.pacc.security.RequirePermission;
 import com.potatotv.pacc.service.detection.v52.BehaviorProfileService;
+import com.potatotv.pacc.service.detection.v52.DeviceFingerprintService;
 import com.potatotv.pacc.service.detection.v52.ReputationV2Service;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class V52ProfileController {
 
     private final BehaviorProfileService behaviorProfileService;
     private final ReputationV2Service reputationV2Service;
+    private final DeviceFingerprintService deviceFingerprintService;
 
     // ------------------------------ 管理端 ------------------------------
 
@@ -99,6 +101,29 @@ public class V52ProfileController {
             return ResponseEntity.status(401).body(Map.of("error", "需要登录"));
         }
         return ResponseEntity.ok(reputationV2Service.detail(pteid, 20));
+    }
+
+    /**
+     * v5.2 §7.1 上报硬件指纹摘要：客户端只上报哈希，服务端落库并在新设备 / 突变时调整信誉分。
+     */
+    @PostMapping("/player/v52/device/fingerprint")
+    public ResponseEntity<?> reportFingerprint(@RequestBody Map<String, Object> body, HttpServletRequest req) {
+        String pteid = pteidOf(req);
+        if (pteid.isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("error", "需要登录"));
+        }
+        Object raw = body.get("fingerprint_hash");
+        String hash = raw == null ? null : String.valueOf(raw);
+        try {
+            DeviceFingerprintService.Registration reg = deviceFingerprintService.register(pteid, hash);
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("first_seen", reg.firstSeen());
+            out.put("mutation", reg.mutation());
+            out.put("reputation_score", reg.reputationScore());
+            return ResponseEntity.ok(out);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     private static String pteidOf(HttpServletRequest req) {

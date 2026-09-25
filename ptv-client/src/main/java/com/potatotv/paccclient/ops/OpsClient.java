@@ -58,6 +58,17 @@ public final class OpsClient {
         return post("/api/player/ops/report/crash", Json.encode(body));
     }
 
+    /**
+     * v5.2 §7.1 上报硬件指纹摘要（只发哈希，原始序列号不出本机）。返回是否上报成功。
+     *
+     * @param fingerprintHash 全维度加权指纹（SHA-256 十六进制）
+     */
+    public boolean reportHardwareFingerprint(String fingerprintHash) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("fingerprint_hash", fingerprintHash);
+        return post("/api/player/v52/device/fingerprint", Json.encode(body));
+    }
+
     /** 拉取生效远程配置（{config:{key:value}}）。失败返回空 Map。 */
     public Map<String, Object> fetchRemoteConfig() {
         HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/player/ops/config/active"))

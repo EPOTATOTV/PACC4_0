@@ -9,13 +9,13 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 隐身探针的系统访问底座：受限执行外部命令、读取系统文件。
+ * 隐身探针与硬件指纹共用的系统访问底座：受限执行外部命令、读取系统文件。
  *
  * <p>约定（与 {@code detection.telemetry} 一致）：任何失败都只返回 {@link Optional#empty()}，
  * 绝不抛出、绝不打印日志；命令不经 shell（直接 argv），避免注入；单次超时 3 秒、
  * 输出上限 512KB，防止探针本身拖慢客户端。</p>
  */
-final class OsCommand {
+public final class OsCommand {
 
     private static final long TIMEOUT_MS = 3000L;
     private static final int MAX_BYTES = 512 * 1024;
@@ -23,15 +23,15 @@ final class OsCommand {
     private OsCommand() {
     }
 
-    static String os() {
+    public static String os() {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
     }
 
-    static boolean isWindows() {
+    public static boolean isWindows() {
         return os().contains("win");
     }
 
-    static boolean isLinux() {
+    public static boolean isLinux() {
         return os().contains("linux");
     }
 
@@ -39,7 +39,7 @@ final class OsCommand {
      * 执行命令并读取标准输出。先等待退出再读取，避免管道写满时探针被拖住；
      * 超时则强杀进程并放弃本次读取。
      */
-    static Optional<String> output(String... argv) {
+    public static Optional<String> output(String... argv) {
         Process p = null;
         try {
             p = new ProcessBuilder(argv).start();
@@ -61,7 +61,7 @@ final class OsCommand {
     }
 
     /** 读取系统文件全文（不可读返回 empty）；同样限制读取上限。 */
-    static Optional<String> read(Path path) {
+    public static Optional<String> read(Path path) {
         try {
             if (!Files.isReadable(path)) return Optional.empty();
             byte[] raw = Files.newInputStream(path).readNBytes(MAX_BYTES);
@@ -72,7 +72,7 @@ final class OsCommand {
     }
 
     /** 目录存在且非空。 */
-    static boolean nonEmptyDir(Path dir) {
+    public static boolean nonEmptyDir(Path dir) {
         try {
             if (!Files.isDirectory(dir)) return false;
             try (var s = Files.list(dir)) {
