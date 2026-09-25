@@ -1,0 +1,18 @@
+# 构建产物不入库（CI 会自己编，见 Makefile / scripts/build-all.sh）
+*.o
+*.ko
+*.mod
+*.mod.c
+*.symvers
+*.order
+modules.order
+Module.symvers
+.*.cmd
+.tmp_versions/
+
+# vmlinux.h 由 bpftool 从目标内核 BTF 生成，不入库
+pacc-ebpf/build/
+pacc-ebpf/vmlinux.h
+
+# 编译出的可执行文件
+pacc-ebpf-loader
