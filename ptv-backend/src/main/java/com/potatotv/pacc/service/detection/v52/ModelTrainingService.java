@@ -15,12 +15,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -33,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -469,6 +473,77 @@ public class ModelTrainingService {
     /** 版本详情（含签名）。 */
     public Map<String, Object> versionDetail(String id) {
         return toView(require(id), true);
+    }
+
+    // ------------------------------ 下发 API（§2.1.3） ------------------------------
+
+    /**
+     * 玩家应加载的模型清单：每个模型类型取「灰度命中则灰度版本，否则 active 版本」。
+     *
+     * <p>灰度命中用确定性分桶（{@code pteid:类型:版本} 的 SHA-256 前 8 字节取模 100），
+     * 同一玩家对同一版本的结果稳定，重启与并发都不影响放量比例；无 active 且未命中灰度的类型不下发。</p>
+     *
+     * @param pteid 玩家 PTEID；为空时不下发任何灰度版本
+     */
+    public List<ModelVersion> releasesFor(String pteid) {
+        List<ModelVersion> out = new ArrayList<>();
+        for (String type : new String[]{ModelVersion.TYPE_XGBOOST, ModelVersion.TYPE_AUTOENCODER}) {
+            Optional<ModelVersion> gray = versions.findFirstByModelTypeAndStatusOrderByCreatedAtDesc(
+                            type, ModelVersion.STATUS_GRAY)
+                    .filter(row -> grayHit(pteid, row));
+            gray.or(() -> versions.findFirstByModelTypeAndStatusOrderByCreatedAtDesc(
+                    type, ModelVersion.STATUS_ACTIVE)).ifPresent(out::add);
+        }
+        return out;
+    }
+
+    /** 确定性灰度分桶：同一 pteid + 类型 + 版本稳定命中；pteid 缺失或放量 0 一律不命中。 */
+    static boolean grayHit(String pteid, ModelVersion row) {
+        int percent = row.getGrayPercent();
+        if (pteid == null || pteid.isBlank() || percent <= 0) return false;
+        if (percent >= 100) return true;
+        try {
+            byte[] h = MessageDigest.getInstance("SHA-256")
+                    .digest((pteid + ":" + row.getModelType() + ":" + row.getVersion())
+                            .getBytes(StandardCharsets.UTF_8));
+            long v = 0;
+            for (int i = 0; i < 8; i++) v = (v << 8) | (h[i] & 0xFFL);
+            return Math.floorMod(v, 100) < percent;
+        } catch (NoSuchAlgorithmException e) {
+            return false;   // 理论不可达：退化为不命中灰度
+        }
+    }
+
+    /**
+     * 读取并校验模型产物字节，供端侧下载。
+     *
+     * <p>目录穿越防护：只接受登记的文件名（不含分隔符与 {@code ..}），再用规范化路径确认仍在模型库目录内；
+     * 读取后核对 SHA-256 与登记值一致，避免下发损坏或篡改的产物。</p>
+     *
+     * @throws NoSuchElementException 产物未登记或文件不存在
+     * @throws IllegalStateException  校验不通过或读取失败
+     */
+    public byte[] readArtifact(ModelVersion row) {
+        if (row == null) throw new NoSuchElementException("模型版本不存在");
+        String name = row.getFileUrl();
+        if (name == null || name.isBlank() || name.contains("/") || name.contains("\\") || name.contains("..")) {
+            throw new NoSuchElementException("模型产物未登记：" + row.getId());
+        }
+        Path dir = Paths.get(storeDir).toAbsolutePath().normalize();
+        Path file = dir.resolve(name).normalize();
+        if (!file.startsWith(dir) || !Files.isRegularFile(file)) {
+            throw new NoSuchElementException("模型产物不存在：" + name);
+        }
+        try {
+            byte[] raw = Files.readAllBytes(file);
+            String expect = row.getSha256();
+            if (expect != null && !expect.isEmpty() && !expect.equalsIgnoreCase(PaccModelFormat.sha256Hex(raw))) {
+                throw new IllegalStateException("模型产物校验失败（SHA-256 不一致）：" + name);
+            }
+            return raw;
+        } catch (IOException e) {
+            throw new IllegalStateException("模型产物读取失败：" + e.getMessage(), e);
+        }
     }
 
     // ------------------------------ 内部工具 ------------------------------

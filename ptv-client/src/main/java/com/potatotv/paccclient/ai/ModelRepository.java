@@ -62,6 +62,14 @@ public final class ModelRepository {
     }
 
     /**
+     * 模型类型 → 签名文件路径（{@code <模型文件>.sig}）。
+     * <p>下载链路（{@link ModelSync}）在安装前把服务端签名写入该文件，安装时按需校验。</p>
+     */
+    public Path signatureFile(int modelType) {
+        return sigFile(modelFile(modelType));
+    }
+
+    /**
      * 安装模型：校验容器完整性与可选签名后原子落盘，旧文件转存 {@code .bak}。
      *
      * @return 安装成功返回 {@code true}；校验失败、签名缺失/不合法或 IO 异常返回 {@code false}
