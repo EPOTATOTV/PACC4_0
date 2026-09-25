@@ -47,31 +47,6 @@ PACC 遵循三条核心架构约束：
 | CI/CD | GitHub Actions + CodeQL |
 
 ## 📦 目录结构
-| 层级 | 技术 |
-
-|------|------|
-
-| 后端 | Java 21 + Spring Boot 3 |
-
-| 前端 | TypeScript + React + Vite |
-
-| 通信协议 | Protocol Buffers（WSS 长连接） |
-
-| 数据库 | MySQL 8（生产）/ H2（本地开发） |
-
-| 数据库迁移 | Flyway |
-
-| 桌面工具 | C# / .NET WPF |
-
-| 安装向导 | Inno Setup |
-
-| 移动端 | Android 探针 + Rust 管道 |
-
-| 容器化 | Docker Compose |
-
-| CI/CD | GitHub Actions + CodeQL |
-
-## 📦 目录结构
 
 ```
 
