@@ -1,0 +1,53 @@
+name: 平台适配
+description: 某个平台的适配层缺实现、有差异或需要补测试
+title: "[platform] "
+labels: ["area:platform"]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台
+      options:
+        - Windows
+        - Android
+        - iOS / iPadOS
+        - HarmonyOS
+        - Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: state
+    attributes:
+      label: 当前状态
+      options:
+        - 完全没实现
+        - 有桩实现，但走不通
+        - 能跑，但和能力清单有差距
+        - 能跑，缺测试或文档
+    validations:
+      required: true
+
+  - type: textarea
+    id: capability
+    attributes:
+      label: 涉及的抽象接口
+      description: 内存扫描 / 进程枚举 / 模块枚举 / HID 设备监听 / 屏幕采集 / 键盘锁定 等，指到具体接口名
+    validations:
+      required: true
+
+  - type: textarea
+    id: gap
+    attributes:
+      label: 差距与已知限制
+      description: 说清"哪些能用、哪些用不了、为什么"。需要系统权限或签名的，写明具体权限项。
+    validations:
+      required: true
+
+  - type: textarea
+    id: verify
+    attributes:
+      label: 怎么验证
+      description: 该平台能否进 CI？还是只能真机手工验？手工验的话给出步骤。
+    validations:
+      required: true

@@ -1,0 +1,30 @@
+# 默认审查人
+#
+# 目前仓库只有一个常驻维护者，所以先用个人账号。
+# 以后有团队了就换成 @EPOTATOTV/<team>，具体分工照下面的分区来。
+
+*                                   @W1ngB3i
+
+# 管控后端与数据库迁移：改动会影响线上数据和接口契约
+/ptv-backend/                       @W1ngB3i
+
+# 玩家端与桌面壳：产物加固、混淆规则、本地持久化的加密方式
+/ptv-client/                        @W1ngB3i
+/ptv-desktop/                       @W1ngB3i
+/tools/                             @W1ngB3i
+
+# 平台适配层与内核模块：权限、驱动、eBPF 这些改动风险最高
+/platform/                          @W1ngB3i
+
+# 通信协议：改 proto 等于改前后端契约，必须同时更新签名与校验逻辑
+/proto/                             @W1ngB3i
+/sdk/                               @W1ngB3i
+
+# 编排与网关：涉及四个子域分流、限流、证书
+/deploy/                            @W1ngB3i
+/docker-compose.yml                 @W1ngB3i
+
+# 流水线、模板与安全策略本身
+/.github/                           @W1ngB3i
+/SECURITY.md                        @W1ngB3i
+/CODEOWNERS                         @W1ngB3i

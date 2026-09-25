@@ -1,0 +1,43 @@
+name: 发布阻塞项
+description: 打 tag 之前必须清掉的问题
+title: "[release] "
+labels: ["release-blocker"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        只用来记"不修就不能发版"的事。一般缺陷走 Bug 模板。
+
+  - type: input
+    id: target
+    attributes:
+      label: 目标版本
+      placeholder: Alpha 1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: blocker
+    attributes:
+      label: 阻塞点
+      description: 为什么会挡住发版？挡住的是构建、部署，还是对外可用性？
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 不修的后果
+    validations:
+      required: true
+
+  - type: textarea
+    id: accept
+    attributes:
+      label: 通过条件
+      description: 写成可检查的断言，例如"master 上 CI 全绿""Release 附件含校验和"
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true

@@ -1,0 +1,166 @@
+# PACC Release —— 打 tag 后产出对外可下载的发布制品
+#
+# 与 cd.yml 的分工：cd.yml 管「镜像推到 ghcr 再部署到生产」，这里管「给人下载的东西」。
+# 三件事：校验 tag 与代码内版本一致 → 构建并做来源证明 → 建 GitHub Release。
+# 下载站 deploy/dl-web/files/ 里放什么，以这里产出的制品为准。
+name: Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "已存在的 tag（v 开头），补发 Release 时用"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false   # 发布过程不能被打断
+
+jobs:
+  verify:
+    name: 校验 tag 与版本号
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.ver.outputs.value }}
+      tag: ${{ steps.tag.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: 取出基准版本（ptv-backend/pom.xml）
+        id: ver
+        run: |
+          set -euo pipefail
+          V=$(grep -A2 '<artifactId>ptv-backend</artifactId>' ptv-backend/pom.xml \
+              | sed -n 's:.*<version>\(.*\)</version>.*:\1:p' | head -n1)
+          printf '%s' "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+            || { echo "::error::无法解析版本号（得到 '$V'）"; exit 1; }
+          echo "value=$V" >> "$GITHUB_OUTPUT"
+
+      - name: 校验全仓库版本号一致
+        run: bash scripts/bump-version.sh "${{ steps.ver.outputs.value }}" --check
+
+      - name: 校验 tag 与版本号一致
+        id: tag
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          case "$TAG" in
+            v*) ;;
+            *) TAG="${{ github.event.inputs.tag }}" ;;
+          esac
+          if [ "${TAG#v}" != "${{ steps.ver.outputs.value }}" ]; then
+            echo "::error::tag $TAG 与代码内版本 ${{ steps.ver.outputs.value }} 不一致"
+            exit 1
+          fi
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: 构建发布制品
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      # CI 已经在 master 上跑过测试，这里只出制品，跳过重复测试
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: 构建后端与玩家端
+        run: |
+          set -euo pipefail
+          ( cd ptv-backend && mvn -B -q -DskipTests package )
+          ( cd ptv-client  && mvn -B -q -DskipTests package )
+
+      - name: 校验玩家端产物已加固
+        working-directory: ptv-client
+        run: |
+          set -euo pipefail
+          JAR=$(ls target/ptv-client-*.jar | head -n1)
+          unzip -l "$JAR" | grep -q 'com/potatotv/paccclient/PaccClient.class' \
+            || { echo "::error::产物缺少入口类 PaccClient"; exit 1; }
+          if unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/(detection|transport|signature|store|ops|probe)/'; then
+            echo "::error::发行 JAR 未混淆"; exit 1
+          fi
+          unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/[a-z]{1,3}\.class' \
+            || { echo "::error::未发现混淆后的短类名"; exit 1; }
+
+      - name: 安装 Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ptv-frontend/package-lock.json
+
+      - name: 构建管理后台前端
+        working-directory: ptv-frontend
+        run: npm ci && npm run build
+
+      - name: 打前端产物包
+        run: tar -czf ptv-frontend-dist.tar.gz -C ptv-frontend/dist .
+
+      - name: 生成后端 SBOM（CycloneDX）
+        working-directory: ptv-backend
+        run: mvn -B -q org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
+        continue-on-error: true
+
+      - name: 汇总制品并生成校验和
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          cp ptv-backend/target/ptv-backend-*.jar   release/
+          cp ptv-client/target/ptv-client-*.jar     release/
+          cp ptv-frontend-dist.tar.gz               release/
+          [ -f ptv-backend/target/bom.xml ] && cp ptv-backend/target/bom.xml release/sbom-backend.cdx.xml || true
+          cd release && sha256sum ./* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: release/
+
+  publish:
+    name: 建 Release 并做来源证明
+    needs: [ verify, build ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write        # 建 Release
+      id-token: write        # 来源证明走 OIDC
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: release
+
+      - name: 生成构建来源证明
+        # v4.2.2；任何人都能用 gh attestation verify 校验这些产物确实出自本仓库的这次构建
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        with:
+          subject-path: release/*
+
+      - name: 创建 GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create "${{ needs.verify.outputs.tag }}" \
+            --title "PACC ${{ needs.verify.outputs.version }}" \
+            --generate-notes \
+            release/*

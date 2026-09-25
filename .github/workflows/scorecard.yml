@@ -1,0 +1,49 @@
+# OpenSSF Scorecard —— 仓库自身的安全姿态评分
+#
+# CodeQL 看代码，Trivy 看依赖，这个看「仓库怎么被管理的」：分支保护、审查要求、
+# action 是否 pin、令牌权限、发布是否签名。结果会出现在 Security 面板的 Code Scanning 里。
+name: Scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: '20 3 * * 1'   # 每周一 11:20（北京时间）
+  push:
+    branches: [ master ]
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write   # 上传 SARIF
+      id-token: write          # publish_results 走 OIDC，结果会进公开的 Scorecard 数据集
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 运行 Scorecard
+        # v2.4.4
+        uses: ossf/scorecard-action@55891bbd73f2425e97637d96e306fc9d491d0b21
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      - name: 上传到 Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: scorecard

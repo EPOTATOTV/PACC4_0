@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 使用问题 / 求助
+    url: https://github.com/EPOTATOTV/PACC4_0/discussions/categories/q-a
+    about: "装不上、连不上、看不懂文档，先去 Q&A 问，别开 issue。"
+
+  - name: 功能想法 / 讨论
+    url: https://github.com/EPOTATOTV/PACC4_0/discussions/categories/ideas
+    about: 还没想清楚要怎么做的东西，先在这里聊。
+
+  - name: 安全问题（私密上报）
+    url: https://github.com/EPOTATOTV/PACC4_0/security/advisories/new
+    about: "绕过检测、伪造红屏解锁、WSS 签名绕过这类问题，走私密渠道，不要开公开 issue。"
