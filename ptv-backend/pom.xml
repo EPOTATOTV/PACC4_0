@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
@@ -19,7 +19,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <jjwt.version>0.12.5</jjwt.version>
+        <jjwt.version>0.13.0</jjwt.version>
     </properties>
 
     <dependencies>
@@ -58,7 +58,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.5.0</version>
+            <version>2.9.1</version>
         </dependency>
 
         <!-- 邮件（密码找回真实发送；对公上线必须配置真实 SMTP） -->
@@ -99,7 +99,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.78.1</version>
+            <version>1.86</version>
         </dependency>
 
         <!-- JWT -->
@@ -139,7 +139,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.23.2</version>
+            <version>3.25.9</version>
         </dependency>
 
         <dependency>
@@ -177,7 +177,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.12</version>
+                <version>0.8.15</version>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
