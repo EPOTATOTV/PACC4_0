@@ -42,6 +42,11 @@ pacc:
     wss-sign-secret: ${PACC_SECURITY_WSS_SIGN_SECRET:}
     # 特征库热更新内容签名密钥：非 local 缺失时 SigSigner 启动即抛错（fail-closed）。
     sig-secret: ${PACC_SIG_SECRET:}
+    # v5.4 密钥管理根密钥：派生设备主密钥与各类子密钥（HKDF-SHA256）。
+    # 留空时回退到 jwt-secret 并在管理端标记「未独立配置」，生产建议单独注入强随机值。
+    key-root: ${PACC_SECURITY_KEY_ROOT:}
+    # 托管密钥自动轮换周期（天）。到期前由定时任务标记并告警，不自动吊销在用密钥。
+    key-rotation-days: ${PACC_SECURITY_KEY_ROTATION_DAYS:90}
     # 管理后台允许的跨域来源（Origin 白名单，逗号分隔）。
     allowed-origins: "https://admin.potatotv.asia,http://admin.potatotv.asia,http://localhost:5173,https://localhost:5173"
     # 强制管理员两步验证（TOTP）。
@@ -99,6 +104,29 @@ pacc:
     baseline-weight: 0.2           # 个人行为基线偏离权重
     recon-scale: 1.2               # 重构误差映射到 (0,1] 的尺度（越小对偏离越敏感）
     baseline-scale: 3.0            # 基线 z-score 偏离映射尺度
+  # v5.4 APM 性能监控：端侧 1 分钟窗口聚合并每 5 分钟批量上报，服务端按小时再聚合。
+  apm:
+    # 原始（分钟级）指标保留天数，超期由定时任务清理；小时聚合结果长期保留。
+    raw-retention-days: ${PACC_APM_RAW_RETENTION_DAYS:7}
+    # 异常检测的 σ 倍数（偏离同指标近 24h 分布的阈值），越小越敏感、误报越多。
+    anomaly-sigma: ${PACC_APM_ANOMALY_SIGMA:3.0}
+    # 同一指标同类告警的静默窗口（分钟），避免抖动刷屏。
+    alert-cooldown-minutes: ${PACC_APM_ALERT_COOLDOWN_MINUTES:30}
+    alert-enabled: ${PACC_APM_ALERT_ENABLED:true}
+    # 告警外发 Webhook（留空则仅落库 + 管理端展示）。
+    alert-webhook-url: ${PACC_APM_ALERT_WEBHOOK_URL:}
+    # 帧率基准值：版本回归对比与 FPS 掉帧判定用。
+    fps-baseline: ${PACC_APM_FPS_BASELINE:60}
+    # 版本回归判定阈值（百分比）：新版本 P95 劣化超过该比例即标记回归。
+    regression-threshold-percent: ${PACC_APM_REGRESSION_THRESHOLD_PERCENT:20}
+  # v5.4 远程证明（挑战-响应）：客户端上报内存代码段哈希与运行态证据，服务端校验并留档。
+  attestation:
+    # 挑战有效性窗口（毫秒）；超时挑战由定时任务回收。
+    ttl-ms: ${PACC_ATTESTATION_TTL_MS:100000}
+    # 挑战下发到响应到达的最大允许耗时（毫秒），超出判为异常（疑似人工介入/录制重放）。
+    max-elapsed-ms: ${PACC_ATTESTATION_MAX_ELAPSED_MS:500}
+    # 是否强制要求上报的代码段哈希命中已知良好哈希库；灰度期默认 false（仅记录不拦截）。
+    require-known-hash: ${PACC_ATTESTATION_REQUIRE_KNOWN_HASH:false}
   websocket:
     endpoint: /ws                # 玩家端 WebSocket 长连接端点
   wss:
