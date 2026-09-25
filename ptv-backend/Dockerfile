@@ -11,8 +11,9 @@ RUN mvn -s /m2/settings.xml clean package -DskipTests -B
 
 # 运行时（Java 21 JRE + curl 用于健康检查）
 FROM eclipse-temurin:21-jre-jammy
+# fonts-dejavu-core：回放逐帧预览要用 Java2D 烧操作者水印，镜像里没有任何字体时 drawString 会画不出字
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && apt-get install -y --no-install-recommends curl ca-certificates fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /workspace/target/*.jar app.jar
