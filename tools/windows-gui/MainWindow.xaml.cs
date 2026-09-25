@@ -200,6 +200,18 @@ public partial class MainWindow : Window
         }
         sb.AppendLine();
         sb.AppendLine("配置状态: " + (_config.Load() ? "已加载 (" + _config.Values.Count + " 项)" : "未找到配置"));
+
+        // 安全状态：现场评估一次，便于人工核验 L2 运行时层是否按预期工作
+        sb.AppendLine();
+        sb.AppendLine("安全状态:");
+        int score = DebugGuard.Assess();
+        sb.AppendLine($"  反调试评分: {score}" + (DebugGuard.LastFindings.Count == 0 ? "（未命中任何维度）" : ""));
+        foreach (var f in DebugGuard.LastFindings) sb.AppendLine("    · " + f);
+        var hooks = HookDetector.Scan();
+        sb.AppendLine($"  反 Hook: 共 {hooks.Total} 项" + (hooks.Clean ? "（未发现）" : ""));
+        if (!hooks.Clean) sb.AppendLine(hooks.Describe());
+        sb.AppendLine("  进程保护: " + ProcessProtector.LastApplied);
+
         DiagnosticBox.Text = sb.ToString();
         StatusText.Text = "诊断完成";
     }
