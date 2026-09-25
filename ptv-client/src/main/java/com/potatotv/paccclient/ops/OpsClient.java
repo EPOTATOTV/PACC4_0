@@ -8,6 +8,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -67,6 +68,48 @@ public final class OpsClient {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("fingerprint_hash", fingerprintHash);
         return post("/api/player/v52/device/fingerprint", Json.encode(body));
+    }
+
+    /**
+     * v5.2 §7.3 上传查端回放录像：正文是加密后的 MJPEG-AVI，解密密钥与元数据走请求头。
+     *
+     * <p>用二进制正文而不是 JSON+Base64：50MB 的录像走 Base64 会膨胀三分之一，
+     * 走 octet-stream 更省带宽也更好排障。</p>
+     *
+     * @return 是否上传成功
+     */
+    public boolean uploadReplay(String alertId, byte[] cipher, byte[] key, byte[] iv,
+                               int frames, int width, int height, int fps, long durationMs,
+                               long plainSize, String sha256) {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/player/v52/replay"))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "application/octet-stream")
+                .header("X-PACC-Alert-Id", nullToEmpty(alertId))
+                .header("X-PACC-Replay-Key", Base64.getEncoder().encodeToString(key))
+                .header("X-PACC-Replay-Iv", Base64.getEncoder().encodeToString(iv))
+                .header("X-PACC-Replay-Meta",
+                        frames + ":" + width + ":" + height + ":" + fps + ":" + durationMs + ":" + plainSize)
+                .header("X-PACC-Replay-Sha256", nullToEmpty(sha256))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(cipher))
+                .timeout(Duration.ofSeconds(60)).build();
+        try {
+            HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+            if (r.statusCode() / 100 != 2) {
+                System.err.println("[PTV-Ops] 回放上传被拒绝 HTTP " + r.statusCode());
+                return false;
+            }
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (Exception e) {
+            System.err.println("[PTV-Ops] 回放上传失败: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 
     /** 拉取生效远程配置（{config:{key:value}}）。失败返回空 Map。 */

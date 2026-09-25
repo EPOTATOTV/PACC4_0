@@ -10,6 +10,7 @@ import com.potatotv.paccclient.detection.stealth.StealthTelemetry;
 import com.potatotv.paccclient.inspect.InspectAgent;
 import com.potatotv.paccclient.redscreen.FullScreenRed;
 import com.potatotv.paccclient.redscreen.RedscreenReceiver;
+import com.potatotv.paccclient.redscreen.SessionRecorder;
 import com.potatotv.paccclient.store.HardwareFingerprintV2;
 import com.potatotv.paccclient.store.MachineFingerprint;
 import com.potatotv.paccclient.store.OfflineQueue;
@@ -228,9 +229,23 @@ public final class PaccClient {
             }
         }, 20, 12 * 3600, TimeUnit.SECONDS);
 
+        // v5.2 §7.3 查端回放：默认关闭（PACC_REPLAY_ENABLED=true 才采集），红屏时导出并加密上传
+        SessionRecorder recorder = new SessionRecorder(maskPteid(pteid));
+        recorder.startRingBuffer();
+        RedscreenReceiver.onActivated((level, alertId) -> recorder.onRedScreen(alertId, recording -> {
+            boolean ok = opsClient.uploadReplay(recording.alertId(), recording.cipher(),
+                    recording.key(), recording.iv(), recording.frames(), recording.width(),
+                    recording.height(), recording.fps(), recording.durationMillis(),
+                    recording.plainSize(), recording.sha256());
+            System.out.println("[PTV-Client] 查端回放 " + (ok ? "已上传" : "上传失败")
+                    + " alert=" + recording.alertId() + " 帧=" + recording.frames()
+                    + " 明文=" + recording.plainSize() + "B level=" + level);
+        }));
+
         // 常驻运行，Ctrl+C 退出
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             detector.stop();
+            recorder.stop();
             if (control != null) control.close();
             opsScheduler.shutdownNow();
             reporter.close();
@@ -243,6 +258,12 @@ public final class PaccClient {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /** PTEID 脱敏（回放水印用，与后端 mask 口径一致）。 */
+    private static String maskPteid(String pteid) {
+        if (pteid == null || pteid.length() < 4) return "****";
+        return pteid.substring(0, 2) + "***" + pteid.substring(pteid.length() - 2);
     }
 
     /** 依平台解析本地加密存储目录。 */

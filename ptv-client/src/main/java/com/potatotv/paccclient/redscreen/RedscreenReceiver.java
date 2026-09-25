@@ -7,14 +7,23 @@ import com.potatotv.paccclient.store.RedScreenStatePersistence;
  * 触发全屏红屏、输入暂停或解除，并同步持久化/清除红屏激活状态（供重启恢复）。
  * <p>消息结构对应 PTV 后端广播 Json：{event_type, alert_id, level, cheat_type,
  * pteid_masked, timestamp, risk_score, game_edition}。</p>
+ *
+ * <p>v5.2 §7.3：新增激活回调，供查端回放（{@code SessionRecorder}）在红屏瞬间开始导出录像。</p>
  */
 public final class RedscreenReceiver {
 
     private static RedScreenStatePersistence persistence;
     private static volatile int activeLevel;
     private static volatile long activeSince;
+    /** 红屏激活回调（level, alertId）；未注册时为 null。 */
+    private static volatile java.util.function.BiConsumer<Integer, String> onActivated;
 
     private RedscreenReceiver() {
+    }
+
+    /** 注册红屏激活回调（重复注册以最后一次为准）。 */
+    public static void onActivated(java.util.function.BiConsumer<Integer, String> listener) {
+        onActivated = listener;
     }
 
     /** 注入红屏状态持久化；未注入则不落盘（纯内存演示模式兼容）。 */
@@ -42,6 +51,17 @@ public final class RedscreenReceiver {
         activeSince = 0;
     }
 
+    /** 通知红屏激活（回调异常绝不影响红屏本身）。 */
+    private static void notifyActivated(int level, String alertId) {
+        java.util.function.BiConsumer<Integer, String> listener = onActivated;
+        if (listener == null) return;
+        try {
+            listener.accept(level, alertId);
+        } catch (Exception e) {
+            System.err.println("[PTV-Client] 红屏回调失败（不影响红屏）: " + e.getMessage());
+        }
+    }
+
     public static void handle(String json) {
         if (json == null) return;
         try {
@@ -50,9 +70,11 @@ public final class RedscreenReceiver {
                 String type = stringOf(json, "cheat_type", "unknown");
                 String pteid = stringOf(json, "pteid_masked", "****");
                 String risk = stringOf(json, "risk_score", "0");
+                String alertId = stringOf(json, "alert_id", "");
                 if (persistence != null) persistence.setActive(level, type, pteid, risk);
                 markActive(level);
                 FullScreenRed.show(level, type, pteid, risk);
+                notifyActivated(level, alertId);
             } else if (json.contains("\"type\":\"mitigation\"")) {
                 // 服务端就地防护指令（如 force_close）
                 System.out.println("[PTV-Client] 收到缓解指令: " + json);
