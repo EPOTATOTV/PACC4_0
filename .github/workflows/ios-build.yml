@@ -96,7 +96,7 @@ jobs:
 
       - name: 上传构建产物
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-sim-archive
           path: ptv-mobile/ios/App/build-release/App.xcarchive

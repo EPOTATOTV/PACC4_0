@@ -140,7 +140,7 @@ jobs:
       # 测试失败时报告最需要被看到，所以用 always()：即便上面构建挂了也把报告捞出来
       - name: 上传后端测试报告与覆盖率
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: java-test-reports
           path: |
@@ -158,7 +158,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
       - name: 上传制品
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: java-artifacts
           path: |
@@ -187,7 +187,7 @@ jobs:
         run: npm run test:ci
       - name: 上传前端测试报告
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-test-reports
           path: ptv-frontend/reports/
@@ -214,7 +214,7 @@ jobs:
             exit 1
           fi
       - name: 上传制品
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-dist
           path: ptv-frontend/dist
@@ -238,7 +238,7 @@ jobs:
       - run: go vet ./...
       - run: go build -trimpath -ldflags="-s -w" -o gateway-go .
       - name: 上传制品
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gateway-go-bin
           path: deploy/gateway-go/gateway-go
@@ -254,7 +254,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cargo build --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pipe-rust-bin
           path: deploy/pipe-rust/target/release/*
@@ -311,7 +311,7 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings -A linker_messages
       - name: 上传 Rust 核心产物
         if: steps.probe.outputs.rust_core == 'yes'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-core-libs
           path: platform/rust-core/target/release/*.so
@@ -338,7 +338,7 @@ jobs:
           fi
       - name: 上传 Linux 客户端安装包
         if: steps.probe.outputs.linux_client == 'yes'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-client-packages
           path: platform/linux-client/target/dist/*
@@ -364,7 +364,7 @@ jobs:
           make
       - name: 上传 eBPF 目标文件
         if: steps.probe.outputs.ebpf == 'yes'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ebpf-objects
           path: platform/kernel-linux/*.o
