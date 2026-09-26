@@ -16,9 +16,9 @@
         <maven.compiler.target>21</maven.compiler.target>
         <!-- 发行产物加固：默认开启。本地需要可读产物调试时用 -Dpacc.proguard.skip=true 跳过。 -->
         <pacc.proguard.skip>false</pacc.proguard.skip>
-        <proguard.version>7.6.1</proguard.version>
+        <proguard.version>7.10.0</proguard.version>
         <!-- 必须与 proguard-base 的传递依赖一致：7.6.1 -> proguard-core 9.1.7 -->
-        <proguard.core.version>9.1.7</proguard.core.version>
+        <proguard.core.version>9.4.0</proguard.core.version>
         <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
         <pacc.pbp.version>1.0.0</pacc.pbp.version>
     </properties>
@@ -34,7 +34,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.10.2</version>
+            <version>5.14.4</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -44,17 +44,17 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>3.16.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>3.6.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>3.5.1</version>
                 <configuration>
                     <!-- 强制每次 package 都从 classes 重建 jar：
                          ProGuard 是「原地」混淆（injar == outjar），若 jar 插件因时间戳判定跳过重建，
@@ -74,7 +74,7 @@
             <plugin>
                 <groupId>com.github.wvengen</groupId>
                 <artifactId>proguard-maven-plugin</artifactId>
-                <version>2.6.0</version>
+                <version>2.7.0</version>
                 <executions>
                     <execution>
                         <id>obfuscate-release-jar</id>
@@ -160,7 +160,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>build-helper-maven-plugin</artifactId>
-                        <version>3.5.0</version>
+                        <version>3.6.2</version>
                         <executions>
                             <execution>
                                 <id>add-generated-protect-sources</id>
@@ -180,7 +180,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
-                        <version>3.1.1</version>
+                        <version>3.6.4</version>
                         <executions>
                             <execution>
                                 <id>generate-secret-strings</id>
