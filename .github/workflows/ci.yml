@@ -204,6 +204,45 @@ jobs:
             ptv-client/target/*.jar
             ptv-backend/target/bom.xml
 
+  # ---- PBP 多语言运行时（TS / Rust / C# / Python）----
+  # 互操作断言的锚点是 pacc-binary-protocol/test-vectors/interop.txt：每种语言都要逐字节
+  # 复现压缩输出与帧字节，不然"多语言运行时行为一致"就只是声称。生成物漂移与 pbpgen 自测
+  # 在 java job 里挡（--check 覆盖五种语言）。
+  pbp-runtimes:
+    name: PBP 多语言运行时
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: pacc-binary-protocol/runtime-ts/package-lock.json
+      - name: TypeScript 运行时测试
+        working-directory: pacc-binary-protocol/runtime-ts
+        run: |
+          set -euo pipefail
+          npm ci
+          npm test
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust 运行时测试
+        working-directory: pacc-binary-protocol/runtime-rust
+        run: cargo test --locked
+      - name: 安装 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: C# 运行时测试
+        run: dotnet run --project pacc-binary-protocol/runtime-csharp/tests/Tests.csproj
+      - name: Python 生成代码测试
+        working-directory: pacc-binary-protocol/runtime-python
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -t .
+
   # ---- 前端（Node 20 + Vite）----
   frontend:
     name: 前端构建

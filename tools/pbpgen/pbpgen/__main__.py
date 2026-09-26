@@ -20,12 +20,12 @@ from .lexer import MdlSyntaxError
 def main(argv: list[str] | None = None) -> int:
     arg_parser = argparse.ArgumentParser(
         prog="pbpgen",
-        description="从 MDL 生成 PBP 消息的 Java 代码（生成物入库，改动后需提交）",
+        description="从 MDL 生成 PBP 消息的五语言代码（Java/TS/Rust/C#/Python；生成物入库，改动后需提交）",
     )
     arg_parser.add_argument("--in", dest="mdl", default=None,
                             help=f"MDL 文件或目录，默认 {codegen.DEFAULT_MDL_DIR}")
     arg_parser.add_argument("--out", dest="java_root", default=None,
-                            help=f"Java 源码根，默认 {codegen.DEFAULT_JAVA_ROOT}")
+                            help=f"Java 源码根（只覆盖 Java 目标的输出根），默认 {codegen.DEFAULT_JAVA_ROOT}")
     arg_parser.add_argument("--check", action="store_true",
                             help="只比对磁盘上的生成物，不写盘（CI 用）")
     args = arg_parser.parse_args(argv)

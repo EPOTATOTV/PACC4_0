@@ -4,6 +4,8 @@
   * 同一份 MDL 必须生成出逐字节相同的文件（emit 层不写时间戳、不依赖字典顺序）
   * `check()` 只读，绝不顺手修补磁盘上的文件——CI 要靠它判断"人改了生成物"还是
     "MDL 改了但忘了重新生成"，自动修会把后者掩盖成通过
+
+一次运行生成设计文档 §3.7 的五种语言；各语言输出根见 EMIT_TARGETS。
 """
 
 from __future__ import annotations
@@ -13,11 +15,34 @@ from pathlib import Path
 from typing import Iterable
 
 from . import model, parser
-from .emit import emit_schema
+from .emit import emit_package, emit_schema
 from .lexer import MdlSyntaxError
 
 DEFAULT_MDL_DIR = "pacc-binary-protocol/mdl"
 DEFAULT_JAVA_ROOT = "pacc-binary-protocol/runtime-java/src/main/java"
+
+
+@dataclass(frozen=True)
+class EmitTarget:
+    """一种语言（或运行时）的输出目标。
+
+    root 是相对仓库根的源码根；package_level 表示该语言有跨 MDL 的共享产物
+    （Rust 的 gen/mod.rs、Python 的 pbp_core.py 与 __init__.py），必须整体生成一次，
+    逐 schema 循环会互相覆盖。
+    """
+
+    language: str
+    root: str
+    package_level: bool = False
+
+
+EMIT_TARGETS: tuple[EmitTarget, ...] = (
+    EmitTarget("java", DEFAULT_JAVA_ROOT),
+    EmitTarget("typescript", "pacc-binary-protocol/runtime-ts/src"),
+    EmitTarget("rust", "pacc-binary-protocol/runtime-rust/src", package_level=True),
+    EmitTarget("csharp", "pacc-binary-protocol/runtime-csharp"),
+    EmitTarget("python", "pacc-binary-protocol/runtime-python", package_level=True),
+)
 
 
 def repo_root() -> Path:
@@ -69,11 +94,22 @@ def load_schemas(mdl_paths: Iterable[Path]) -> list[model.Schema]:
 
 def generate(mdl_path: str | Path | None = None,
              java_root: str | Path | None = None) -> list[GeneratedFile]:
-    root = Path(java_root) if java_root is not None else default_java_root()
+    """生成全部语言的输出清单；java_root 只覆盖 Java 目标（旧调用点兼容）。"""
+    schemas = load_schemas(find_mdl_files(mdl_path))
     out: list[GeneratedFile] = []
-    for schema in load_schemas(find_mdl_files(mdl_path)):
-        for rel_path, content in emit_schema(schema, schema.path).items():
-            out.append(GeneratedFile(root / rel_path, content, schema.path))
+    for target in EMIT_TARGETS:
+        if target.language == "java" and java_root is not None:
+            root = Path(java_root)
+        else:
+            root = repo_root() / target.root
+        if target.package_level:
+            mdl_rel = "、".join(schema.path for schema in schemas)
+            for rel_path, content in emit_package(schemas, target.language).items():
+                out.append(GeneratedFile(root / rel_path, content, mdl_rel))
+        else:
+            for schema in schemas:
+                for rel_path, content in emit_schema(schema, schema.path, target.language).items():
+                    out.append(GeneratedFile(root / rel_path, content, schema.path))
     return out
 
 
@@ -113,12 +149,21 @@ def check(mdl_path: str | Path | None = None,
 
 
 def _stale_candidates(files: list[GeneratedFile], root: Path) -> list[Path]:
-    """只看生成器自己的输出目录，不扫整棵源码树。"""
-    dirs: set[Path] = {generated.path.parent for generated in files}
+    """只看生成器自己的输出目录，不扫整棵源码树。
+
+    每个语言的生成物都落在专门的子目录（gen/、Gen/、pbp_gen/），手写的运行时源码
+    不在这些目录里，所以按"生成物所在目录 + 出现过的后缀"清理即可，
+    不会把手写文件误判成残留。
+    """
+    dirs: dict[Path, set[str]] = {}
+    for generated in files:
+        dirs.setdefault(generated.path.parent, set()).add(generated.path.suffix)
     stale: list[Path] = []
-    for directory in sorted(dirs):
-        if directory.is_dir():
-            stale.extend(sorted(directory.glob("*.java")))
+    for directory, suffixes in sorted(dirs.items()):
+        if not directory.is_dir():
+            continue
+        for suffix in sorted(suffixes):
+            stale.extend(sorted(directory.glob(f"*{suffix}")))
     return stale
 
 
