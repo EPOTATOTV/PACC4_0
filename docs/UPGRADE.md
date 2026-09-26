@@ -138,6 +138,17 @@ pacc.client.demo=false
 pacc.client.demo.login=false
 ```
 
+### 二进制协议变更（不兼容，只影响玩家端）
+
+v5.4 起 WSS 查端信令的二进制信封从 protobuf 换成自研 PBP 帧，**两端必须同时升级**：
+
+- 帧头固定 30 字节，magic 是 ASCII 的 `'P','B'`。旧客户端发来的字节会在 magic 校验就被拒绝
+  （只记计数日志并优雅关帧，不抛栈），不会进到业务分支。
+- 信封签名从"规范化字符串 HMAC"换成"帧头 + 载荷整串字节 HMAC-SHA256"，32 字节签名放帧尾。
+  旧签名一律验签失败。密钥本身没变，仍是 `pacc.security.wss-sign-secret` 与 `pacc.wss.*` 派生的会话密钥。
+- 因此 `deploy/dl-web/files/version.json` 的 `min_version` 必须排除所有旧版玩家端，否则下载站会把旧端放进来。
+- 服务端配置键名与语义全部未变，升级不需要改 `.env`。
+
 ### 与设计文档的差异（重要）
 
 设计文档 §2.4.2 列出的键名是规划稿，和实际实现不一致。以下键**在当前代码里不存在**，

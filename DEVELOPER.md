@@ -35,7 +35,9 @@ PACC 是一套「玩家本地检测 + PTV 管控」的反作弊系统。你可�
 
 ```
 d:\pacc\
-├── proto/              # 通信协议定义（Protocol Buffers，偏高级，先了解即可）
+├── pacc-binary-protocol/  # 自研二进制协议（PBP）：runtime-java 运行时 + mdl 消息定义
+├── tools/pbpgen/       # MDL 代码生成器（Python 标准库，生成 Java 消息类）
+├── proto/              # 旧 Protocol Buffers 定义（已被 PBP 取代，仅存档，不再有生成步骤）
 ├── ptv-backend/        # 管控后端（Java 21 + Spring Boot 3）★ 后端开发主战场
 ├── ptv-frontend/       # 管理后台/玩家门户前端（TypeScript + React + Vite）★ 前端主战场
 ├── ptv-client/         # 玩家端用户态服务（Java 21）
@@ -47,6 +49,23 @@ d:\pacc\
 ├── docker-compose.yml  # 一键部署整套服务的编排文件
 ├── .env.example        # 环境变量模板（把想要的密钥填进去）
 └── README.md           # 入口说明，先读它
+```
+
+**先装协议运行时再编后端/玩家端**：仓库没有 root 聚合 pom，`ptv-backend` 与 `ptv-client` 都依赖
+`com.potatotv:pacc-binary-protocol`，所以第一次构建前要把它装进本地 Maven 仓库，否则会以
+「无法解析依赖」失败：
+
+```bash
+mvn -B -f pacc-binary-protocol/runtime-java/pom.xml install
+```
+
+这个模块的版本是独立的 1.0.0，不跟 PACC 整体升版走。改了 `pacc-binary-protocol/mdl/*.mdl` 之后要重新生成
+Java 消息类（生成物入库，不是构建期产物）：
+
+```bash
+cd tools/pbpgen
+python -m pbpgen            # 重新生成
+python -m pbpgen --check    # 只校验有没有漂移（CI 用这条）
 ```
 
 **给新手的最短路径**：先看 `README.md`，然后把 `ptv-backend` 和 `ptv-frontend` 跑起来，其它目录先放着。
@@ -196,6 +215,7 @@ docker compose ps        # 看是否全部 healthy
 **后端**：
 ```bash
 cd ptv-backend
+mvn -B -f ../pacc-binary-protocol/runtime-java/pom.xml install   # 首次 / 协议改动后（见 §3）
 mvn clean package                 # 编译打包
 mvn spring-boot:run               # 直接运行
 mvn test                          # 跑单元测试

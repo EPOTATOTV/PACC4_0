@@ -208,6 +208,33 @@ sub docker-compose.yml \
 echo
 printf '完成：%d 处改动，%d 个文件缺失\n' "$CHANGED" "$MISSING"
 
+# PBP（pacc-binary-protocol）有自己的语义化版本，不随 PACC 整体升降，所以不进上面的替换表。
+# 但「协议运行时版本」与「消费方 pin 的版本」必须一致：一旦漂移（例如 runtime 升到 1.0.1
+# 而两个 pom 还写着 1.0.0），CI 会静默装上旧协议，线上线下两套字节格式。这里只读校验，不写文件。
+if [ "$MODE" = "--check" ]; then
+  echo
+  echo "-- PBP 独立版本一致性（只读断言）--"
+  PBP_POM="pacc-binary-protocol/runtime-java/pom.xml"
+  if [ ! -f "$PBP_POM" ]; then
+    printf '  [缺失] %s（跳过）\n' "$PBP_POM"
+  else
+    PBP_RUNTIME_VERSION="$(perl -0777 -ne \
+      'print $1 if m{<artifactId>pacc-binary-protocol</artifactId>\s*<version>([^<]+)}' "$PBP_POM")"
+    PBP_BACKEND_VERSION="$(perl -0777 -ne \
+      'print $1 if m{<pacc\.pbp\.version>([^<]+)}' ptv-backend/pom.xml)"
+    PBP_CLIENT_VERSION="$(perl -0777 -ne \
+      'print $1 if m{<pacc\.pbp\.version>([^<]+)}' ptv-client/pom.xml)"
+    printf '  runtime=%s backend=%s client=%s\n' \
+      "${PBP_RUNTIME_VERSION:-缺失}" "${PBP_BACKEND_VERSION:-缺失}" "${PBP_CLIENT_VERSION:-缺失}"
+    if [ -z "$PBP_RUNTIME_VERSION" ] \
+      || [ "$PBP_RUNTIME_VERSION" != "$PBP_BACKEND_VERSION" ] \
+      || [ "$PBP_RUNTIME_VERSION" != "$PBP_CLIENT_VERSION" ]; then
+      echo "PBP 版本不一致：协议运行时与消费方 pom 里 pin 的版本必须相同。" >&2
+      exit 2
+    fi
+  fi
+fi
+
 if [ "$MODE" = "--check" ] && [ "$CHANGED" -gt 0 ]; then
   echo "存在版本号不一致，未通过校验。" >&2
   exit 2

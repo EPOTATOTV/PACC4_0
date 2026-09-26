@@ -197,7 +197,6 @@ cd ptv-frontend && npm run test
 
 ## 🙏 致谢
 
-- [Protocol Buffers](https://protobuf.dev)
 - [Spring Boot](https://spring.io/projects/spring-boot)
 - [React](https://react.dev)
 - [Vite](https://vitejs.dev)

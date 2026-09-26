@@ -111,6 +111,16 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
+      # 仓库没有 root 聚合 pom，每个模块都是独立 mvn。协议运行时必须先装进本地仓库，
+      # 否则下面两个模块会以「无法解析 com.potatotv:pacc-binary-protocol」硬失败。
+      # 不加 -DskipTests：协议编解码与加密的测试（含 RFC 官方向量）就是这一层的门禁本身。
+      - name: 构建并安装协议运行时 pacc-binary-protocol
+        working-directory: pacc-binary-protocol/runtime-java
+        run: mvn -B -q install
+      # 生成物是入库的，靠这一步挡漂移：改了 .mdl 没重新生成、或手改了生成物，都会在这里挂掉
+      - name: 校验 PBP 生成物与 MDL 定义一致
+        working-directory: tools/pbpgen
+        run: python -m pbpgen --check
       - name: 构建后端 ptv-backend
         working-directory: ptv-backend
         run: mvn -B -q package
@@ -133,6 +143,21 @@ jobs:
           # 必须存在短名混淆类，防止 ProGuard 被误跳过
           unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/[a-z]{1,3}\.class' \
             || { echo "::error::未发现混淆后的短类名，ProGuard 可能未执行"; exit 1; }
+      # 发布件必须自洽：产物里任何 "not found" 都意味着有类引用了没被打进去的东西。
+      # 这条正是为了挡住曾经那类问题——依赖只当 -libraryjars 参与混淆、不进 jar，
+      # 于是引用了它的类在运行时直接 NoClassDefFoundError，而构建期毫无提示。
+      - name: 校验 ptv-client 发布件依赖自洽
+        working-directory: ptv-client
+        run: |
+          set -euo pipefail
+          JAR=$(ls target/ptv-client-*.jar | head -n1)
+          jdeps -verbose:class -cp "$JAR" "$JAR" > /tmp/jdeps-ptv-client.txt || true
+          if grep -q 'not found' /tmp/jdeps-ptv-client.txt; then
+            echo "::error::发布件存在未打包的依赖引用："
+            grep 'not found' /tmp/jdeps-ptv-client.txt | sort -u
+            exit 1
+          fi
+          echo "发布件依赖自洽：未发现 not found"
       - name: 生成后端 SBOM (CycloneDX)
         working-directory: ptv-backend
         run: mvn -B -q org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
@@ -145,6 +170,7 @@ jobs:
           name: java-test-reports
           path: |
             ptv-backend/target/surefire-reports/
+            pacc-binary-protocol/runtime-java/target/surefire-reports/
             ptv-backend/target/site/jacoco/
           if-no-files-found: ignore
       # PR 页面覆盖率：需在仓库 Secrets 里配 CODECOV_TOKEN（私有仓库必需）。
