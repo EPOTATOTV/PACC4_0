@@ -11,6 +11,9 @@ bin/
 obj/
 # Gradle 构建缓存（各模块本地生成，含锁文件与哈希索引）
 **/.gradle/
+# --- Python（tools/pbpgen 的字节码缓存，属产物不入库）---
+__pycache__/
+*.pyc
 # 下载站发布二进制（由脚本构建产出，不入库）
 deploy/dl-web/files/*.zip
 deploy/dl-web/files/*.apk
