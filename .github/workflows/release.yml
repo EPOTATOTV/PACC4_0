@@ -30,7 +30,7 @@ jobs:
       version: ${{ steps.ver.outputs.value }}
       tag: ${{ steps.tag.outputs.value }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
@@ -69,7 +69,7 @@ jobs:
     timeout-minutes: 40
     steps:
       # CI 已经在 master 上跑过测试，这里只出制品，跳过重复测试
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.verify.outputs.tag }}
 

@@ -34,7 +34,7 @@ jobs:
       contents: read
       security-events: write   # 上传 SARIF 到 Code Scanning
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0         # 要扫提交历史，必须全量 clone
       # 用官方二进制，不用 gitleaks-action：本仓库属于组织，action 需要 GITLEAKS_LICENSE，
@@ -71,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: 取出基准版本
         id: ver
         run: |
@@ -104,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: 安装 JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
@@ -224,7 +224,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: 安装 Node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
@@ -260,7 +260,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: 安装 Node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
@@ -316,7 +316,7 @@ jobs:
       run:
         working-directory: deploy/gateway-go
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: 安装 Go 1.22
         uses: actions/setup-go@v5
         with:
@@ -340,7 +340,7 @@ jobs:
       run:
         working-directory: deploy/pipe-rust
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: cargo build --release
       - uses: actions/upload-artifact@v4
         with:
@@ -356,7 +356,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 探测源码是否存在
         id: probe
@@ -467,7 +467,7 @@ jobs:
       run:
         working-directory: deploy/ai
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: 安装 Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -483,7 +483,7 @@ jobs:
     permissions:
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Trivy 文件系统扫描
         # v0.36.0；注意标签带 v 前缀，写 0.36.0 会解析不到，job 会死在 Set up job
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25

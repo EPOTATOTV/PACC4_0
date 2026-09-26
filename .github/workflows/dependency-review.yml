@@ -20,7 +20,7 @@ jobs:
       contents: read
       pull-requests: write   # 把结论写回 PR
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 评审依赖差异
         # v5.0.0
