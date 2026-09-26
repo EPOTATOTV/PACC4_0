@@ -108,8 +108,14 @@ if want java; then
     # 仓库没有 root 聚合 pom，每个模块独立 mvn。协议运行时 pacc-binary-protocol 只在本仓库里，
     # 没有发布到中央仓库，所以必须先 install 进本地仓库，否则后面三个模块会以
     # 「无法解析 com.potatotv:pacc-binary-protocol」直接失败（CI 的 java job 同此顺序）。
-    ( cd pacc-binary-protocol/runtime-java && mvn $MVN_FLAGS -q install )
-    ok "pacc-binary-protocol（已装入本地仓库）"
+    # 目录还不存在时（该模块尚未入库）不能硬失败：后端/玩家端此时的 pom 也还没依赖它，
+    # 直接跳过即可，否则一条干净的 clone 会在这里被 set -e 掐断。
+    if [ -d pacc-binary-protocol/runtime-java ]; then
+      ( cd pacc-binary-protocol/runtime-java && mvn $MVN_FLAGS -q install )
+      ok "pacc-binary-protocol（已装入本地仓库）"
+    else
+      skip "pacc-binary-protocol" "目录不存在（模块尚未入库），按本地仓库现有版本解析"
+    fi
 
     ( cd ptv-backend && mvn $MVN_FLAGS -q clean package )
     cp "ptv-backend/target/ptv-backend-${VERSION}.jar" "${BUILD_DIR}/pacc-backend-${VERSION}.jar"
