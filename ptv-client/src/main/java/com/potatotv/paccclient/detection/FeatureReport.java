@@ -7,12 +7,12 @@ import java.util.Arrays;
 /**
  * 端侧特征上报（文档 §2.3.3）：把 PCA 降维后的特征 + 端侧预评分 + 触发原因上报 PTV 做云端精判。
  *
- * <p><b>与文档的差异（有意为之）</b>：文档给出的是 {@code PaccWire.proto} 中的 {@code FeatureReport}
- * 消息，但本仓库的 {@code com.potatotv.pacc.proto.PaccWire} 是手工维护的提交产物、CI 中没有
- * protoc 代码生成步骤。为避免改动该文件（及其生成约定），本类以 JSON 文本承载同一份语义，
- * 字段名与 proto 草案保持一致（{@code pteid}/{@code session_id}/{@code timestamp}/
- * {@code features}/{@code local_risk_score}/{@code model_version}/{@code reason}），
- * 后续若接入 protoc 可字段级平移，不需要重新设计。</p>
+ * <p><b>与文档的差异（有意为之）</b>：文档给出的是 PaccWire 协议中的 {@code FeatureReport}
+ * 消息。该协议现已由自研 PBP 取代（见 {@code pacc-binary-protocol}），特征上报目前也只走
+ * 控制通道的 JSON 载荷，于是本类以 JSON 文本承载同一份语义，字段名沿用原草案
+ * （{@code pteid}/{@code session_id}/{@code timestamp}/{@code features}/
+ * {@code local_risk_score}/{@code model_version}/{@code reason}），
+ * 将来若在 MDL 里补上对应消息，可字段级平移。</p>
  *
  * @param pteid             玩家标识
  * @param sessionId         会话标识

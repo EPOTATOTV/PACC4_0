@@ -1,6 +1,7 @@
 # PACC 玩家端（ptv-client）发行产物混淆配置
 # 目标：发行 JAR 反编译后类名/方法名/字段名不可读、类名字符串不可检索、未使用代码被裁剪。
-# 说明：本配置只处理「自有代码」，protobuf 运行时与生成类整体保留（其内部依赖描述符与反射）。
+# 说明：本配置处理「自有代码 + 并入的 PBP 协议运行时」。协议运行时零第三方依赖、且完全不用
+# 反射，因此可以连同自有类一起重命名、重打包，不需要整包 keep。
 #
 # 与 CI 的三条硬约束（.github/workflows/ci.yml）绑定，改动前务必对齐：
 #   a) com/potatotv/paccclient/PaccClient.class 必须存在（唯一对外入口契约）
@@ -66,7 +67,7 @@
 # （见本文件末尾的可选 keep 段与 ptv-client/pom.xml 的 opt-in profile），它不是 ProGuard 能力。
 # ---------------------------------------------------------------------------
 
-# 运行时保留注解与泛型签名（JDK 内部、序列化路径与 protobuf 反射使用）
+# 运行时保留注解与泛型签名（JDK 内部与序列化路径使用）
 # InnerClasses/EnclosingMethod 必须保留：Class.getEnclosingClass()/内部类引用依赖它们，
 # 被剥离后反序列化与反射解析内部类会抛异常。
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
@@ -84,7 +85,7 @@
 }
 
 # java.io.Serializable 成员：序列化按字段名与签名往返，字段被改名/裁剪会破坏兼容性。
-# 本项目自有代码未实现 Serializable（protobuf 生成类已整体 keep），此处为通用安全网。
+# 本项目自有代码未实现 Serializable，此处为通用安全网。
 -keepclassmembers class * implements java.io.Serializable {
     static final long serialVersionUID;
     private static final java.io.ObjectStreamField[] serialPersistentFields;
@@ -95,11 +96,8 @@
     java.lang.Object readResolve();
 }
 
-# protobuf 生成类（PaccWire）依赖 GeneratedMessageV3 的描述符与默认实例反射，整体保留。
-# 其内部字段编号由字节码中的 descriptor 数据驱动，保留即可保证 WSS 线上编解码不变。
--keep class com.potatotv.pacc.proto.** { *; }
--dontwarn com.google.protobuf.**
--dontwarn javax.annotation.**
+# 二进制协议（PBP）运行时与生成类不设任何 keep：它零依赖、无反射，随 -repackageclasses
+# 一起被重命名与拍平，既进得了单文件发布件，也顺带提高了加固强度。
 
 # ---------------------------------------------------------------------------
 # v5.4 APM / 安全模块 keep 策略
@@ -146,6 +144,6 @@
 # 一个类都没留下，也会以空目录条目形式暴露包结构——这正是 CI 约束 (b) 判红的直接原因。
 # 判定依据以「有内容的条目」为准，空目录条目没有任何保留价值。
 
-# 库依赖引用缺失只告警不中断（protobuf 作为 library jar 提供，JDK 模块类由 ProGuard 自动识别）
+# 库依赖引用缺失只告警不中断（JDK 模块类由 ProGuard 自动识别）
 -ignorewarnings
 -verbose

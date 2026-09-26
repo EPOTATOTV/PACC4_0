@@ -28,7 +28,7 @@ import com.potatotv.paccclient.store.OfflineQueue;
 import com.potatotv.paccclient.store.RedScreenStatePersistence;
 import com.potatotv.paccclient.ops.OpsClient;
 import com.potatotv.paccclient.signature.SignatureSync;
-import com.potatotv.pacc.proto.PaccWire;
+import com.potatotv.pbp.gen.PaccEnvelope;
 import com.potatotv.paccclient.transport.PaccWireSigner;
 import com.potatotv.paccclient.transport.WssReporter;
 import com.potatotv.paccclient.transport.WssSessionKey;
@@ -156,7 +156,7 @@ public final class PaccClient {
             });
             reporter.setOnBinaryMessage(bytes -> {
                 try {
-                    PaccWire.WsEnvelope env = PaccWire.WsEnvelope.parseFrom(bytes);
+                    PaccEnvelope env = PaccEnvelope.parseFrom(bytes);
                     if (WssSessionKey.READY_TYPE.equals(env.getType())) {
                         if (session.activate()) {
                             wire.setSecret(session.signingKey(), session.sigVersion());

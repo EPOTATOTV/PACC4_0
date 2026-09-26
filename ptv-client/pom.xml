@@ -19,16 +19,17 @@
         <proguard.version>7.6.1</proguard.version>
         <!-- 必须与 proguard-base 的传递依赖一致：7.6.1 -> proguard-core 9.1.7 -->
         <proguard.core.version>9.1.7</proguard.core.version>
-        <protobuf.version>3.23.2</protobuf.version>
+        <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
+        <pacc.pbp.version>1.0.0</pacc.pbp.version>
     </properties>
 
-    <!-- 玩家端运行时依赖：仅引入 protobuf（WSS 查端信令信封，见 proto/pacc_wire.proto），
-         不引入任何我世界服务器相关依赖；检测/传输核心仍用 JDK（java.net.http + TLS 1.3）。 -->
+    <!-- 玩家端运行时依赖：只有自研二进制协议（WSS 查端信令信封，定义见 pacc-binary-protocol/mdl/pacc_wire.mdl），
+         它本身零第三方依赖。不引入任何游戏服务器相关依赖；检测/传输核心仍用 JDK（java.net.http + TLS 1.3）。 -->
     <dependencies>
         <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>${protobuf.version}</version>
+            <groupId>com.potatotv</groupId>
+            <artifactId>pacc-binary-protocol</artifactId>
+            <version>${pacc.pbp.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -89,6 +90,12 @@
                     <obfuscate>true</obfuscate>
                     <injar>${project.build.finalName}.jar</injar>
                     <outjar>${project.build.finalName}.jar</outjar>
+                    <!-- 依赖必须一并并入产物：发布件是单 jar（installer.iss 只装一个文件），
+                         而依赖默认只当 -libraryjars 参与混淆、不进 jar。此前 protobuf 依赖就是这样
+                         漏掉的——PaccWire 进了产物、它依赖的 GeneratedMessageV3 没进，
+                         二进制信封路径运行时直接 NoClassDefFoundError。
+                         现在依赖只剩零依赖的 PBP 运行时，并进来即可随 -repackageclasses 一起混淆。 -->
+                    <includeDependency>true</includeDependency>
                     <!-- 输入 jar 缺失说明生命周期顺序异常，直接失败而不是静默产出未加固产物 -->
                     <injarNotExistsSkip>false</injarNotExistsSkip>
                     <options>
