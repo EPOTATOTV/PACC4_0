@@ -1,13 +1,13 @@
 package com.potatotv.pacc.ws;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.potatotv.pacc.proto.PaccWire;
 import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.InspectSignalBus;
 import com.potatotv.pacc.service.MapBpEventBus;
 import com.potatotv.pacc.service.OnlineStatusService;
 import com.potatotv.pacc.service.RedscreenService;
 import com.potatotv.pacc.service.RiskScoringService;
+import com.potatotv.pbp.gen.PaccEnvelope;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.web.socket.BinaryMessage;
@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** 玩家端处理器二进制（protobuf 信封）路径单测：验签通过的信令转发给查端总线。 */
+/** 玩家端处理器二进制（PBP 信封）路径单测：验签通过的信令转发给查端总线。 */
 class PlayerWebSocketHandlerBinaryTest {
 
     private final PaccWireCodec codec = new PaccWireCodec("test-secret", 60_000, new WssSessionKeys(false));
@@ -45,7 +45,7 @@ class PlayerWebSocketHandlerBinaryTest {
         when(session.getAttributes()).thenReturn(Map.of("pteid", "PT01"));
         when(session.getId()).thenReturn("s1");
 
-        PaccWire.WsEnvelope env = PaccWireCodec.build("inspect_forensics", "sess", "PT01",
+        PaccEnvelope env = PaccWireCodec.build("inspect_forensics", "sess", "PT01",
                 "{\"os\":\"win\",\"processes\":[{\"pid\":1,\"name\":\"a\"}]}", "test-secret");
 
         h.handleBinaryMessage(session, new BinaryMessage(env.toByteArray()));
@@ -70,7 +70,7 @@ class PlayerWebSocketHandlerBinaryTest {
         when(session.getId()).thenReturn("s2");
 
         // 篡改 payload 后签名不匹配 → 应被拒绝，不转发
-        PaccWire.WsEnvelope env = PaccWireCodec.build("inspect_forensics", "sess", "PT02", "{}", "test-secret")
+        PaccEnvelope env = PaccWireCodec.build("inspect_forensics", "sess", "PT02", "{}", "test-secret")
                 .toBuilder().setPayloadJson("{\"os\":\"hijacked\"}").build();
         h.handleBinaryMessage(session, new BinaryMessage(env.toByteArray()));
 
@@ -114,7 +114,7 @@ class PlayerWebSocketHandlerBinaryTest {
         assertNotNull(keys.get(sid));
         ArgumentCaptor<BinaryMessage> sent = ArgumentCaptor.forClass(BinaryMessage.class);
         verify(session).sendMessage(sent.capture());
-        PaccWire.WsEnvelope ready = PaccWire.WsEnvelope.parseFrom(sent.getValue().getPayload().array());
+        PaccEnvelope ready = PaccEnvelope.parseFrom(sent.getValue().getPayload().array());
         assertEquals(WssSessionKeys.READY_TYPE, ready.getType());
         assertEquals(WssSessionKeys.SIG_V2, ready.getSigVersion());
         assertEquals(sid, ready.getSessionId());

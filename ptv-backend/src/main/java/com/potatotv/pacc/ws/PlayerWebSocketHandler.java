@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.DetectionEvent;
-import com.potatotv.pacc.proto.PaccWire;
 import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.InspectSignalBus;
 import com.potatotv.pacc.service.MapBpEventBus;
 import com.potatotv.pacc.service.OnlineStatusService;
 import com.potatotv.pacc.service.RedscreenService;
 import com.potatotv.pacc.service.RiskScoringService;
+import com.potatotv.pbp.gen.PaccEnvelope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
@@ -103,7 +103,7 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
     }
 
     /**
-     * 二进制帧 = protobuf 查端信令信封：验签后转发给管理端信号总线；另有两条会话密钥控制消息在此处理。
+     * 二进制帧 = PBP 查端信令信封：验签后转发给管理端信号总线；另有两条会话密钥控制消息在此处理。
      * <p>密钥流程：
      * <ul>
      *   <li>session_init（v1 静态密钥引导）→ 派生并登记会话，回 session_ready（v2 会话密钥）；</li>
@@ -116,7 +116,7 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
     protected void handleBinaryMessage(@NonNull WebSocketSession session, @NonNull BinaryMessage message) {
         String pteid = (String) session.getAttributes().get("pteid");
         try {
-            PaccWire.WsEnvelope env = paccWireCodec.parse(message.getPayload().array());
+            PaccEnvelope env = paccWireCodec.parse(message.getPayload().array());
             String type = env.getType();
             if (!paccWireCodec.verify(env)) {
                 log.warn("信封校验失败（可能抓包重放/篡改/会话密钥失效）pteid={} type={} session={}",
@@ -167,7 +167,7 @@ public class PlayerWebSocketHandler extends AbstractWebSocketHandler {
                 return;
             }
             boolean forwarded = inspectSignalBus.forwardPlayerToAdmin(session, env.getPayloadJson());
-            log.info("查端信令(protobuf) {} pteid={} forwarded={} session={}", type, pteid, forwarded, session.getId());
+            log.info("查端信令(PBP) {} pteid={} forwarded={} session={}", type, pteid, forwarded, session.getId());
         } catch (Exception e) {
             log.warn("解析二进制信封失败 pteid={} err={}", pteid, e.getMessage());
         }

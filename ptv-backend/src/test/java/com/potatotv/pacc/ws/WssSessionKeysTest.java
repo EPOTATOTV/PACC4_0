@@ -1,6 +1,6 @@
 package com.potatotv.pacc.ws;
 
-import com.potatotv.pacc.proto.PaccWire;
+import com.potatotv.pbp.gen.PaccEnvelope;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,7 +73,7 @@ class WssSessionKeysTest {
         PaccWireCodec codec = new PaccWireCodec(STATIC_SECRET, 60_000L, keys);
         WssSessionKeys.Session s = keys.open("sid-1", "0011223344556677", "PT1", STATIC_SECRET);
 
-        PaccWire.WsEnvelope env = codec.buildWithSessionKey(
+        PaccEnvelope env = codec.buildWithSessionKey(
                 "inspect_offer", "sid-1", "PT1", "{\"sdp\":\"x\"}", s.keyHex());
         assertEquals(WssSessionKeys.SIG_V2, env.getSigVersion());
         assertTrue(codec.verify(env));
@@ -84,7 +84,7 @@ class WssSessionKeysTest {
         WssSessionKeys keys = new WssSessionKeys(false);
         PaccWireCodec codec = new PaccWireCodec(STATIC_SECRET, 60_000L, keys);
         // 未握手就发 v2：会话不存在，无法验签
-        PaccWire.WsEnvelope env = codec.buildWithSessionKey(
+        PaccEnvelope env = codec.buildWithSessionKey(
                 "inspect_offer", "sid-unknown", "PT1", "{}", "deadbeef");
         assertFalse(codec.verify(env));
     }
@@ -95,7 +95,7 @@ class WssSessionKeysTest {
         PaccWireCodec codec = new PaccWireCodec(STATIC_SECRET, 60_000L, keys);
         WssSessionKeys.Session s = keys.open("sid-1", "0011223344556677", "PT1", STATIC_SECRET);
         // 拿 PT1 的会话密钥签 PT2 的身份 → 会话与玩家绑定，拒绝
-        PaccWire.WsEnvelope env = codec.buildWithSessionKey(
+        PaccEnvelope env = codec.buildWithSessionKey(
                 "inspect_offer", "sid-1", "PT2", "{}", s.keyHex());
         assertFalse(codec.verify(env));
     }
@@ -106,7 +106,7 @@ class WssSessionKeysTest {
         PaccWireCodec codec = new PaccWireCodec(STATIC_SECRET, 60_000L, keys);
 
         // 强制模式下静态密钥信封一律拒绝：否则持有静态密钥者可直接绕过会话密钥
-        PaccWire.WsEnvelope v1 = PaccWireCodec.build("inspect_offer", "sid-1", "PT1", "{}", STATIC_SECRET);
+        PaccEnvelope v1 = PaccWireCodec.build("inspect_offer", "sid-1", "PT1", "{}", STATIC_SECRET);
         assertFalse(codec.verify(v1));
 
         WssSessionKeys.Session s = keys.open("sid-1", "0011223344556677", "PT1", STATIC_SECRET);
@@ -129,7 +129,7 @@ class WssSessionKeysTest {
         keys.rotate("sid-1", 0);
 
         // 轮换后用旧密钥签的信封必须失败，否则轮换等于没做
-        PaccWire.WsEnvelope stale = codec.buildWithSessionKey("inspect_offer", "sid-1", "PT1", "{}", s0.keyHex());
+        PaccEnvelope stale = codec.buildWithSessionKey("inspect_offer", "sid-1", "PT1", "{}", s0.keyHex());
         assertFalse(codec.verify(stale));
 
         WssSessionKeys.Session s1 = keys.get("sid-1");

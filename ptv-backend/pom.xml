@@ -20,6 +20,8 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.5</jjwt.version>
+        <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
+        <pacc.pbp.version>1.0.0</pacc.pbp.version>
     </properties>
 
     <dependencies>
@@ -135,11 +137,12 @@
             <version>3.0.1</version>
         </dependency>
 
-        <!-- Protobuf：WSS 信令信封（PaccWire 生成）拼装/解析；proto 定义见 ../proto/pacc_wire.proto -->
+        <!-- 自研二进制协议（PBP）：WSS 信令信封拼装/解析；消息定义见 pacc-binary-protocol/mdl/pacc_wire.mdl，
+             类型 com.potatotv.pbp.gen.PaccEnvelope 由 tools/pbpgen 生成后入库。零第三方依赖。 -->
         <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>3.23.2</version>
+            <groupId>com.potatotv</groupId>
+            <artifactId>pacc-binary-protocol</artifactId>
+            <version>${pacc.pbp.version}</version>
         </dependency>
 
         <dependency>
