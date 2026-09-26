@@ -13,14 +13,14 @@
   },
   "dependencies": {
     "@capacitor/android": "^7",
-    "@capacitor/app": "^7",
+    "@capacitor/app": "^8",
     "@capacitor/core": "^7",
-    "@capacitor/ios": "^7",
+    "@capacitor/ios": "^8",
     "@capacitor/network": "^7",
     "@capacitor/push-notifications": "^7"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7",
+    "@capacitor/cli": "^8",
     "typescript": "^5.4.5"
   }
 }
