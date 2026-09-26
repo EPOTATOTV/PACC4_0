@@ -411,7 +411,7 @@ mod imp {
 }
 
 #[cfg(target_os = "linux")]
-pub use imp::{kernel_release, scan, status_value};
+pub use imp::{kernel_release, scan};
 
 // ---------------------------------------------------------------------------
 // 非 Linux 兜底：如实声明不可用

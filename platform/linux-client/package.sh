@@ -105,9 +105,15 @@ install -d -m 0755 "$STAGE/bin"
 install -m 0755 "$BIN_SRC" "$STAGE/bin/pacc-linux-client"
 
 # 随包附带安装所需的一切：单元、示例配置、安装脚本、说明。
+# install.sh 要给可执行位：README 和脚本自身的收尾提示都是 `sudo ./install.sh --start`，
+# 打成 0644 的话用户得先自己 chmod，看起来像包坏了。其余是配置与文档，0644。
 for f in pacc-client.service pacc-client.properties.example install.sh README.md; do
   if [ -f "${SCRIPT_DIR}/${f}" ]; then
-    install -m 0644 "${SCRIPT_DIR}/${f}" "$STAGE/$f"
+    mode=0644
+    if [ "$f" = "install.sh" ]; then
+      mode=0755
+    fi
+    install -m "$mode" "${SCRIPT_DIR}/${f}" "$STAGE/$f"
   else
     echo "  [警告] 缺少 ${f}，未打进包" >&2
   fi

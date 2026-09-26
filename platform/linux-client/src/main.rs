@@ -351,9 +351,9 @@ fn missing_capability_note() -> Option<String> {
         if has(CAP_BPF) || has(CAP_PERFMON) || has(CAP_SYS_ADMIN) {
             return None;
         }
-        return Some(format!(
+        Some(format!(
             "当前进程缺少 CAP_BPF(位{CAP_BPF})/CAP_PERFMON(位{CAP_PERFMON})/CAP_SYS_ADMIN(位{CAP_SYS_ADMIN})，加载 loader 会失败"
-        ));
+        ))
     }
     #[cfg(not(target_os = "linux"))]
     {
