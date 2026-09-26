@@ -121,6 +121,18 @@ jobs:
       - name: 校验 PBP 生成物与 MDL 定义一致
         working-directory: tools/pbpgen
         run: python -m pbpgen --check
+      # 生成器自测：里面有一条"拿 javac 真编一遍生成物"的用例，能挡住"生成得出来但编不过"的改动
+      - name: 运行 pbpgen 自测
+        working-directory: tools/pbpgen
+        run: python -m unittest discover -s tests -t .
+      # 自研 zstd 子集必须和参考实现对得上：这一步双向校验（我们的帧交给 libzstd 解、
+      # 参考实现压的帧交给我们的解码器解）。zstandard 只是 CI 工具，不是仓库的运行依赖。
+      - name: PBP zstd 子集与参考实现交叉校验
+        working-directory: pacc-binary-protocol/tools/zstd-crosscheck
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet zstandard
+          python crosscheck.py --mvn mvn
       - name: 构建后端 ptv-backend
         working-directory: ptv-backend
         run: mvn -B -q package

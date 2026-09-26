@@ -50,6 +50,17 @@ message Outer {
     repeated Level levels = 14;
     uint8 sig_version = 15;
 }
+
+// 不签名 + 带集合字段：差分方法与 lambda 比较路径只有这类消息会走到
+message StatusReport {
+    0x0124: id
+
+    string pteid = 1;
+    repeated Inner items = 2;
+    map<string, bytes> evidence = 3;
+    Inner nested = 4;
+    repeated string tags = 5;
+}
 '''
 
 
@@ -68,6 +79,7 @@ class EmitShapeTest(unittest.TestCase):
                 "com/example/gen/Level.java",
                 "com/example/gen/Inner.java",
                 "com/example/gen/Outer.java",
+                "com/example/gen/StatusReport.java",
             },
             set(self.files),
         )
@@ -116,6 +128,24 @@ class EmitShapeTest(unittest.TestCase):
         self.assertIn("enc.writeOptionalBytes(blob);", text)
         self.assertIn("note = dec.readOptionalString();", text)
         self.assertIn("blob = dec.readOptionalBytes();", text)
+
+    def test_trailing_field_decodes_with_remaining_guard(self):
+        # 末尾字段自动 optional（设计文档 §3.6.2）：整帧消息的最后一个字段带"读完取默认值"的保护
+        outer = self.files["com/example/gen/Outer.java"]
+        self.assertIn("sigVersion = dec.remaining() > 0 ? dec.readUInt8() : 0;", outer)
+        # 嵌套类型不做：内联编码里没有"读完了"这个信号
+        inner = self.files["com/example/gen/Inner.java"]
+        self.assertIn("weight = dec.readInt32();", inner)
+
+    def test_delta_methods_only_for_unsigned_framed_messages(self):
+        status = self.files["com/example/gen/StatusReport.java"]
+        self.assertIn("implements PbpMessage, PbpDeltaMessage<StatusReport>", status)
+        self.assertIn("public void encodeDelta(PbpEncoder enc, StatusReport previous) {", status)
+        self.assertIn("public void applyDelta(PbpDecoder dec, StatusReport previous) {", status)
+        # 带 signed 的消息不发差分方法：签名与基线混用的失败面太大
+        self.assertNotIn("PbpDeltaMessage", self.files["com/example/gen/Outer.java"])
+        # 嵌套类型没有帧，也就没有差分
+        self.assertNotIn("PbpDeltaMessage", self.files["com/example/gen/Inner.java"])
 
     def test_enum_generates_constants_not_java_enum(self):
         text = self.files["com/example/gen/Level.java"]

@@ -12,11 +12,15 @@
 
 字段顺序一律按编号升序输出，与 MDL 里的书写顺序无关——编号才是协议的排序依据，
 这样 `reserved` 留下空号、或者在中间补一个字段时，线上顺序都不会跟着书写顺序漂移。
+
+末尾字段自动 optional（设计文档 §3.6.2）：带消息 ID 的消息，编号最大的字段解码时
+允许"载荷提前读完"，取默认值——旧端没发这个字段就是这种情况。只对整帧消息生效：
+嵌套消息内联在父载荷里，"读完了"这个信号不存在，对它做推断只会把父消息的字节吞掉。
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from . import ast
 from .lexer import MdlSyntaxError
@@ -89,6 +93,7 @@ class ResolvedField:
     optional: bool
     map_key: "ResolvedType | None"
     line: int
+    trailing: bool = False
 
     @property
     def is_map(self) -> bool:
@@ -280,6 +285,9 @@ def _build_message(node: ast.MessageNode, file_node: ast.FileNode, fail) -> Mess
         )
 
     fields.sort(key=lambda f: f.number)
+    if fields and message_id is not None:
+        # 末尾字段自动 optional（设计文档 §3.6.2）：只有"整帧消息"能拿"载荷读完"当缺席信号
+        fields[-1] = replace(fields[-1], trailing=True)
 
     signed = bool(_option_flag(node, "signed", False, fail))
     frame_timestamp_field = None

@@ -120,13 +120,18 @@ class PbpFrameTest {
 
     @Test
     void unimplementedFlagsRejected() {
-        int[] flags = {PbpFrame.FLAG_ENCRYPTED, PbpFrame.FLAG_COMPRESSED, PbpFrame.FLAG_DELTA, 0x10};
+        // 压缩 / 差分已经落地，置位是合法的；加密与保留位仍然拒绝
+        int[] flags = {PbpFrame.FLAG_ENCRYPTED, 0x10};
         for (int flag : flags) {
             byte[] raw = PbpFrame.of(0x2001, 0L, PAYLOAD).encode();
             raw[3] = (byte) flag;
             assertEquals(PbpException.Code.UNSUPPORTED_FLAG,
                     assertThrows(PbpException.class, () -> PbpFrame.parse(raw)).code(),
                     "标志位 0x" + Integer.toHexString(flag) + " 应当被拒绝");
+        }
+        for (int flag : new int[]{PbpFrame.FLAG_COMPRESSED, PbpFrame.FLAG_DELTA}) {
+            PbpFrame parsed = PbpFrame.parse(PbpFrame.of(0x2001, 0L, PAYLOAD).withFlag(flag).encode());
+            assertEquals(flag, parsed.flags() & flag);
         }
     }
 

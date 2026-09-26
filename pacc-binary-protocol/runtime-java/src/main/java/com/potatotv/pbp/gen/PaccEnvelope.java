@@ -6,6 +6,7 @@ package com.potatotv.pbp.gen;
 
 import com.potatotv.pbp.PbpDecoder;
 import com.potatotv.pbp.PbpEncoder;
+import com.potatotv.pbp.PbpCodec;
 import com.potatotv.pbp.PbpException;
 import com.potatotv.pbp.PbpFrame;
 import com.potatotv.pbp.PbpMessage;
@@ -188,7 +189,7 @@ public final class PaccEnvelope implements PbpMessage {
 
     /** 编码为完整帧；已签名时置位 FLAG_SIGNED 并把 32 字节签名放到帧尾。 */
     public byte[] toByteArray() {
-        PbpFrame frame = PbpFrame.of(MESSAGE_ID, tsMs, payloadBytes());
+        PbpFrame frame = PbpCodec.frameOf(this, tsMs);
         if (signature.length == PbpFrame.SIGNATURE_SIZE) {
             frame = frame.withSignature(signature);
         } else if (signature.length != 0) {
@@ -198,12 +199,12 @@ public final class PaccEnvelope implements PbpMessage {
         return frame.encode();
     }
 
-    /** HMAC 覆盖面：帧头（FLAG_SIGNED 已置位）+ 载荷。 */
+    /** HMAC 覆盖面：帧头（FLAG_SIGNED 已置位）+ 载荷（需要压缩时是压缩后的载荷）。 */
     public byte[] signingInput() {
-        return PbpFrame.of(MESSAGE_ID, tsMs, payloadBytes()).signingInput();
+        return PbpCodec.frameOf(this, tsMs).signingInput();
     }
 
-    /** 解析完整帧；帧结构非法或消息 ID 不符一律抛 PbpException。 */
+    /** 解析完整帧；帧结构非法或消息 ID 不符一律抛 PbpException。置位 FLAG_COMPRESSED 的帧先解压再解码载荷。 */
     public static PaccEnvelope parseFrom(byte[] raw) {
         PbpFrame frame = PbpFrame.parse(raw);
         if (frame.messageId() != MESSAGE_ID) {
@@ -212,15 +213,9 @@ public final class PaccEnvelope implements PbpMessage {
                 + "，实际 0x" + Integer.toHexString(frame.messageId()));
         }
         PaccEnvelope msg = new PaccEnvelope();
-        msg.decode(new PbpDecoder(frame.payload()));
+        msg.decode(new PbpDecoder(PbpCodec.payloadOf(frame)));
         msg.signature = frame.signature().clone();
         return msg;
-    }
-
-    private byte[] payloadBytes() {
-        PbpEncoder enc = new PbpEncoder(encodedSize());
-        encode(enc);
-        return enc.toByteArray();
     }
 
     // ------------------------------------------------------------ 签名
@@ -264,7 +259,7 @@ public final class PaccEnvelope implements PbpMessage {
         enc.writeUInt8(sigVersion);
     }
 
-    /** 按定义顺序读回字段。载荷尾部若有多出的字节（新端追加了字段）不再消费，这是向前兼容的落点。 */
+    /** 按定义顺序读回字段。末尾字段在载荷提前读完时取默认值（旧端没发该字段），载荷尾部多出的字节不再消费（新端追加了字段）——两条都是兼容落点（设计文档 §3.11）。 */
     @Override
     public void decode(PbpDecoder dec) {
         type = dec.readString();
@@ -273,7 +268,8 @@ public final class PaccEnvelope implements PbpMessage {
         sessionId = dec.readString();
         pteid = dec.readString();
         payloadJson = dec.readString();
-        sigVersion = dec.readUInt8();
+        // 末尾字段自动 optional：旧端的载荷在这里已经读完
+        sigVersion = dec.remaining() > 0 ? dec.readUInt8() : 0;
     }
 
     /** 编码后的字节数，仅用于预分配缓冲区。 */

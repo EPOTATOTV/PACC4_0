@@ -17,8 +17,10 @@ public final class PbpException extends RuntimeException {
         BAD_MAGIC,
         /** 协议版本不认识。 */
         BAD_VERSION,
-        /** 标志位要求了当前版本尚未实现的能力（加密/压缩/差分）。 */
+        /** 标志位要求了当前版本尚未实现的能力。 */
         UNSUPPORTED_FLAG,
+        /** 数据本身合法，但用到了当前实现在该格式上明确的子集之外的能力（如 zstd 的 Huffman literals）。 */
+        UNSUPPORTED,
         /** 声明长度与实际字节数不符。 */
         BAD_LENGTH,
         /** 签名校验不通过。 */

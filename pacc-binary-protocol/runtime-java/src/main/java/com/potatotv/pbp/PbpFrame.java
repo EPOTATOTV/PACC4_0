@@ -40,6 +40,13 @@ public record PbpFrame(int version,
     public static final int MAGIC = 0x5042;
     /** 当前协议版本。 */
     public static final int VERSION = 1;
+    /**
+     * 还能解析的最旧版本。
+     *
+     * <p>破坏性变更走大版本升级时，过渡期靠 MIN_VERSION 到 {@link #VERSION} 的区间实现
+     * "新旧互通"（设计文档 §3.11.3）：解析接受区间内任意版本，编码永远输出当前版本。</p>
+     */
+    public static final int MIN_VERSION = 1;
 
     public static final int HEADER_SIZE = 30;
     public static final int SIGNATURE_SIZE = 32;
@@ -81,6 +88,29 @@ public record PbpFrame(int version,
 
     public boolean signed() {
         return (flags & FLAG_SIGNED) != 0;
+    }
+
+    /** 载荷是否已压缩（设计文档 §3.10.1，压缩由 {@link PbpCodec} 完成）。 */
+    public boolean compressed() {
+        return (flags & FLAG_COMPRESSED) != 0;
+    }
+
+    /** 载荷是否为差分编码（设计文档 §3.10.2，基线由 {@link PbpDeltaChain} 维护）。 */
+    public boolean delta() {
+        return (flags & FLAG_DELTA) != 0;
+    }
+
+    /** 返回置位指定标志的副本；只允许置已知标志位。 */
+    public PbpFrame withFlag(int flag) {
+        if (flag == 0) {
+            return this;
+        }
+        if ((flag & ~KNOWN_FLAGS) != 0 || flag == FLAG_ENCRYPTED) {
+            throw new PbpException(PbpException.Code.UNSUPPORTED_FLAG,
+                    "不能置位未实现的标志: 0x" + Integer.toHexString(flag));
+        }
+        return new PbpFrame(version, flags | flag, messageId, sequence,
+                timestampMs, sessionId, payload, signature);
     }
 
     /** 载荷长度，等于 {@code payload().length}。 */
@@ -157,8 +187,13 @@ public record PbpFrame(int version,
             throw new PbpException(PbpException.Code.BAD_MAGIC, "Magic 不是 \"PB\": 0x" + Integer.toHexString(magic));
         }
         int version = raw[OFF_VERSION] & 0xFF;
-        if (version != VERSION) {
-            throw new PbpException(PbpException.Code.BAD_VERSION, "不支持的协议版本: " + version);
+        if (version < MIN_VERSION) {
+            throw new PbpException(PbpException.Code.BAD_VERSION,
+                    "协议版本过旧: " + version + "（最低支持 " + MIN_VERSION + "）");
+        }
+        if (version > VERSION) {
+            throw new PbpException(PbpException.Code.BAD_VERSION,
+                    "协议版本过新: " + version + "（本运行时最高支持 " + VERSION + "）");
         }
         int flags = raw[OFF_FLAGS] & 0xFF;
         validateFlags(flags);
@@ -182,16 +217,18 @@ public record PbpFrame(int version,
     }
 
     /**
-     * 拒绝当前尚未实现的标志位。
+     * 拒绝尚未实现的标志位。
      *
-     * <p>加密 / 压缩 / 差分要等对应实现落地才允许出现。宁可显式失败也不静默当明文处理：
-     * 把"对端以为已经加密"的载荷当明文解析，正是最危险的失败方式。</p>
+     * <p>压缩与差分位已经落地（{@link PbpCodec} 负责压缩、{@link PbpDeltaChain} 负责差分），
+     * 帧层只校验位的合法性，不解释载荷：载荷是不是真的压缩过、差分基线是哪条，由会话语境决定。</p>
+     *
+     * <p>加密位仍然是"未实现"：载荷加密目前不在帧层（会话密钥在更高层用），
+     * 这个位一旦被置位就显式失败——把"对端以为已经加密"的载荷当明文解析是最危险的失败方式。</p>
      */
     private static void validateFlags(int flags) {
-        int unsupported = flags & (FLAG_ENCRYPTED | FLAG_COMPRESSED | FLAG_DELTA);
-        if (unsupported != 0) {
+        if ((flags & FLAG_ENCRYPTED) != 0) {
             throw new PbpException(PbpException.Code.UNSUPPORTED_FLAG,
-                    "当前版本未实现标志位: 0x" + Integer.toHexString(unsupported));
+                    "当前版本未实现加密标志位 0x" + Integer.toHexString(FLAG_ENCRYPTED));
         }
         int unknown = flags & ~KNOWN_FLAGS;
         if (unknown != 0) {

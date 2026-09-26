@@ -4,10 +4,12 @@
 必须逐字节确定：不写生成时间、不依赖字典遍历顺序、字段按编号升序排列。CI 用
 `python -m pbpgen --check` 比对，任何非确定性都会变成天天飘红的假告警。
 
-有意偏离设计文档 §3.6.2 的一条：**不做「末尾字段自动 optional」**。按那个规则，末尾一个
-`uint8` 会凭空多出一个存在性字节，既没有语义（那个字节永远不会置位），又让「在末尾加
-字段」这件事在线上多出一字节的歧义。可空性只由显式 `// optional` 声明，且仅限
-string / bytes / 消息类型。
+末尾字段自动 optional（设计文档 §3.6.2）：编号最大的字段解码时允许"载荷读完"，取默认值；
+编码侧始终照写，因此线上字节与引入这条规则之前一致。只对整帧消息生效，嵌套类型不做
+（内联编码没有"读完了"这个信号，推断只会吞掉父消息的字节）。
+
+差分方法（设计文档 §3.10.2）只发给"带消息 ID 且不 signed"的消息；帧装配与压缩
+统一走运行时的 PbpCodec，生成代码不重复实现压缩策略。
 
 生成类的形态与 protobuf 的 Java 生成物对齐（newBuilder / toBuilder / getX），目的是让
 上层调用点不用跟着改：MDL 里的 `ts_ms` 生成 `getTsMs()`，迁移就是换 import。
@@ -33,6 +35,15 @@ _BOXED = {
 def _boxed(java: str) -> str:
     """集合元素的类型名：标量按装箱类型，消息类型本身就是引用类型，原样使用。"""
     return _BOXED.get(java, java)
+
+
+def _delta_capable(message: Message) -> bool:
+    """是否生成差分方法（设计文档 §3.10.2）。
+
+    带 signed 选项的消息不发：帧尾签名与差分基线是两套状态，混用时"签名覆盖的载荷"
+    与"基线对应的载荷"很容易对不上，风险比省下的字节值钱。
+    """
+    return message.framed and not message.signed
 
 
 _DEFAULTS = {
@@ -92,6 +103,9 @@ def _emit_enum(schema: Schema, enum: Enum, mdl_rel: str) -> str:
 
 def _emit_message(schema: Schema, message: Message, mdl_rel: str) -> str:
     lines = _header(schema, mdl_rel)
+    interfaces = ["PbpMessage"]
+    if _delta_capable(message):
+        interfaces.append(f"PbpDeltaMessage<{message.name}>")
     lines.append("/**")
     if message.framed:
         lines.append(f" * PBP 消息 {{@code {message.name}}}（{{@code 0x{message.message_id:04X}}}，"
@@ -105,8 +119,12 @@ def _emit_message(schema: Schema, message: Message, mdl_rel: str) -> str:
         lines.append(" *")
         lines.append(" * <p>签名不在载荷里：置位帧头 {@code FLAG_SIGNED}，32 字节 HMAC-SHA256 放在帧尾，")
         lines.append(" * 覆盖面是「帧头 + 载荷」整串字节（见 {@link #signingInput()}）。</p>")
+    if _delta_capable(message):
+        lines.append(" *")
+        lines.append(" * <p>实现了 {@link com.potatotv.pbp.PbpDeltaMessage}：可经"
+                     " {@code PbpDeltaChain} 发差分帧（设计文档 §3.10.2）。</p>")
     lines.append(" */")
-    lines.append(f"public final class {message.name} implements PbpMessage {{")
+    lines.append(f"public final class {message.name} implements {', '.join(interfaces)} {{")
     lines.append("")
 
     if message.framed:
@@ -130,19 +148,29 @@ def _with_imports(lines: list[str], message: Message) -> list[str]:
     """按实际用到的 API 生成 import，不留未使用的 import。"""
     has_list = any(f.is_list for f in message.fields)
     has_map = any(f.is_map for f in message.fields)
+    has_message_field = any(f.value_type.kind == "message" for f in message.fields)
 
     imports = [
         "import com.potatotv.pbp.PbpDecoder;",
         "import com.potatotv.pbp.PbpEncoder;",
     ]
     if message.framed:
+        imports.append("import com.potatotv.pbp.PbpCodec;")
         imports.append("import com.potatotv.pbp.PbpException;")
         imports.append("import com.potatotv.pbp.PbpFrame;")
+    if _delta_capable(message):
+        imports.append("import com.potatotv.pbp.PbpDeltaMessage;")
+        if has_list or has_map or has_message_field:
+            imports.append("import com.potatotv.pbp.PbpDelta;")
     imports.append("import com.potatotv.pbp.PbpMessage;")
 
     java_imports: set[str] = set()
     if message.signed:
         java_imports.add("import java.util.HexFormat;")
+    if _delta_capable(message) and any(f.value_type.name == "string" for f in message.fields):
+        java_imports.add("import java.util.Objects;")
+    if _delta_capable(message) and any(f.value_type.name == "bytes" for f in message.fields):
+        java_imports.add("import java.util.Arrays;")
     if has_list:
         java_imports.add("import java.util.ArrayList;")
         java_imports.add("import java.util.List;")
@@ -217,6 +245,7 @@ class _MessageEmitter:
         if self.message.framed:
             self._frame_and_signature()
         self._core_methods()
+        self._delta_methods()
         self._list_size_helpers()
         self._to_string()
 
@@ -364,7 +393,7 @@ class _MessageEmitter:
         else:
             self.doc("编码为完整帧。本消息不签名，帧头时间戳与序列号由上层填写。")
         self.add("public byte[] toByteArray() {")
-        self.add(f"PbpFrame frame = PbpFrame.of(MESSAGE_ID, {frame_ts}, payloadBytes());", 2)
+        self.add(f"PbpFrame frame = PbpCodec.frameOf(this, {frame_ts});", 2)
         if message.signed:
             self.add("if (signature.length == PbpFrame.SIGNATURE_SIZE) {", 2)
             self.add("frame = frame.withSignature(signature);", 3)
@@ -377,13 +406,14 @@ class _MessageEmitter:
         self.add("")
 
         if message.signed:
-            self.doc("HMAC 覆盖面：帧头（FLAG_SIGNED 已置位）+ 载荷。")
+            self.doc("HMAC 覆盖面：帧头（FLAG_SIGNED 已置位）+ 载荷（需要压缩时是压缩后的载荷）。")
             self.add("public byte[] signingInput() {")
-            self.add(f"return PbpFrame.of(MESSAGE_ID, {frame_ts}, payloadBytes()).signingInput();", 2)
+            self.add(f"return PbpCodec.frameOf(this, {frame_ts}).signingInput();", 2)
             self.add("}", 1)
             self.add("")
 
-        self.doc("解析完整帧；帧结构非法或消息 ID 不符一律抛 PbpException。")
+        self.doc("解析完整帧；帧结构非法或消息 ID 不符一律抛 PbpException。"
+                 "置位 FLAG_COMPRESSED 的帧先解压再解码载荷。")
         self.add(f"public static {message.name} parseFrom(byte[] raw) {{")
         self.add("PbpFrame frame = PbpFrame.parse(raw);", 2)
         self.add("if (frame.messageId() != MESSAGE_ID) {", 2)
@@ -392,17 +422,10 @@ class _MessageEmitter:
         self.add('+ "，实际 0x" + Integer.toHexString(frame.messageId()));', 4)
         self.add("}", 2)
         self.add(f"{message.name} msg = new {message.name}();", 2)
-        self.add("msg.decode(new PbpDecoder(frame.payload()));", 2)
+        self.add("msg.decode(new PbpDecoder(PbpCodec.payloadOf(frame)));", 2)
         if message.signed:
             self.add("msg.signature = frame.signature().clone();", 2)
         self.add("return msg;", 2)
-        self.add("}", 1)
-        self.add("")
-
-        self.add("private byte[] payloadBytes() {")
-        self.add("PbpEncoder enc = new PbpEncoder(encodedSize());", 2)
-        self.add("encode(enc);", 2)
-        self.add("return enc.toByteArray();", 2)
         self.add("}", 1)
         self.add("")
 
@@ -450,12 +473,17 @@ class _MessageEmitter:
         self.add("}", 1)
         self.add("")
 
-        self.doc("按定义顺序读回字段。载荷尾部若有多出的字节（新端追加了字段）不再消费，"
-                  "这是向前兼容的落点。")
+        self.doc("按定义顺序读回字段。末尾字段在载荷提前读完时取默认值（旧端没发该字段），"
+                  "载荷尾部多出的字节不再消费（新端追加了字段）——两条都是兼容落点（设计文档 §3.11）。")
         self.add("@Override")
         self.add("public void decode(PbpDecoder dec) {")
         for field in message.fields:
-            self.add(f"{field.field_name} = {_decode_expr(field)};", 2)
+            if field.trailing:
+                self.add("// 末尾字段自动 optional：旧端的载荷在这里已经读完", 2)
+                self.add(f"{field.field_name} = dec.remaining() > 0"
+                         f" ? {_decode_expr(field)} : {self.default_expr(field)};", 2)
+            else:
+                self.add(f"{field.field_name} = {_decode_expr(field)};", 2)
         self.add("}", 1)
         self.add("")
 
@@ -466,6 +494,37 @@ class _MessageEmitter:
         for field in message.fields:
             self.add(f"size += {_size_expr(field)};", 2)
         self.add("return size;", 2)
+        self.add("}", 1)
+        self.add("")
+
+    def _delta_methods(self) -> None:
+        message = self.message
+        if not _delta_capable(message):
+            return
+        self.add("// ------------------------------------------------------------ 差分（设计文档 §3.10.2）")
+        self.add("")
+        self.doc("相对基线只写变化的字段：存在位图 + 按字段序的变化值。")
+        self.add("@Override")
+        self.add(f"public void encodeDelta(PbpEncoder enc, {message.name} previous) {{")
+        self.add("boolean[] changed = {", 2)
+        for field in message.fields:
+            self.add(f"{_diff_expr(field)},", 3)
+        self.add("};", 2)
+        self.add("enc.writePresence(changed);", 2)
+        for index, field in enumerate(message.fields):
+            self.add(f"if (changed[{index}]) {{", 2)
+            self.add(f"enc.{_encode_call(field)};", 3)
+            self.add("}", 2)
+        self.add("}", 1)
+        self.add("")
+        self.doc("未变化的字段从基线拷贝（消息与字节数组深拷贝、集合按元素复制），变化的字段按位图读入；"
+                 "传入的基线对象不会被改动。")
+        self.add("@Override")
+        self.add(f"public void applyDelta(PbpDecoder dec, {message.name} previous) {{")
+        self.add(f"boolean[] present = dec.readPresence({len(message.fields)});", 2)
+        for index, field in enumerate(message.fields):
+            self.add(f"{field.field_name} = present[{index}]"
+                     f" ? {_decode_expr(field)} : {_copy_expr(field)};", 2)
         self.add("}", 1)
         self.add("")
 
@@ -507,9 +566,9 @@ def _to_string_expr(field: ResolvedField) -> str:
     return field.field_name
 
 
-def _encode_call(field: ResolvedField) -> str:
+def _encode_call(field: ResolvedField, prefix: str = "") -> str:
     value = field.value_type
-    name = field.field_name
+    name = f"{prefix}{field.field_name}"
     if field.is_map:
         writer = f"PbpEncoder::{value.writer}"
         if field.map_key.name == "string":
@@ -530,6 +589,48 @@ def _encode_call(field: ResolvedField) -> str:
     if value.kind == "message":
         return f"writeMessage({name})"
     return f"{value.writer}({name})"
+
+
+def _diff_expr(field: ResolvedField) -> str:
+    """字段与基线是否不同（生成 encodeDelta 用）。
+
+    标量与字符串直接比值；嵌套消息、列表、映射按"同一套 writer 调用写出来的字节"比较，
+    与编码语义天然对齐，不必为每个生成类补 equals。
+    """
+    value = field.value_type
+    name = f"previous.{field.field_name}"
+    if field.is_list or field.is_map or value.kind == "message":
+        # lambda 的形参不能与 encodeDelta 的 enc 重名（Java 不允许遮蔽外层变量）
+        return (f"PbpDelta.differs(x -> x.{_encode_call(field)}, "
+                f"x -> x.{_encode_call(field, 'previous.')})")
+    if value.name == "string":
+        return f"!Objects.equals({field.field_name}, {name})"
+    if value.name == "bytes":
+        return f"!Arrays.equals({field.field_name}, {name})"
+    if value.java == "float":
+        return f"Float.compare({field.field_name}, {name}) != 0"
+    if value.java == "double":
+        return f"Double.compare({field.field_name}, {name}) != 0"
+    return f"{field.field_name} != {name}"
+
+
+def _copy_expr(field: ResolvedField) -> str:
+    """从基线拷贝字段（生成 applyDelta 用）：可变类型深拷贝，避免解码结果与基线互串。"""
+    value = field.value_type
+    name = f"previous.{field.field_name}"
+    if field.is_map:
+        if value.kind == "message":
+            return f"PbpDelta.copyMap({name}, {value.name}::new)"
+        return f"new LinkedHashMap<>({name})"
+    if field.is_list:
+        if value.kind == "message":
+            return f"PbpDelta.copyList({name}, {value.name}::new)"
+        return f"new ArrayList<>({name})"
+    if value.kind == "message":
+        return f"PbpDelta.copy({name}, {value.name}::new)"
+    if value.name == "bytes":
+        return f"{name}.clone()"
+    return name
 
 
 def _decode_expr(field: ResolvedField) -> str:
