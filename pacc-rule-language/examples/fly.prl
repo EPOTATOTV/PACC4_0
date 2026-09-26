@@ -1,0 +1,44 @@
+# fly：飞行（Y 轴位移持续不受重力约束，落地事件缺失）
+
+rule "fly_detection" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "movement"
+    cooldown: 300s
+    enabled: true
+
+    input {
+        player: PlayerContext
+        move_events: list[MoveEvent]
+        system_state: SystemState
+    }
+
+    let confidence = detect_fly(move_events)
+    let airborne = filter(move_events, e -> e.is_airborne())
+    let airborne_ms = sum(map(airborne, e -> e.duration_ms))
+    # §2.3.5 无隐式转换，int 与 float 之间要显式 to_float
+    let airborne_seconds = to_float(airborne_ms) / 1000.0
+    let ground_contacts = count(filter(move_events, e -> e.is_grounded()))
+
+    when:
+        confidence > 0.8
+        AND airborne_seconds > 15.0
+        AND ground_contacts == 0
+        AND NOT player.is_trusted()
+
+    then:
+        emit_alert(
+            type = "FLY",
+            confidence = confidence,
+            evidence = {
+                "airborne_seconds": airborne_seconds,
+                "ground_contacts": ground_contacts
+            }
+        )
+        record_evidence("airborne_timeline", last_n(airborne, 100))
+        # 网络抖动时服务端位置修正会引起误判，这里只做告警不红屏
+        if confidence > 0.95:
+            trigger_redscreen(reason = "fly_detected")
+        end
+}

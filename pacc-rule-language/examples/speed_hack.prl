@@ -1,0 +1,44 @@
+# speed_hack：移动速度异常（位移速率长期超过人体极限，且方向抖动极低）
+
+rule "speed_hack_detection" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: critical
+    category: "movement"
+    cooldown: 600s
+    enabled: true
+    description: "短时间内水平位移速率持续超阈值，且转向熵偏低"
+
+    input {
+        player: PlayerContext
+        move_events: list[MoveEvent]
+        system_state: SystemState
+    }
+
+    let confidence = detect_speed_hack(move_events)
+    let horizontal = filter(move_events, e -> e.is_horizontal())
+    let speeds = map(horizontal, e -> e.speed)
+    let speed_p95 = percentile(speeds, 95.0)
+    let direction_entropy = entropy(map(horizontal, e -> e.direction))
+
+    when:
+        confidence > 0.85
+        AND speed_p95 > 12.0
+        AND direction_entropy < 0.4
+        AND NOT player.is_trusted()
+        AND system_state.network_stable()
+
+    then:
+        emit_alert(
+            type = "SPEED_HACK",
+            confidence = confidence,
+            evidence = {
+                "speed_p95": speed_p95,
+                "direction_entropy": direction_entropy,
+                "sample_count": count(horizontal)
+            }
+        )
+        record_evidence("move_timeline", last_n(move_events, 200))
+        log(level = "warn", message = f"speed_hack 命中: {player.name} p95={speed_p95}")
+        trigger_redscreen(reason = "speed_hack_detected")
+}

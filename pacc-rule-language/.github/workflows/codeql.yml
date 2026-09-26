@@ -1,0 +1,45 @@
+name: CodeQL
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '30 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: 分析 Java
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - java-kotlin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: 初始化 CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: 构建
+        uses: github/codeql-action/autobuild@v3
+
+      - name: 分析
+        uses: github/codeql-action/analyze@v3

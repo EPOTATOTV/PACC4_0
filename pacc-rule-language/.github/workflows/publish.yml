@@ -1,0 +1,33 @@
+name: Publish
+
+# 手动触发。只负责打出 JAR 并作为构建产物上传，不做仓库发布，
+# 因此不需要凭据，也不往 pom.xml 里加 distributionManagement 或任何插件。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: 打包
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: 跳过测试打包
+        run: mvn -B -ntp -DskipTests package
+
+      - name: 上传 JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: pacc-rule-language-jar
+          path: target/*.jar
+          if-no-files-found: error

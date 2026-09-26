@@ -1,0 +1,42 @@
+# autoclicker：连点器（CPS 高且间隔方差极低）
+
+rule "autoclicker_detection" {
+    version: "1.1.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "input"
+    cooldown: 120s
+    enabled: true
+
+    input {
+        player: PlayerContext
+        click_events: list[ClickEvent]
+        system_state: SystemState
+    }
+
+    let confidence = detect_autoclicker(click_events)
+    let cps = rate(click_events, 1s)
+    let variance = cps_variance(click_events)
+    let intervals = interval_stats(click_events)
+    let is_human = is_human_click_pattern(analyze_click_pattern(click_events))
+
+    when:
+        confidence > 0.75
+        AND cps > 12 per_second
+        AND variance < 0.8
+        AND NOT is_human
+        AND NOT player.is_trusted()
+
+    then:
+        emit_alert(
+            type = "AUTOCLICKER",
+            confidence = confidence,
+            evidence = {
+                "cps": cps,
+                "cps_variance": variance,
+                "interval_mean_ms": intervals.mean,
+                "interval_stddev_ms": intervals.stddev
+            }
+        )
+        record_evidence("click_timeline", last_n(click_events, 150))
+}

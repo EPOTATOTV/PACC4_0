@@ -1,0 +1,7 @@
+# Maven 构建产物
+target/
+
+# prl-editor 前端产物
+prl-editor/node_modules/
+prl-editor/dist/
+prl-editor/coverage/
