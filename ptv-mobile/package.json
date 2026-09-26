@@ -16,7 +16,7 @@
     "@capacitor/app": "^8",
     "@capacitor/core": "^7",
     "@capacitor/ios": "^8",
-    "@capacitor/network": "^7",
+    "@capacitor/network": "^8",
     "@capacitor/push-notifications": "^7"
   },
   "devDependencies": {
