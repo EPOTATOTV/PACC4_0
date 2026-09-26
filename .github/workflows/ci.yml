@@ -322,7 +322,9 @@ jobs:
         with:
           go-version: '1.22'
           cache: true
-          cache-dependency-path: deploy/gateway-go/go.sum
+          # 该模块零依赖，不存在 go.sum；原先指向 go.sum 会让 setup-go 告警并放弃缓存，
+          # 缓存键退化不成，等于没开缓存。改指 go.mod（内容一变的哈希即可失效重建）。
+          cache-dependency-path: deploy/gateway-go/go.mod
       - run: go vet ./...
       - run: go build -trimpath -ldflags="-s -w" -o gateway-go .
       - name: 上传制品
@@ -413,16 +415,30 @@ jobs:
           set -euo pipefail
           cargo build --release
           cargo test --release
+      # 客户端里 Linux 专有的那部分（procfs 的 status 解析、eBPF 能力位检查）在
+      # Windows 开发机上被 cfg 整个摘掉，本机 clippy 恒过；不加这一步，只有
+      # Linux 编译路径才存在的问题会一路漂到 CI 之外。
+      - name: Linux 客户端格式与 lint
+        if: steps.probe.outputs.linux_client == 'yes'
+        working-directory: platform/linux-client
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo clippy --all-targets -- -D warnings -A linker_messages
       - name: 打包 Linux 原生客户端
         if: steps.probe.outputs.linux_client == 'yes'
         working-directory: platform/linux-client
         run: |
           set -euo pipefail
-          if [ -x ./package.sh ]; then
-            ./package.sh
+          # 判断用 -f 而不是 -x：仓库在 Windows 上开发，git 里 core.fileMode=false，
+          # .sh 的执行位曾经全部丢失，-x 恒为假，这一步一直在「静默跳过」而不报错，
+          # 于是 job 是绿的、产物却没有。打包脚本一律用 bash 显式调用，不依赖执行位。
+          if [ -f ./package.sh ]; then
+            bash ./package.sh
             ls -l target/dist/
           else
-            echo "::warning::platform/linux-client/package.sh 不存在，跳过打包"
+            echo "::error::platform/linux-client/package.sh 缺失，无法产出 Linux 安装包"
+            exit 1
           fi
       - name: 上传 Linux 客户端安装包
         if: steps.probe.outputs.linux_client == 'yes'

@@ -109,6 +109,22 @@ jobs:
           unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/[a-z]{1,3}\.class' \
             || { echo "::error::未发现混淆后的短类名"; exit 1; }
 
+      # 发布件是用户直接下载的东西，同一条依赖自洽校验必须在这里再跑一次：
+      # CI 只在 master 上拦，而 Release 是从 tag 构建的，加固校验这里已经重复做了，
+      # 依赖自洽不能漏——产物里漏了依赖的类，只有 jdeps 能在构建期发现。
+      - name: 校验玩家端发布件依赖自洽
+        working-directory: ptv-client
+        run: |
+          set -euo pipefail
+          JAR=$(ls target/ptv-client-*.jar | head -n1)
+          jdeps -verbose:class -cp "$JAR" "$JAR" > /tmp/jdeps-ptv-client.txt || true
+          if grep -q 'not found' /tmp/jdeps-ptv-client.txt; then
+            echo "::error::发布件存在未打包的依赖引用："
+            grep 'not found' /tmp/jdeps-ptv-client.txt | sort -u
+            exit 1
+          fi
+          echo "发布件依赖自洽：未发现 not found"
+
       - name: 安装 Node 20
         uses: actions/setup-node@v4
         with:
