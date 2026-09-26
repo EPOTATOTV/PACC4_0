@@ -5,3 +5,8 @@ target/
 prl-editor/node_modules/
 prl-editor/dist/
 prl-editor/coverage/
+
+# tsc -b 的增量产物。vite.config.ts 只产声明（见 tsconfig.node.json），别让 .d.ts 和
+# tsbuildinfo 进仓库；在 PACC 主仓库里根 .gitignore 已经挡了，独立仓库要靠这一条
+prl-editor/*.tsbuildinfo
+prl-editor/vite.config.d.ts
