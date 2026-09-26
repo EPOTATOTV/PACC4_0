@@ -13,10 +13,10 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@ant-design/icons": "^6.3.2",
-    "antd": "^6.6.2",
+    "@ant-design/icons": "^6.3.4",
+    "antd": "^6.6.5",
     "echarts": "^5.5.1",
-    "gsap": "^3.12.5",
+    "gsap": "^3.15.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.23.0",
@@ -31,12 +31,12 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "@vitest/ui": "^4.1.11",
-    "eslint": "^10.10.0",
+    "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.12.0",
     "jsdom": "^29.1.1",
     "typescript": "^5.4.5",
-    "typescript-eslint": "^8.70.0",
+    "typescript-eslint": "^8.70.1",
     "vite": "^8.3.1",
     "vitest": "^4.1.11"
   }
