@@ -100,7 +100,7 @@ jobs:
             || { echo "::error::未发现混淆后的短类名"; exit 1; }
 
       - name: 安装 Node 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
