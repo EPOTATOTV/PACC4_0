@@ -126,6 +126,37 @@ public final class OpsClient {
     }
 
     /**
+     * DF §4.1.2 端侧联邦：上报一份本地梯度（模型增量）。
+     *
+     * <p>body 由 {@code GradientUploader} 编码，只含客户端标识、梯度向量与样本数，不含任何原始采集
+     * 数据。路径由 {@code FederatedSettings#uploadPath()} 决定，故不在本类硬编码。</p>
+     *
+     * <p>服务端校验失败会返回 200 + {@code accepted=false}，这里一并按失败处理，交给上传器退避重试。</p>
+     */
+    public boolean submitFederatedUpdate(String path, String jsonBody) {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + path))
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .timeout(Duration.ofSeconds(8)).build();
+        try {
+            HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+            if (r.statusCode() / 100 != 2 || r.body() == null) {
+                System.err.println("[PTV-Ops] 梯度上报被拒绝 HTTP " + r.statusCode());
+                return false;
+            }
+            Object accepted = Json.decodeObject(r.body()).get("accepted");
+            return accepted == null || Boolean.parseBoolean(String.valueOf(accepted));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (Exception e) {
+            System.err.println("[PTV-Ops] 梯度上报失败: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * v5.4 远程证明：领取一次挑战，返回 challenge_id 与 nonce；失败返回 null。
      */
     public AttestationChallenge requestAttestationChallenge(String clientVersion, String platform,

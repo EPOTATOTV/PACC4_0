@@ -40,6 +40,8 @@ public final class DetectionEngine {
     private volatile LayeredDecision.Decision lastDecision = LayeredDecision.Decision.PERIODIC;
     /** 最近一次采样的特征覆盖度（验收 A02 的运行时观测值）。 */
     private volatile int lastCoverage;
+    /** 最近一次采集到的行为特征；特征采集关闭或尚未采样时为空向量。 */
+    private volatile FeatureVector lastFeatures = new FeatureVector();
 
     public DetectionEngine() {
         this(null);
@@ -74,6 +76,14 @@ public final class DetectionEngine {
     }
 
     /**
+     * 最近一次采样采集到的 178 维行为特征（未采集时为空向量）。
+     * <p>给端侧联邦学习取样用：训练只在本机进行，出网仅梯度。</p>
+     */
+    public FeatureVector lastFeatures() {
+        return lastFeatures;
+    }
+
+    /**
      * 执行一次完整采样。
      *
      * @param clientRisk 保留参数（v5.2 起演示路径已移除，实现不再使用；调用方仍按既有约定传入，
@@ -90,6 +100,7 @@ public final class DetectionEngine {
         FeatureVector behaviorFv = null;
         if (PerfToggles.enabled(PerfToggles.FEATURE_COLLECTION)) {
             behaviorFv = featureCollector.collect();
+            lastFeatures = behaviorFv;
             lastCoverage = featureCollector.coverage();
             BruteForceDetector.Verdict verdict = bruteForceDetector.evaluate(
                     behaviorFv, clickIntervals(), inputSource.mouseTrajectory(), inputSource.aimTarget());

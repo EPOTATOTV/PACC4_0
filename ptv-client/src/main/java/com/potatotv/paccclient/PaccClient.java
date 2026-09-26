@@ -8,7 +8,13 @@ import com.potatotv.paccclient.apm.ClientHealthMetrics;
 import com.potatotv.paccclient.control.DetectionController;
 import com.potatotv.paccclient.control.LocalControlServer;
 import com.potatotv.paccclient.detection.DetectionEngine;
+import com.potatotv.paccclient.detection.FeatureVector;
+import com.potatotv.paccclient.detection.federated.FederatedModelDownlink;
+import com.potatotv.paccclient.detection.federated.FederatedSettings;
+import com.potatotv.paccclient.detection.federated.GradientUploader;
+import com.potatotv.paccclient.detection.federated.LocalGradientTrainer;
 import com.potatotv.paccclient.detection.stealth.StealthTelemetry;
+import com.potatotv.paccclient.detection.stream.StreamDetectionPipeline;
 import com.potatotv.paccclient.inspect.InspectAgent;
 import com.potatotv.paccclient.redscreen.FullScreenRed;
 import com.potatotv.paccclient.redscreen.RedscreenReceiver;
@@ -36,6 +42,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -107,6 +117,12 @@ public final class PaccClient {
         Thread.ofVirtual().name("ptv-stealth-warmup").start(StealthTelemetry::probe);
 
         DetectionEngine engine = new DetectionEngine(localAi);
+
+        // ---- DF §4.1.1 实时流式检测管线：增量特征 + 滑动窗口 + 两级判定（规则层 <1ms，存疑才进 AI）----
+        // 消费线程无事件时 park，空闲不耗 CPU；判定与端到端延迟百分位由管线自身 metrics 暴露。
+        StreamDetectionPipeline streamPipeline = new StreamDetectionPipeline(localAi);
+        streamPipeline.start();
+
         // 远程查端代理：收到 inspect_* 信令时回传取证；出站经 protobuf 信封二进制帧上报
         InspectAgent inspectAgent = new InspectAgent();
         WssReporter reporter = new WssReporter(pteid, cfg.edition, cfg.buildConnectUri(token, pteid),
@@ -172,6 +188,8 @@ public final class PaccClient {
         // 后台周期采样上报：封装为可被本地控制服务启停的控制器（默认启动驱动，行为不变）
         DetectionController detector = new DetectionController(engine, reporter,
                 new DetectionController.RuntimeConfig(cfg.clientRisk, cfg.heartbeatSeconds, true));
+        // DF §4.1.1：每个检测事件同时投递进流式管线（无锁入队，不阻塞采样线程）
+        detector.attachStreamPipeline(streamPipeline, pteid);
         detector.start();
 
         // 本地回环控制服务：供桌面壳下发检测控制并查询状态/记录/配置（尽力而为，失败不阻断）
@@ -263,6 +281,78 @@ public final class PaccClient {
             }
         }, 45, 6 * 3600, TimeUnit.SECONDS);
 
+        // ---- DF §4.1.2 端侧联邦学习：本地取样 → 本地训练 → 队列上报；全局模型周期下发 ----
+        // 出网的只有梯度（模型增量）与聚合权重，原始特征与事件数据不出设备。
+        // 本地训练从零参数出发：既有 API 没把「下发的全局权重向量」暴露成数组，故不做无依据的
+        // 伪全局初始化；隐私护栏（范数上限 + 样本数门限）由 FederatedSettings 统一配置。
+        FederatedSettings fedSettings = FederatedSettings.fromEnvironment();
+        FederatedModelDownlink fedDownlink = new FederatedModelDownlink(cfg.serverUri, token, localAi, fedSettings);
+        GradientUploader gradientUploader = fedSettings.uploader(pteid, payload -> {
+            // 传输必须抛异常才会触发上传器的退避重试，失败一律抛出，不静默丢弃
+            if (!opsClient.submitFederatedUpdate(fedSettings.uploadPath(), Json.encode(payload))) {
+                throw new IllegalStateException("梯度上报未被服务端接受");
+            }
+        });
+        gradientUploader.start();
+        LocalGradientTrainer gradientTrainer = new LocalGradientTrainer(
+                fedSettings.featureDim(), fedSettings.autoencoderHidden());
+        Deque<FeatureVector> fedSamples = new ArrayDeque<>();
+        final int fedSampleCap = 512;
+
+        // 本地取样：每个心跳取一份真实特征，只在本机留存（有界，满则丢最旧）
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                FeatureVector fv = engine.lastFeatures();
+                if (fv.size() == 0) {
+                    return;
+                }
+                synchronized (fedSamples) {
+                    if (fedSamples.size() >= fedSampleCap) {
+                        fedSamples.removeFirst();
+                    }
+                    fedSamples.addLast(fv);
+                }
+            } catch (RuntimeException e) {
+                System.err.println("[PTV-Client] 联邦取样跳过: " + e.getMessage());
+            }
+        }, 30, Math.max(30, (long) cfg.heartbeatSeconds), TimeUnit.SECONDS);
+
+        // 本地训练 + 梯度上报：启动 5 分钟后首次，之后每 6 小时一次；样本不足就留到下一轮
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                List<FeatureVector> batch;
+                synchronized (fedSamples) {
+                    batch = new ArrayList<>(fedSamples);
+                }
+                LocalGradientTrainer.TrainingResult r = gradientTrainer.train(batch);
+                if (r.sampleCount() < fedSettings.minSamples()) {
+                    return;
+                }
+                if (gradientUploader.submit(null, r.gradient(), r.sampleCount(), r.loss())) {
+                    synchronized (fedSamples) {
+                        fedSamples.clear();
+                    }
+                    System.out.println("[PTV-Client] 本地梯度已入队 样本=" + r.sampleCount()
+                            + " loss=" + r.loss());
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 联邦训练/上报异常（本地样本保留，不影响检测）: " + e.getMessage());
+            }
+        }, 300, 6 * 3600, TimeUnit.SECONDS);
+
+        // 聚合模型下发：启动 90 秒后首次（排在 ModelSync 的 45 秒之后），之后每 6 小时一次；
+        // 版本相同、维度不符、摘要不一致一律保留上一版模型（FederatedModelDownlink 内部保证）
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                FederatedModelDownlink.AdoptionResult ar = fedDownlink.fetchAndAdopt();
+                if (ar.accepted()) {
+                    System.out.println("[PTV-Client] 联邦聚合模型已装载 version=" + ar.version());
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 联邦模型下发异常（保留现有模型）: " + e.getMessage());
+            }
+        }, 90, 6 * 3600, TimeUnit.SECONDS);
+
         // v5.2 §7.1 硬件指纹上报：启动 20 秒后一次，之后每 12 小时一次（只上报摘要）
         opsScheduler.scheduleWithFixedDelay(() -> {
             try {
@@ -295,6 +385,8 @@ public final class PaccClient {
             // 先声明正常关闭：退出守卫据此不把 Ctrl+C 记成崩溃
             processProtector.markCleanExit();
             detector.stop();
+            streamPipeline.close();
+            gradientUploader.close();
             recorder.stop();
             if (control != null) control.close();
             opsScheduler.shutdownNow();

@@ -8,19 +8,20 @@ import java.util.function.Consumer;
 /**
  * DF §4.1.2 端侧联邦配置：端点、隐私上限、队列与重试参数。
  *
- * <p><b>端点契约与已知不匹配（须由服务端补玩家路由）</b>：云端目前把联邦端点挂在
- * {@code /api/admin/df/federated/**}（{@code AdminKeyFilter} + {@code @RequirePermission} 保护），
- * 端侧无法以管理员身份鉴权，因此<b>不能硬编码调用该路径</b>。本配置的默认值指向「玩家侧路由」
- * {@value #DEFAULT_UPLOAD_PATH} / {@value #DEFAULT_MODEL_PATH}——该路由需由服务端后续新增
- * （与既有 {@code /api/player/**} 玩家 JWT 保护一致），再用环境变量/系统属性覆盖即可，端侧无需改码。</p>
+ * <p><b>端点契约</b>：联邦端点有两组，端侧只能用「玩家侧」这一组——默认值即
+ * {@value #DEFAULT_UPLOAD_PATH} / {@value #DEFAULT_MODEL_PATH}，由服务端
+ * {@code DfFederatedPlayerController} 提供，鉴权沿用玩家 JWT（与其余 {@code /api/player/**} 一致）。
+ * 另一组挂在 {@code /api/admin/df/federated/**}，由 {@code AdminKeyFilter} +
+ * {@code @RequirePermission} 保护：端侧拿不到管理员凭据，也不能硬编码调用那条路径，
+ * 否则等于把管理端全权下发给每一台玩家机器。换端点用环境变量/系统属性覆盖即可，端侧无需改码。</p>
  *
  * <p>取值顺序：环境变量 &gt; 系统属性 &gt; 内置默认值。</p>
  */
 public final class FederatedSettings {
 
-    /** 默认梯度上报路径（玩家侧路由，待服务端提供）。 */
+    /** 默认梯度上报路径（玩家侧路由）。 */
     public static final String DEFAULT_UPLOAD_PATH = "/api/player/df/federated/updates";
-    /** 默认聚合模型下发路径（玩家侧路由，待服务端提供）。 */
+    /** 默认聚合模型下发路径（玩家侧路由）。 */
     public static final String DEFAULT_MODEL_PATH = "/api/player/df/federated/model/latest";
 
     private final String uploadPath;
@@ -132,7 +133,7 @@ public final class FederatedSettings {
      * 按配置构建梯度上传器（队列上限 / 重试间隔 / 重试次数）。
      *
      * @param clientId  客户端标识（最小化：仅一个匿名设备/玩家 id）
-     * @param transport 传输落点（生产为 {@code WssReporter#sendPayload}）
+     * @param transport 传输落点（生产为 {@code OpsClient#submitFederatedUpdate}，走玩家 JWT 的 HTTP POST）
      */
     public GradientUploader uploader(String clientId, Consumer<Map<String, Object>> transport) {
         return new GradientUploader(clientId, privacyGuard(), transport, maxQueuedGradients,

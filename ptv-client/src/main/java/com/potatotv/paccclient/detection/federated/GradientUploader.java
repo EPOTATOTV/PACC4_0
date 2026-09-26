@@ -12,11 +12,13 @@ import java.util.function.Consumer;
  * DF §4.1.2 端侧梯度上传器：把本地梯度<b>排队 + 重试</b>地交给既有传输通道发送，
  * 绝不阻塞检测热路径（{@link #submit} 只做校验 + 入队 + 唤醒）。
  *
- * <p>传输由调用方注入（生产环境即 {@code WssReporter::sendPayload}），本类不感知 WSS/HTTP 细节。
- * 载荷字段与云端 {@code DfFederatedController#submitUpdate} 的请求体一一对应：
+ * <p>传输由调用方注入（生产环境是 {@code OpsClient#submitFederatedUpdate}，即玩家侧
+ * {@code /api/player/df/federated/updates} 的 HTTP POST），本类不感知 HTTP 细节。
+ * 契约字段与云端 {@code DfFederatedPlayerController#submitUpdate} 的请求体对齐：
  * {@code roundId / clientId / sampleCount / gradient（逗号分隔浮点串）/ loss}；{@code gradient} 用
  * 逗号串而非 JSON 数组，既与云端 {@code gradientOf} 的字符串分支兼容，也避免在客户端 JSON 编码器里
- * 引入数组支持。</p>
+ * 引入数组支持。{@code featureDim} / {@code gradientNorm} 是端侧诊断冗余字段，服务端按 Map 取键，
+ * 多余键被忽略。</p>
  *
  * <p>隐私：原始事件数据与特征值一律不进入载荷；客户端标识只带一个（{@code clientId}，默认取设备
  * PTEID）。发送前先过 {@link GradientPrivacyGuard}（拒绝非有限值、范数裁剪、样本数门限）。</p>
@@ -50,7 +52,7 @@ public final class GradientUploader implements AutoCloseable {
     /**
      * @param clientId         客户端标识（最小化：仅传一个匿名设备/玩家 id）
      * @param guard            隐私护栏
-     * @param transport        传输落点（生产为 {@code WssReporter#sendPayload}）
+     * @param transport        传输落点（生产为 {@code OpsClient#submitFederatedUpdate}）
      * @param maxQueued        待发队列上限
      * @param retryDelayMillis 失败重试间隔（毫秒）
      * @param maxAttempts      单条最大尝试次数（含首次）
