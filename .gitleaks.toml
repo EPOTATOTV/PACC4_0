@@ -20,3 +20,31 @@ regexes = [
   '''\b(i18nKey|groupI18nKey|titleKey)\s*:\s*'nav\.[A-Za-z0-9.]+'''',
 ]
 targetRules = ["generic-api-key"]
+
+[[allowlists]]
+description = """PbpCodecTest 的占位 HMAC 密钥被 generic-api-key 误判。
+
+该用例只验证「压缩帧组装 → 签名 → 验签」这条链路，密钥取 "0123456789abcdef"
+这种一眼可辨的假值；换成任何真实密钥，同一条断言照样成立，因此它不携带任何凭据语义。
+generic-api-key 的判定是「字段名含 key + 赋值 + 高熵字符串」，于是把假值当成了密钥。
+只豁免这一行赋值、只作用于 generic-api-key，不整文件放行。"""
+paths = ['''pacc-binary-protocol/runtime-java/src/test/java/com/potatotv/pbp/PbpCodecTest\.java$''']
+regexTarget = "line"
+regexes = [
+  '''byte\[\]\s+key\s*=\s*"0123456789abcdef"''',
+]
+targetRules = ["generic-api-key"]
+
+[[allowlists]]
+description = """PbpCryptoTest 的 hex 形态密钥字面量被 generic-api-key 误判。
+
+用例 hexKeyMustBeUsedAsTextNotDecoded 断言的是约定本身：「WSS 链路的 HMAC 密钥是
+hex 文本的 UTF-8 字节，而不是解 hex 后的 32 字节」。字面量必须是 hex 文本形态，
+且取值 00112233445566778899aabbccddeeff 是公开的填充模式，不是任何真实密钥。
+只豁免这一行赋值、只作用于 generic-api-key。"""
+paths = ['''pacc-binary-protocol/runtime-java/src/test/java/com/potatotv/pbp/PbpCryptoTest\.java$''']
+regexTarget = "line"
+regexes = [
+  '''String\s+hexKey\s*=\s*"00112233445566778899aabbccddeeff"''',
+]
+targetRules = ["generic-api-key"]
