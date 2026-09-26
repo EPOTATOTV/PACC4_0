@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^7",
-    "@capacitor/app": "^7",
+    "@capacitor/app": "^8",
     "@capacitor/core": "^7",
     "@capacitor/ios": "^8",
     "@capacitor/network": "^7",
