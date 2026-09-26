@@ -83,6 +83,9 @@ sub ptv-client/pom.xml \
   's{(<artifactId>ptv-client</artifactId>\s*<version>)[^<]+}{$1 . $ENV{PACC_NEW_VERSION}}se'
 sub platform/java-agent/pom.xml \
   's{(<artifactId>ptv-agent</artifactId>\s*<version>)[^<]+}{$1 . $ENV{PACC_NEW_VERSION}}se'
+# PCU 的版本随 PACC 整体走（它与 PBP 不同，PBP 是独立协议版本、见文末只读断言）
+sub pacc-cross-platform-updater/pom.xml \
+  's{(<artifactId>pacc-cross-platform-updater</artifactId>\s*<version>)[^<]+}{$1 . $ENV{PACC_NEW_VERSION}}se'
 
 echo "-- 后端运行时版本号 --"
 sub ptv-backend/src/main/resources/application.yml \

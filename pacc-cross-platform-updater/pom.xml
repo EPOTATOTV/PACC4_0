@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- PCU 是 PACC 主项目内的模块（不是像 PRL/PBP 那样的独立仓库），随产品版本走，
+         所以这里的 <version> 由 scripts/bump-version.sh 统一替换；消费方 ptv-client
+         用 ${project.version} 引用它，不额外开一个版本字段，避免多一处会漂移的地方。 -->
+    <groupId>com.potatotv.pacc</groupId>
+    <artifactId>pacc-cross-platform-updater</artifactId>
+    <version>5.4.0</version>
+    <name>PACC Cross-Platform Updater</name>
+    <description>PCU 跨平台更新核心：检查更新、断点续传下载、SHA-256/RSA 校验、bsdiff 差分、
+        备份与原子替换、失败回滚、强制/静默更新，以及各平台薄适配层。</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+            <!-- 零依赖是硬约束：下载/校验/差分全部用 JDK 标准库实现，
+                 一旦有人给核心加上第三方依赖，构建直接失败（与 PBP 运行时同一条门禁）。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.4.1</version>
+                <executions>
+                    <execution>
+                        <id>enforce-zero-dependencies</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <searchTransitive>true</searchTransitive>
+                                    <excludes>
+                                        <exclude>*:*:*:*:compile</exclude>
+                                        <exclude>*:*:*:*:runtime</exclude>
+                                    </excludes>
+                                    <message>PCU 核心必须零第三方依赖（仅允许 test 作用域的 JUnit）。</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

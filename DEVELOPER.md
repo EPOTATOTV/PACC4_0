@@ -36,6 +36,7 @@ PACC 是一套「玩家本地检测 + PTV 管控」的反作弊系统。你可�
 ```
 d:\pacc\
 ├── pacc-binary-protocol/  # 自研二进制协议（PBP）：mdl 定义 + 五个运行时（java/ts/rust/csharp/python）
+├── pacc-cross-platform-updater/  # 自研跨平台更新核心（PCU）：检查/下载/校验/差分/回滚（纯 Java）
 ├── tools/pbpgen/       # MDL 代码生成器（Python 标准库，生成五种语言的消息类）
 ├── proto/              # 旧 Protocol Buffers 定义（已被 PBP 取代，仅存档，不再有生成步骤）
 ├── ptv-backend/        # 管控后端（Java 21 + Spring Boot 3）★ 后端开发主战场
@@ -51,15 +52,24 @@ d:\pacc\
 └── README.md           # 入口说明，先读它
 ```
 
-**先装协议运行时再编后端/玩家端**：仓库没有 root 聚合 pom，`ptv-backend` 与 `ptv-client` 都依赖
-`com.potatotv:pacc-binary-protocol`，所以第一次构建前要把它装进本地 Maven 仓库，否则会以
-「无法解析依赖」失败：
+**先装仓库内模块，再编后端/玩家端**：仓库没有 root 聚合 pom。`ptv-backend` 依赖
+`com.potatotv:pacc-binary-protocol`（PBP 协议运行时），`ptv-client` 除此之外还依赖
+`com.potatotv.pacc:pacc-cross-platform-updater`（PCU 更新核心）。这两个模块都只在这个仓库里，
+没发到中央仓库，所以第一次构建前要装进本地 Maven 仓库，否则会以「无法解析依赖」失败：
 
 ```bash
-mvn -B -f pacc-binary-protocol/runtime-java/pom.xml install
+mvn -B -f pacc-binary-protocol/runtime-java/pom.xml install    # PBP：后端和玩家端都要
+mvn -B -f pacc-cross-platform-updater/pom.xml      install    # PCU：只有玩家端要
 ```
 
-这个模块的版本是独立的 1.0.0，不跟 PACC 整体升版走。改了 `pacc-binary-protocol/mdl/*.mdl` 之后要重新生成
+两条都不加 `-DskipTests`：PBP 的协议编解码/加解密测试、PCU 的差分（bzip2、bsdiff）测试就是这一层的
+门禁，编译通过不代表补丁能用。
+
+两个模块的版本策略不一样，别混：PBP 是独立的 1.0.0，不跟 PACC 整体升版走，主项目用
+`<pacc.pbp.version>` 精确锁定；PCU 是 PACC 自己的模块，随产品版本走，`ptv-client` 用
+`${project.version}` 引用，`bump-version.sh` 一改两边同时对齐。
+
+改了 `pacc-binary-protocol/mdl/*.mdl` 之后要重新生成
 各语言消息类（生成物入库，不是构建期产物）。生成器一次生成五种语言，`--check` 会把五种语言的
 漂移一起比出来：
 

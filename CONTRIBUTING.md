@@ -16,11 +16,15 @@
 3. 提交信息按 Conventional Commits 写，scope 用目录名：`fix(ptv-client): 修正发行 JAR 混淆校验`、`docs(readme): 补部署入口`
 4. 开 PR，把 [PR 模板](.github/PULL_REQUEST_TEMPLATE.md) 里的检查项老实勾完
 
-提交前本地至少跑一遍你这块相关的构建和测试：
+提交前本地至少跑一遍你这块相关的构建和测试。PBP 与 PCU 这两个模块在仓库里、没发到中央仓库，
+而 `ptv-backend` / `ptv-client` 各是独立 pom，所以从头编一次要先把它们 `install` 进本地仓库（见
+[DEVELOPER.md](DEVELOPER.md)）：
 
 ```bash
-cd ptv-backend && mvn -B package
-cd ptv-client  && mvn -B package
+mvn -B -f pacc-binary-protocol/runtime-java/pom.xml install  # 后端/玩家端的前置
+mvn -B -f pacc-cross-platform-updater/pom.xml      install  # 玩家端的前置
+cd ptv-backend  && mvn -B package
+cd ptv-client   && mvn -B package
 cd ptv-frontend && npm run lint && npm run test:ci && npm run build
 ```
 

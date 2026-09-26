@@ -31,6 +31,14 @@
             <artifactId>pacc-binary-protocol</artifactId>
             <version>${pacc.pbp.version}</version>
         </dependency>
+        <!-- 自研跨平台更新核心（PCU）。它与 PACC 同版本、不做独立协议版本，所以这里直接跟随
+             ${project.version}：bump-version.sh 改一次版本号，两边同时对齐，不需要再多一个版本字段。
+             它同样零第三方依赖，会被 ProGuard 一并并入发行件（-repackageclasses 后包路径被抹平）。 -->
+        <dependency>
+            <groupId>com.potatotv.pacc</groupId>
+            <artifactId>pacc-cross-platform-updater</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

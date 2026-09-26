@@ -27,6 +27,7 @@ import com.potatotv.paccclient.store.MachineFingerprint;
 import com.potatotv.paccclient.store.OfflineQueue;
 import com.potatotv.paccclient.store.RedScreenStatePersistence;
 import com.potatotv.paccclient.ops.OpsClient;
+import com.potatotv.paccclient.ops.UpdateService;
 import com.potatotv.paccclient.signature.SignatureSync;
 import com.potatotv.pbp.gen.PaccEnvelope;
 import com.potatotv.paccclient.transport.PaccWireSigner;
@@ -240,6 +241,19 @@ public final class PaccClient {
         ScheduledExecutorService opsScheduler = Executors.newSingleThreadScheduledExecutor(
                 r -> Thread.ofVirtual().name("ptv-ops").unstarted(r));
 
+        // ---- DF 第四章 PCU：跨平台更新。启动 60 秒后检查一次，之后每 6 小时一次 ----
+        // 这里只做「检查 → 下载（差分优先）→ 校验 → 暂存」：本进程换不掉自己（Windows 上运行中的
+        // JAR 被自己锁住，Linux 上 systemd restart 会连自己一起杀掉），所以暂停服务、备份、
+        // 原子替换、重启、失败回滚留给安装目录外的管理器进程（PaccManager / systemd 单元）执行。
+        // 校验不过绝不暂存，失败只记日志，不打扰检测与上报。
+        UpdateService updateService = new UpdateService(cfg, pteid, APP_VERSION);
+        // 更新自己占一个单线程：一轮更新要发 HTTP、算 SHA-256、还可能解压差分补丁，慢起来是几十秒
+        // 量级。挂在 opsScheduler 上会和遥测、特征库同步、联邦学习取样抢同一个线程，
+        // 把心跳拖成断流。
+        ScheduledExecutorService updateScheduler = Executors.newSingleThreadScheduledExecutor(
+                r -> Thread.ofVirtual().name("ptv-update").unstarted(r));
+        updateScheduler.scheduleWithFixedDelay(updateService::runOnce, 60, 6 * 3600, TimeUnit.SECONDS);
+
         // 未捕获异常兜底：上报崩溃堆栈后退出
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
             ClientHealthMetrics.SINK.onCrash();
@@ -390,6 +404,7 @@ public final class PaccClient {
             recorder.stop();
             if (control != null) control.close();
             opsScheduler.shutdownNow();
+            updateScheduler.shutdownNow();
             apmCollector.stop();
             reporter.close();
             System.out.println("[PTV-Client] 玩家端已退出");

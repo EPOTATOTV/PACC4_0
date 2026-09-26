@@ -117,6 +117,16 @@ jobs:
       - name: 构建并安装协议运行时 pacc-binary-protocol
         working-directory: pacc-binary-protocol/runtime-java
         run: mvn -B -q install
+      # 更新核心（PCU）同样只在本仓库里，且 ptv-client 要依赖它，必须先装进本地仓库。
+      # 不加 -DskipTests：差分（bzip2 / bsdiff）的正确性靠这一层的测试挡，编译通过不代表补丁能用。
+      - name: 构建并安装更新核心 pacc-cross-platform-updater
+        working-directory: pacc-cross-platform-updater
+        run: mvn -B -q install
+      # 差分金标向量是入库的生成物，和 PBP 的生成物一个道理：改了生成端逻辑没重新生成、
+      # 或者手改了 vectors/ 下的字节，都会在这一步挂掉。
+      - name: 校验 PCU 差分金标向量与生成器一致
+        working-directory: pacc-cross-platform-updater/tools/pcu-patchgen
+        run: python -m pcu_patchgen --check
       # 生成物是入库的，靠这一步挡漂移：改了 .mdl 没重新生成、或手改了生成物，都会在这里挂掉
       - name: 校验 PBP 生成物与 MDL 定义一致
         working-directory: tools/pbpgen
@@ -183,6 +193,7 @@ jobs:
           path: |
             ptv-backend/target/surefire-reports/
             pacc-binary-protocol/runtime-java/target/surefire-reports/
+            pacc-cross-platform-updater/target/surefire-reports/
             ptv-backend/target/site/jacoco/
           if-no-files-found: ignore
       # PR 页面覆盖率：需在仓库 Secrets 里配 CODECOV_TOKEN（私有仓库必需）。

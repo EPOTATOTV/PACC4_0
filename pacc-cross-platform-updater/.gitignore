@@ -1,0 +1,6 @@
+# 本模块同时作为独立仓库（PACC_PCU）发布，脱离主仓库根 .gitignore 后必须自带忽略规则，
+# 否则独立仓库里 build 一次就会多出一堆待提交的产物。
+target/
+# Python 差分生成器（tools/pcu-patchgen）的字节码缓存
+__pycache__/
+*.pyc

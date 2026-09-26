@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -23,15 +24,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ReleaseService {
 
-    private static final List<String> PLATFORMS = List.of("windows", "android", "ios", "macos", "linux");
-    private static final List<String> CHANNELS = List.of("stable", "beta", "canary");
+    static final List<String> PLATFORMS =
+            List.of("windows", "android", "ios", "harmony", "linux", "macos");
+    /** 通道：stable/beta/alpha/dev 为设计文档 §4.8 定义；canary 为历史通道，保留以免既有数据失配。 */
+    static final List<String> CHANNELS = List.of("stable", "beta", "alpha", "dev", "canary");
 
     private final ReleaseRepository releaseRepository;
 
     /** 新建草稿。 */
     @Transactional
     public ReleaseInfo create(String platform, String channel, String version, int buildNo,
-                              String notes, String downloadUrl, String sha256, String operator) {
+                              String notes, String downloadUrl, String sha256, String operator,
+                              Map<String, Object> extra) {
         String pf = norm(platform, PLATFORMS, "windows");
         String ch = norm(channel, CHANNELS, "stable");
         ReleaseInfo r = ReleaseInfo.builder()
@@ -47,6 +51,7 @@ public class ReleaseService {
                 .createdBy(operator)
                 .createdAt(Instant.now())
                 .build();
+        applyPackageFields(r, extra);
         releaseRepository.save(r);
         log.info("新建发布草稿 {}/{} {} (build {}) by={}", pf, ch, r.getVersion(), buildNo, operator);
         return r;
@@ -67,8 +72,20 @@ public class ReleaseService {
             try { r.setCrashRatePct(new BigDecimal(String.valueOf(body.get("crash_rate_pct")))); }
             catch (Exception ignored) { /* 非法数值忽略 */ }
         }
+        applyPackageFields(r, body);
         releaseRepository.save(r);
         return r;
+    }
+
+    /** 全量包体积/签名与差分包元数据：create 与 update 共用，缺键不改写。 */
+    private void applyPackageFields(ReleaseInfo r, Map<String, Object> body) {
+        if (body == null) return;
+        if (body.containsKey("file_size")) r.setFileSize(lng(body.get("file_size")));
+        if (body.containsKey("signature")) r.setSignature(str(body.get("signature")));
+        if (body.containsKey("delta_from_version")) r.setDeltaFromVersion(str(body.get("delta_from_version")));
+        if (body.containsKey("delta_url")) r.setDeltaUrl(str(body.get("delta_url")));
+        if (body.containsKey("delta_sha256")) r.setDeltaSha256(str(body.get("delta_sha256")));
+        if (body.containsKey("delta_size")) r.setDeltaSize(lng(body.get("delta_size")));
     }
 
     /** 发布：状态置 PUBLISHED，记录发布时间。 */
@@ -118,6 +135,56 @@ public class ReleaseService {
         return out;
     }
 
+    /**
+     * 取给定 platform×channel 下 status=PUBLISHED 的最高语义化版本。
+     * 版本号可能带 v 前缀或 - 预发布后缀，一律按 major.minor.patch 数值比较，不用字符串排序
+     * （否则 5.10.0 会被排到 5.9.9 之前）。
+     */
+    public Optional<ReleaseInfo> latestPublished(String platform, String channel) {
+        String pf = norm(platform, PLATFORMS, "windows");
+        String ch = norm(channel, CHANNELS, "stable");
+        ReleaseInfo best = null;
+        for (ReleaseInfo r : releaseRepository.findByPlatformAndChannelAndStatus(pf, ch, "PUBLISHED")) {
+            if (best == null || compareVersions(r.getVersion(), best.getVersion()) > 0) {
+                best = r;
+            }
+        }
+        return Optional.ofNullable(best);
+    }
+
+    /** 语义化版本比较：>=0 表示 a 不低于 b。非法/缺段按 0 处理。 */
+    static int compareVersions(String a, String b) {
+        int[] pa = parseVersion(a);
+        int[] pb = parseVersion(b);
+        for (int i = 0; i < 3; i++) {
+            int c = Integer.compare(pa[i], pb[i]);
+            if (c != 0) return c;
+        }
+        return 0;
+    }
+
+    private static int[] parseVersion(String v) {
+        int[] out = {0, 0, 0};
+        if (v == null || v.isBlank()) return out;
+        String s = v.trim();
+        if (s.charAt(0) == 'v' || s.charAt(0) == 'V') s = s.substring(1);
+        int cut = s.indexOf('-');
+        if (cut >= 0) s = s.substring(0, cut);
+        int plus = s.indexOf('+');
+        if (plus >= 0) s = s.substring(0, plus);
+        String[] parts = s.split("\\.");
+        for (int i = 0; i < 3 && i < parts.length; i++) out[i] = leadingInt(parts[i]);
+        return out;
+    }
+
+    private static int leadingInt(String part) {
+        int end = 0;
+        while (end < part.length() && Character.isDigit(part.charAt(end))) end++;
+        if (end == 0) return 0;
+        try { return Integer.parseInt(part.substring(0, end)); }
+        catch (NumberFormatException e) { return Integer.MAX_VALUE; }
+    }
+
     private Map<String, Object> toView(ReleaseInfo r) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", r.getId());
@@ -129,6 +196,12 @@ public class ReleaseService {
         m.put("download_url", r.getDownloadUrl());
         m.put("sha256", r.getSha256());
         m.put("min_app_version", r.getMinAppVersion());
+        m.put("file_size", r.getFileSize());
+        m.put("signature", r.getSignature());
+        m.put("delta_from_version", r.getDeltaFromVersion());
+        m.put("delta_url", r.getDeltaUrl());
+        m.put("delta_sha256", r.getDeltaSha256());
+        m.put("delta_size", r.getDeltaSize());
         m.put("manual_enabled", r.isManualEnabled());
         m.put("forced_enabled", r.isForcedEnabled());
         m.put("crash_rate_pct", r.getCrashRatePct());
@@ -145,6 +218,12 @@ public class ReleaseService {
     }
 
     private String str(Object o) { return o == null ? null : String.valueOf(o); }
+
+    private long lng(Object o) {
+        if (o instanceof Number n) return n.longValue();
+        try { return o == null ? 0L : Long.parseLong(String.valueOf(o).trim()); }
+        catch (NumberFormatException e) { return 0L; }
+    }
 
     private boolean bool(Object o) { return o instanceof Boolean b && b; }
 }

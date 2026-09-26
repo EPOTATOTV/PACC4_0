@@ -1,4 +1,4 @@
-﻿# PACC v5.0 Windows 客户端一键打包脚本
+# PACC v5.0 Windows 客户端一键打包脚本
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/build-client.ps1
 # 职责：构建 WPF 单文件 EXE -> 构建 Java 探针 jar -> 写入客户端配置（自动读取根目录 .env 的 WSS 密钥）
@@ -78,6 +78,15 @@ if (Test-Path (Join-Path $exeOut 'Mapping.txt')) { throw "Mapping.txt 混入了�
 
 # ---------- 2. 构建 Java 探针 jar ----------
 Write-Host "`n[2/4] 构建 Java 探针 jar ..." -ForegroundColor Green
+# 探针依赖仓库内的协议运行时（PBP）与更新核心（PCU），两者都没发到中央仓库。
+# 不先 install 进本地仓库，mvn package 会以「无法解析 com.potatotv:pacc-binary-protocol /
+# com.potatotv.pacc:pacc-cross-platform-updater」失败，而不是给出可读的原因。
+foreach ($m in @('pacc-binary-protocol/runtime-java', 'pacc-cross-platform-updater')) {
+  $mDir = Join-Path $root $m
+  if (-not (Test-Path $mDir)) { throw "缺少模块目录 $m，无法构建探针 jar" }
+  & mvn -B -q -f (Join-Path $mDir 'pom.xml') -DskipTests install
+  if ($LASTEXITCODE -ne 0) { throw "mvn install 失败（$m）" }
+}
 $mvnOut = & mvn -B -f "$root/ptv-client/pom.xml" clean package -DskipTests 2>&1
 $mvnCode = $LASTEXITCODE
 $mvnOut | Tee-Object -FilePath "$root/build-mvn.log" | Out-Null

@@ -103,7 +103,7 @@ ok "全仓库版本号已对齐到 ${VERSION}"
 
 # ---------------------------------------------------------------- 2. Maven 模块
 if want java; then
-  step 2/9 "构建 Java 模块（协议运行时 / 后端 / 玩家端 / Java 探针）"
+  step 2/9 "构建 Java 模块（协议运行时 / 更新核心 / 后端 / 玩家端 / Java 探针）"
   if have mvn; then
     # 仓库没有 root 聚合 pom，每个模块独立 mvn。协议运行时 pacc-binary-protocol 只在本仓库里，
     # 没有发布到中央仓库，所以必须先 install 进本地仓库，否则后面三个模块会以
@@ -115,6 +115,14 @@ if want java; then
       ok "pacc-binary-protocol（已装入本地仓库）"
     else
       skip "pacc-binary-protocol" "目录不存在（模块尚未入库），按本地仓库现有版本解析"
+    fi
+
+    # 更新核心同理：它也只在本仓库里，而 ptv-client 要依赖它
+    if [ -d pacc-cross-platform-updater ]; then
+      ( cd pacc-cross-platform-updater && mvn $MVN_FLAGS -q install )
+      ok "pacc-cross-platform-updater（已装入本地仓库）"
+    else
+      skip "pacc-cross-platform-updater" "目录不存在（模块尚未入库）"
     fi
 
     ( cd ptv-backend && mvn $MVN_FLAGS -q clean package )

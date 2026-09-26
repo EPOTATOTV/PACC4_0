@@ -41,6 +41,20 @@ public final class ClientConfig {
      * 客户端贸然改走 v2 会导致查端信令全部验签失败。等两端一起升级后再打开。</p>
      */
     public final boolean wssSessionKeyEnabled;
+    /** 是否启用跨平台更新（PCU）：默认开启，可在设置里关闭（设计文档 §4.10）。 */
+    public final boolean updateEnabled;
+    /** 更新服务基址（检查更新与下载统一走它，设计文档 §4.2.1）。 */
+    public final String updateBaseUri;
+    /** 更新通道：stable / beta / alpha / dev（设计文档 §4.8），无法识别回落到 stable。 */
+    public final String updateChannel;
+    /** 更新包 RSA-2048 公钥（Base64 X.509）；为空表示不做签名校验，仅校验 SHA-256。 */
+    public final String updatePublicKey;
+    /**
+     * 制品下载主机白名单（逗号分隔，可选）。留空表示用 PCU 内置的
+     * {@code pacc.potatotv.asia}、{@code dl.potatotv.asia} 加上 base.uri 的主机；制品放在
+     * 这些域之外时必须在这里补上，否则端侧会拒绝清单里给的下载地址（设计文档 §4.2.1）。
+     */
+    public final String updateDownloadHosts;
 
     /** 敏感值解密口令：仅用设备指纹（不绑 pteid，保持 wss/sig/token 设备全局可解）。 */
     private final String secretPassword = MachineFingerprint.hash();
@@ -69,6 +83,14 @@ public final class ClientConfig {
                 "PACC_CLIENT_SIG_SECRET");
         this.wssSessionKeyEnabled = getBool(p, "pacc.client.wss.session-key.enabled",
                 "PACC_CLIENT_WSS_SESSION_KEY_ENABLED", false);
+        this.updateEnabled = getBool(p, "pacc.client.update.enabled", "PACC_CLIENT_UPDATE_ENABLED", true);
+        this.updateBaseUri = get(p, "pacc.client.update.base.uri", "PACC_CLIENT_UPDATE_BASE_URI",
+                "https://api.potatotv.asia");
+        this.updateChannel = get(p, "pacc.client.update.channel", "PACC_CLIENT_UPDATE_CHANNEL", "stable");
+        // 公钥不是密钥（可公开），但缺失时只能退化为「仅 SHA-256 校验」，所以留空是显式选择而非默认值
+        this.updatePublicKey = get(p, "pacc.client.update.public.key", "PACC_CLIENT_UPDATE_PUBLIC_KEY", "");
+        this.updateDownloadHosts = get(p, "pacc.client.update.download.hosts",
+                "PACC_CLIENT_UPDATE_DOWNLOAD_HOSTS", "");
     }
 
     /** 环境变量优先，其次配置文件，最后内置默认值。 */
