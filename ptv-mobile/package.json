@@ -20,7 +20,7 @@
     "@capacitor/push-notifications": "^7"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7",
+    "@capacitor/cli": "^8",
     "typescript": "^5.4.5"
   }
 }
