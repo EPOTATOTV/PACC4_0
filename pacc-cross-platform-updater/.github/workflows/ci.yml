@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: 构建与测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # pom 里的 maven-enforcer 在 validate 阶段拦非 test 作用域的依赖，
+      # 所以这一步同时充当零依赖门禁，不需要单独再查一遍 pom。
+      - name: 编译并跑单测
+        run: mvn -B -ntp verify
+
+  vectors:
+    name: 校验差分金标向量
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 向量是入库的生成物：改了生成端逻辑没重新生成、或手改了 vectors/ 下的字节，
+      # 都会在这里挂掉。生成器只用标准库（bz2 / hashlib），不用装依赖。
+      - name: 校验向量与生成器一致
+        working-directory: tools/pcu-patchgen
+        run: python -m pcu_patchgen --check

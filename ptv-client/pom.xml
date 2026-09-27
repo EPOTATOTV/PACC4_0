@@ -6,7 +6,7 @@
 
     <groupId>com.potatotv.pacc</groupId>
     <artifactId>ptv-client</artifactId>
-    <version>5.0.0</version>
+    <version>5.4.0</version>
     <name>PACC 玩家端用户态服务</name>
     <description>PACC v5.0 玩家端检测层：本地检测引擎、WSS 上报、红屏接收。</description>
 
@@ -14,20 +14,44 @@
         <java.version>21</java.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+        <!-- 发行产物加固：默认开启。本地需要可读产物调试时用 -Dpacc.proguard.skip=true 跳过。 -->
+        <pacc.proguard.skip>false</pacc.proguard.skip>
+        <proguard.version>7.10.0</proguard.version>
+        <!-- 必须与 proguard-base 的传递依赖一致：7.6.1 -> proguard-core 9.1.7 -->
+        <proguard.core.version>9.4.0</proguard.core.version>
+        <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
+        <pacc.pbp.version>1.0.0</pacc.pbp.version>
+        <!-- PRL 自研规则语言运行时，版本同样独立于 PACC；bump-version.sh 只做一致性断言，不改它 -->
+        <pacc.prl.version>1.0.0</pacc.prl.version>
     </properties>
 
-    <!-- 玩家端运行时依赖：仅引入 protobuf（WSS 查端信令信封，见 proto/pacc_wire.proto），
-         不引入任何我世界服务器相关依赖；检测/传输核心仍用 JDK（java.net.http + TLS 1.3）。 -->
+    <!-- 玩家端运行时依赖：只有自研二进制协议（WSS 查端信令信封，定义见 pacc-binary-protocol/mdl/pacc_wire.mdl），
+         它本身零第三方依赖。不引入任何游戏服务器相关依赖；检测/传输核心仍用 JDK（java.net.http + TLS 1.3）。 -->
     <dependencies>
         <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>3.23.2</version>
+            <groupId>com.potatotv</groupId>
+            <artifactId>pacc-binary-protocol</artifactId>
+            <version>${pacc.pbp.version}</version>
+        </dependency>
+        <!-- 自研规则语言（PRL）：24 条端侧检测规则改为 rules/*.prl，在自研 VM 上解释执行。
+             与 PBP 一样零第三方依赖、且只用到 java.base，所以不会给混淆配置带来新的 libraryjars。 -->
+        <dependency>
+            <groupId>com.potatotv</groupId>
+            <artifactId>pacc-rule-language</artifactId>
+            <version>${pacc.prl.version}</version>
+        </dependency>
+        <!-- 自研跨平台更新核心（PCU）。它与 PACC 同版本、不做独立协议版本，所以这里直接跟随
+             ${project.version}：bump-version.sh 改一次版本号，两边同时对齐，不需要再多一个版本字段。
+             它同样零第三方依赖，会被 ProGuard 一并并入发行件（-repackageclasses 后包路径被抹平）。 -->
+        <dependency>
+            <groupId>com.potatotv</groupId>
+            <artifactId>pacc-cross-platform-updater</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.10.2</version>
+            <version>5.14.4</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -37,18 +61,24 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>3.16.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>3.6.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>3.5.1</version>
                 <configuration>
+                    <!-- 强制每次 package 都从 classes 重建 jar：
+                         ProGuard 是「原地」混淆（injar == outjar），若 jar 插件因时间戳判定跳过重建，
+                         下一轮 package 就会把上一轮已混淆的 jar 再喂给 ProGuard，造成二次混淆
+                         （映射表出现 a -> a、混淆计数异常偏低）。开发机上跑不带 clean 的
+                         mvn package 时尤其容易踩到。 -->
+                    <forceCreation>true</forceCreation>
                     <archive>
                         <manifest>
                             <mainClass>com.potatotv.paccclient.PaccClient</mainClass>
@@ -56,6 +86,151 @@
                     </archive>
                 </configuration>
             </plugin>
+            <!-- 发行产物加固（P0）：打包后立即对自有字节码做混淆 / 收缩 / 优化。
+                 必须声明在 maven-jar-plugin 之后，保证以已生成的 jar 作为输入。 -->
+            <plugin>
+                <groupId>com.github.wvengen</groupId>
+                <artifactId>proguard-maven-plugin</artifactId>
+                <version>2.7.0</version>
+                <executions>
+                    <execution>
+                        <id>obfuscate-release-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>proguard</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <skip>${pacc.proguard.skip}</skip>
+                    <proguardVersion>${proguard.version}</proguardVersion>
+                    <obfuscate>true</obfuscate>
+                    <injar>${project.build.finalName}.jar</injar>
+                    <outjar>${project.build.finalName}.jar</outjar>
+                    <!-- 依赖必须一并并入产物：发布件是单 jar（installer.iss 只装一个文件），
+                         而依赖默认只当 -libraryjars 参与混淆、不进 jar。此前 protobuf 依赖就是这样
+                         漏掉的——PaccWire 进了产物、它依赖的 GeneratedMessageV3 没进，
+                         二进制信封路径运行时直接 NoClassDefFoundError。
+                         注意两个参数不是一回事：includeDependency 只是把依赖登记成 -libraryjars
+                         （供混淆期解析引用），依赖本身仍不进 jar；真正把依赖写进产物的是
+                         includeDependencyInjar。只写前者会让 CI 的 jdeps 门禁报一堆 not found——
+                         PCU/PBP 的类被引用却不在产物里。两个都要开。
+                         依赖只剩零依赖、无反射的 PBP 运行时与 PCU 更新核心，并进来后随
+                         -repackageclasses 一起被拍平混淆（两者均无 Class.forName/ServiceLoader）。 -->
+                    <includeDependency>true</includeDependency>
+                    <includeDependencyInjar>true</includeDependencyInjar>
+                    <!-- 输入 jar 缺失说明生命周期顺序异常，直接失败而不是静默产出未加固产物 -->
+                    <injarNotExistsSkip>false</injarNotExistsSkip>
+                    <options>
+                        <option>-include</option>
+                        <option>${project.basedir}/proguard-rules.pro</option>
+                    </options>
+                </configuration>
+                <!-- 插件自身固定 proguard-base 7.2.2 / proguard-core 9.0.1（不支持 Java 21 字节码），
+                     此处显式升级为一对匹配版本；两者必须同时覆盖，否则 ClassReader 签名不匹配。 -->
+                <dependencies>
+                    <dependency>
+                        <groupId>com.guardsquare</groupId>
+                        <artifactId>proguard-base</artifactId>
+                        <version>${proguard.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.guardsquare</groupId>
+                        <artifactId>proguard-core</artifactId>
+                        <version>${proguard.core.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
         </plugins>
     </build>
+
+    <!-- ======================================================================
+         opt-in：构建期字符串加密（设计文档 3.2.3）
+         默认关闭！原因：它需要 platform/string-protect 先 install 到本地仓库
+         （mvn -f platform/string-protect/pom.xml install），CI 只单独构建 ptv-client、
+         并不预先安装该模块。放在默认链上会让 CI 因解析不到依赖而变红；
+         且生成的 PaccSecretStrings 目前没有源码调用点（消费方改造是后续源码变更），
+         默认链上多出一个死类没有收益。故以属性开关显式启用，零风险。
+
+         启用方式：
+           1) mvn -B -f platform/string-protect/pom.xml install
+           2) cd ptv-client && mvn -B -Dpacc.stringprotect.enabled=true package
+         步骤 2 会生成 com.potatotv.paccclient.protect.PaccSecretStrings（密文端点/密钥键），
+         它由 proguard-rules.pro 末尾的 -keep 规则保住、不被收缩删除。
+         ====================================================================== -->
+    <profiles>
+        <profile>
+            <id>string-protect</id>
+            <activation>
+                <property>
+                    <name>pacc.stringprotect.enabled</name>
+                    <value>true</value>
+                </property>
+            </activation>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.potatotv.pacc</groupId>
+                    <artifactId>string-protect</artifactId>
+                    <version>5.4.0</version>
+                </dependency>
+            </dependencies>
+
+            <build>
+                <plugins>
+                    <!-- 声明顺序即同阶段执行顺序：先把生成源码目录挂进编译源根，再跑生成器，
+                         之后的 compile 阶段才能看到 PaccSecretStrings.java。 -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.6.2</version>
+                        <executions>
+                            <execution>
+                                <id>add-generated-protect-sources</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>${project.build.directory}/generated-sources/pacc-protect</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.6.4</version>
+                        <executions>
+                            <execution>
+                                <id>generate-secret-strings</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <configuration>
+                                    <mainClass>com.potatotv.pacc.protect.StringProtectorGenerator</mainClass>
+                                    <arguments>
+                                        <!-- 参数：<outFile> <package> <class> <key> <literal>... -->
+                                        <argument>${project.build.directory}/generated-sources/pacc-protect/com/potatotv/paccclient/protect/PaccSecretStrings.java</argument>
+                                        <argument>com.potatotv.paccclient.protect</argument>
+                                        <argument>PaccSecretStrings</argument>
+                                        <argument>0x5AC3</argument>
+                                        <!-- 敏感字面量：WSS / API 端点 + 命名密钥键（与 build-client.ps1 写入的键一致） -->
+                                        <argument>wss://pacc.potatotv.asia/ws/ptv</argument>
+                                        <argument>https://api.potatotv.asia</argument>
+                                        <argument>pacc.client.wss.sign.secret</argument>
+                                        <argument>pacc.client.signature.secret</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

@@ -14,7 +14,15 @@ public interface AppealRepository extends JpaRepository<Appeal, String> {
 
     List<Appeal> findByStatusOrderByCreatedAtAsc(String status);
 
+    /**
+     * v5.2 §7.4 自动复核扫描：指定状态且复核结论为给定值（如 {@code pending} + {@code PENDING}）。
+     */
+    List<Appeal> findByStatusAndAutoReviewOrderByCreatedAtAsc(String status, String autoReview);
+
     long countByStatus(String status);
+
+    /** v5.4 §4.3.3 自动化触发：按 AI 复核结论统计申诉数（MISREPORT 占比即误报成功率）。 */
+    long countByAutoReview(String autoReview);
 
     /** 按阶段+状态分组统计申诉数，供 BI 申诉分析报表使用。 */
     @Query("select a.reviewStage, a.status, count(a) from Appeal a " +

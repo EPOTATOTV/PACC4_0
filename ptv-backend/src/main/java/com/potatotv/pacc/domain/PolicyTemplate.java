@@ -36,8 +36,8 @@ public class PolicyTemplate {
     @Column(length = 512)
     private String description;
 
-    /** 处置项 JSON 数组。 */
-    @Column(nullable = false)
+    /** 处置项 JSON 数组。显式 4000：默认 255 装不下 JSON。 */
+    @Column(nullable = false, length = 4000)
     private String actionsJson;
 
     private String createdBy;

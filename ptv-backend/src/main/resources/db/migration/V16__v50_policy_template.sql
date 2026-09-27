@@ -6,7 +6,7 @@ CREATE TABLE t_policy_template (
     name          VARCHAR(128) NOT NULL,
     scene         VARCHAR(32)  NOT NULL COMMENT 'PVP / PVE / CREATIVE / MINI_GAME / LIVE',
     description   VARCHAR(512),
-    actions_json  TEXT         NOT NULL COMMENT '处置项 JSON 数组：[{scopeType,scopeValue,action,severity,note}]',
+    actions_json  VARCHAR(4000) NOT NULL COMMENT '处置项 JSON 数组：[{scopeType,scopeValue,action,severity,note}]',
     created_by    VARCHAR(64),
     created_at    DATETIME(6)  NOT NULL,
     PRIMARY KEY (template_id)

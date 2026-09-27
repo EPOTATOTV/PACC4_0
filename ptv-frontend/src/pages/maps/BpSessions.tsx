@@ -98,7 +98,7 @@ export default function BpSessions() {
   return (
     <div>
       <Title level={3} style={{ marginTop: 0 }}>BP 会话</Title>
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Select

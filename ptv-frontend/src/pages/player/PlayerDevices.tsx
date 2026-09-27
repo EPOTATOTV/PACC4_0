@@ -25,7 +25,7 @@ export default function PlayerDevices() {
   return (
     <div>
       <Title level={3} style={{ marginTop: 0 }}>我的设备</Title>
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       <Card title="登录设备" style={{ marginBottom: 16 }} styles={{ body: { padding: 0 } }}>
         <List

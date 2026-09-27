@@ -84,6 +84,9 @@ fn run_pipeline(cfg: &Config) -> io::Result<()> {
                     Err(e) => eprintln!("[pacc-pipe] 连接错误: {e}"),
                 }
             }
+            // incoming() 是无限迭代器，正常流程到不了这里；
+            // 但这个分支必须与 None 分支同为 io::Result<()>，否则 match 两侧类型不一致。
+            Ok(())
         }
         None => {
             let stdin = io::stdin();

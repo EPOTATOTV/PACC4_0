@@ -76,8 +76,8 @@ fn expand_key(key: &[u8; 32]) -> [[u8; 16]; 15] {
     for i in 8..60 {
         let mut temp = w[i - 1];
         if i % 8 == 0 {
-            // SubWord(RotWord(temp)) ^ Rcon
-            let r = temp.rotate_right(8);
+            // SubWord(RotWord(temp)) ^ Rcon：RotWord 是整字节左旋，大端字上即 rotate_left(8)
+            let r = temp.rotate_left(8);
             let b = r.to_be_bytes();
             let sub = [
                 sbox[b[0] as usize],
@@ -154,11 +154,11 @@ fn mix_columns(state: &mut [u8; 16]) {
 /// AES-256 单块加密。
 fn encrypt_block(rk: &[[u8; 16]; 15], block: &mut [u8; 16]) {
     add_round_key(block, &rk[0]);
-    for round in 1..14 {
+    for round_key in rk.iter().take(14).skip(1) {
         sub_bytes(block);
         shift_rows(block);
         mix_columns(block);
-        add_round_key(block, &rk[round]);
+        add_round_key(block, round_key);
     }
     sub_bytes(block);
     shift_rows(block);
@@ -170,30 +170,16 @@ fn encrypt_block(rk: &[[u8; 16]; 15], block: &mut [u8; 16]) {
 fn pkcs7_pad(data: &[u8]) -> Vec<u8> {
     let pad = 16 - (data.len() % 16);
     let mut out = data.to_vec();
-    out.extend(std::iter::repeat(pad as u8).take(pad));
+    out.extend(std::iter::repeat_n(pad as u8, pad));
     out
-}
-
-fn pkcs7_unpad(data: &[u8]) -> Option<Vec<u8>> {
-    if data.is_empty() || data.len() % 16 != 0 {
-        return None;
-    }
-    let pad = *data.last()? as usize;
-    if pad == 0 || pad > 16 {
-        return None;
-    }
-    if data[data.len() - pad..].iter().any(|&b| b as usize != pad) {
-        return None;
-    }
-    Some(data[..data.len() - pad].to_vec())
 }
 
 fn cbc_encrypt(rk: &[[u8; 16]; 15], iv: &[u8; 16], data: &[u8]) -> Vec<u8> {
     let padded = pkcs7_pad(data);
     let mut out = Vec::with_capacity(padded.len());
     let mut prev = *iv;
-    for chunk in padded.chunks_exact(16) {
-        let mut block: [u8; 16] = chunk.try_into().unwrap();
+    for chunk in padded.as_chunks::<16>().0 {
+        let mut block = *chunk;
         for i in 0..16 {
             block[i] ^= prev[i];
         }
@@ -204,81 +190,7 @@ fn cbc_encrypt(rk: &[[u8; 16]; 15], iv: &[u8; 16], data: &[u8]) -> Vec<u8> {
     out
 }
 
-fn cbc_decrypt(rk: &[[u8; 16]; 15], iv: &[u8; 16], data: &[u8]) -> Option<Vec<u8>> {
-    if data.is_empty() || data.len() % 16 != 0 {
-        return None;
-    }
-    // 解密所需的逆 S-box 与逆列混合
-    let sbox = sbox_table();
-    let mut inv_sbox = [0u8; 256];
-    for (i, &b) in sbox.iter().enumerate() {
-        inv_sbox[b as usize] = i as u8;
-    }
-
-    let mut out = Vec::with_capacity(data.len());
-    let mut prev = *iv;
-    for chunk in data.chunks_exact(16) {
-        let mut block: [u8; 16] = chunk.try_into().unwrap();
-        decrypt_block_inner(rk, &mut block, &inv_sbox);
-        for i in 0..16 {
-            block[i] ^= prev[i];
-        }
-        prev = chunk.try_into().unwrap();
-        out.extend_from_slice(&block);
-    }
-    pkcs7_unpad(&out)
-}
-
-fn decrypt_block_inner(rk: &[[u8; 16]; 15], block: &mut [u8; 16], inv_sbox: &[u8; 256]) {
-    add_round_key(block, &rk[14]);
-    for round in (1..14).rev() {
-        inv_shift_rows(block);
-        inv_sub_bytes(block, inv_sbox);
-        add_round_key(block, &rk[round]);
-        inv_mix_columns(block);
-    }
-    inv_shift_rows(block);
-    inv_sub_bytes(block, inv_sbox);
-    add_round_key(block, &rk[0]);
-}
-
-fn inv_sub_bytes(state: &mut [u8; 16], inv_sbox: &[u8; 256]) {
-    for b in state.iter_mut() {
-        *b = inv_sbox[*b as usize];
-    }
-}
-
-fn inv_shift_rows(state: &mut [u8; 16]) {
-    for row in 1..4 {
-        for _ in 0..row {
-            let t0 = state[row];
-            let t1 = state[4 + row];
-            let t2 = state[8 + row];
-            let t3 = state[12 + row];
-            state[row] = t3;
-            state[4 + row] = t0;
-            state[8 + row] = t1;
-            state[12 + row] = t2;
-        }
-    }
-}
-
-fn inv_mix_columns(state: &mut [u8; 16]) {
-    for col in 0..4 {
-        let (a, b, c, d) = (
-            state[col * 4],
-            state[col * 4 + 1],
-            state[col * 4 + 2],
-            state[col * 4 + 3],
-        );
-        state[col * 4] = gf_mul(a, 14) ^ gf_mul(b, 11) ^ gf_mul(c, 13) ^ gf_mul(d, 9);
-        state[col * 4 + 1] = gf_mul(a, 9) ^ gf_mul(b, 14) ^ gf_mul(c, 11) ^ gf_mul(d, 13);
-        state[col * 4 + 2] = gf_mul(a, 13) ^ gf_mul(b, 9) ^ gf_mul(c, 14) ^ gf_mul(d, 11);
-        state[col * 4 + 3] = gf_mul(a, 11) ^ gf_mul(b, 13) ^ gf_mul(c, 9) ^ gf_mul(d, 14);
-    }
-}
-
-// ---------- 高级接口（Seal / Open） ----------
+// ---------- 高级接口（Seal） ----------
 
 /// 加密并认证：输出 `iv(16) || ciphertext`，另附 HMAC-SHA256(enc_key, iv||ct)。
 /// 返回 (sealed, mac)。sealed 已含 IV 前缀。
@@ -302,29 +214,6 @@ pub fn seal(key: &[u8; 32], plaintext: &[u8]) -> (Vec<u8>, [u8; 32]) {
     sealed.extend_from_slice(&ct);
     let mac = hmac_sha256(key, &sealed);
     (sealed, mac)
-}
-
-/// 校验 MAC 并解密。失败（篡改/错误密钥）返回 None。
-pub fn open(key: &[u8; 32], sealed: &[u8], mac: &[u8; 32]) -> Option<Vec<u8>> {
-    let expected = hmac_sha256(key, sealed);
-    if !constant_time_eq(&expected, mac) || sealed.len() < 16 {
-        return None;
-    }
-    let mut iv = [0u8; 16];
-    iv.copy_from_slice(&sealed[..16]);
-    let rk = expand_key(key);
-    cbc_decrypt(&rk, &iv, &sealed[16..])
-}
-
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut diff = 0u8;
-    for (x, y) in a.iter().zip(b.iter()) {
-        diff |= x ^ y;
-    }
-    diff == 0
 }
 
 /// 从 hex 解析 32 字节密钥。
@@ -359,29 +248,20 @@ mod tests {
         let mut block = [0u8; 16];
         let rk = expand_key(&key);
         encrypt_block(&rk, &mut block);
-        assert_eq!(
-            hex(&block),
-            "dc95c078a2408989ad48a21492842087"
-        );
+        assert_eq!(hex(&block), "dc95c078a2408989ad48a21492842087");
     }
 
     #[test]
-    fn seal_open_roundtrip() {
-        let key = derive_key(b"test-seed");
-        let msg = b"pacc detection event payload";
-        let (sealed, mac) = seal(&key, msg);
-        let opened = open(&key, &sealed, &mac).unwrap();
-        assert_eq!(opened, msg);
-
-        // 篡改检测
-        let mut tampered = sealed.clone();
-        let last = tampered.len() - 1;
-        tampered[last] ^= 0x01;
-        assert!(open(&key, &tampered, &mac).is_none());
-
-        // 错误密钥
-        let bad = derive_key(b"wrong-seed");
-        assert!(open(&bad, &sealed, &mac).is_none());
+    fn cbc_known_answer() {
+        // 向量由 Node 内置 crypto 的 aes-256-cbc 对拍得到（key/iv 全 0）。
+        // 明文 28 字节，PKCS#7 补齐到 32 字节，因此密文两段。
+        let rk = expand_key(&[0u8; 32]);
+        let ct = cbc_encrypt(&rk, &[0u8; 16], b"pacc detection event payload");
+        assert_eq!(ct.len(), 32);
+        assert_eq!(
+            hex(&ct),
+            "cc9a09be43c580a26ea570326709487f34f0cd71815a0ba7e099eebe915b40bc"
+        );
     }
 
     #[test]

@@ -42,7 +42,27 @@ const zhCN = {
   'nav.detectorConfig': '检测配置',
   'nav.motionConfig': '动效配置',
   'nav.releases': '版本发布',
+  'nav.prlEditor': 'PRL 规则编辑器',
   'nav.exportCenter': '数据导出',
+  // v5.2 智能检测运营（管理端补齐）
+  'nav.group.v52': '智能检测运营',
+  'nav.v52Model': '模型管理',
+  'nav.v52Profile': '行为画像',
+  'nav.v52Reputation': '信誉管理',
+  'nav.v52Replay': '查端回放',
+  'nav.v52Devices': '硬件指纹',
+  // v5.4 性能与安全加固（管理端补齐）
+  'nav.group.v54': '性能与安全加固',
+  'nav.v54Apm': 'APM 性能监控',
+  'nav.v54Security': '安全审计',
+  'nav.v54Keys': '密钥管理',
+  // DF（Deep Fortress）Alpha 1.0.0
+  'nav.group.df': '深度堡垒 DF',
+  'nav.dfScreen': '数据可视化大屏',
+  'nav.dfAlertNoise': '告警降噪',
+  'nav.dfAutomation': '自动化响应',
+  'nav.dfPlugins': '插件运行时',
+  'nav.dfTenantQuota': '租户配额',
 
   // 玩家门户导航
   'player.overview': '我的概览',

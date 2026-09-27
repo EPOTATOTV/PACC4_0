@@ -128,7 +128,7 @@ export default function Audit() {
       <Title level={3} style={{ marginTop: 0 }}>审计日志</Title>
       <Text type="secondary">集中汇总管理端操作痕迹：管理员操作审计、登录记录、远程查端记录与作弊记录/撤销，供合规追溯与核对。</Text>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginTop: 16 }} closable />}
 
       <Card style={{ marginTop: 20 }} styles={{ body: { paddingTop: 8 } }}>
         <Tabs
@@ -138,7 +138,7 @@ export default function Audit() {
               key: 'operations',
               label: '管理员操作审计',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                <Space orientation="vertical" style={{ width: '100%' }} size={16}>
                   <Space wrap>
                     <Input
                       placeholder="操作人" allowClear value={opFilter.actor} style={{ width: 170 }}

@@ -1,23 +1,26 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
-import { BarChart, LineChart, PieChart } from 'echarts/charts'
+import { BarChart, HeatmapChart, LineChart, PieChart } from 'echarts/charts'
 import {
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  VisualMapComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
 import { gsap, motionAllowed, motionDuration } from '../gsap'
 
-// 按需注册：折线图 / 柱状图 / 饼图 + 必要组件（体积优化）
+// 按需注册：折线图 / 柱状图 / 饼图 / 热力图 + 必要组件（体积优化）
 echarts.use([
   LineChart,
   BarChart,
   PieChart,
+  HeatmapChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  VisualMapComponent,
   CanvasRenderer,
 ])
 
@@ -26,7 +29,7 @@ echarts.use([
  * 使用 echarts/core 按需注册，避免整包引入。
  * 首次拿到有数据的结果集时补一次入场（画布随容器一起抬起），之后的数据刷新不再重播。
  */
-export default function EChart({ option, height = 260 }: { option: EChartsOption; height?: number }) {
+export default function EChart({ option, height = 260 }: { option: EChartsOption; height?: number | string }) {
   const ref = useRef<HTMLDivElement>(null)
   const chartRef = useRef<echarts.ECharts | null>(null)
   const revealed = useRef(false)

@@ -39,7 +39,7 @@ export default function PlayerStreamLive() {
       <Title level={3} style={{ marginTop: 0 }}>{t('player.streamLive.title')}</Title>
       <Text type="secondary" style={{ fontSize: 12 }}>{t('player.streamLive.desc')}</Text>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginTop: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       {!loading && rows.length === 0 && (
         <Card style={{ marginTop: 20 }}>

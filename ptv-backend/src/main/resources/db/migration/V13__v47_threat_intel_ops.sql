@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS t_ioc_indicator (
     state          VARCHAR(16)  NOT NULL DEFAULT 'OPEN',  -- OPEN / DISARMED / EXPIRED
     subscribed     TINYINT(1)   NOT NULL DEFAULT 0,
     alert_threshold INT NOT NULL DEFAULT 3,
-    hit_count      INT  NOT NULL DEFAULT 0,
+    hit_count      BIGINT NOT NULL DEFAULT 0,
     first_seen     DATETIME(6)  NOT NULL,
     last_seen      DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),

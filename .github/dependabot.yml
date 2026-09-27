@@ -1,8 +1,14 @@
 # 依赖自动安全更新
 #  - GitHub Actions 自身
 #  - Maven (ptv-backend / ptv-client)
-#  - npm (ptv-frontend)
+#  - npm (ptv-frontend / ptv-mobile / ptv-desktop)
 #  - Go modules (deploy/gateway-go) / Cargo (deploy/pipe-rust) / pip (deploy/ai)
+#
+# 分组是为了降噪：以前 minor/patch 各开一个 PR，一次能堆三十多个。
+# 现在同类小版本合成一个 PR，各组内不再逐个开。
+# 大版本一律不自动开 PR：react / react-router-dom / antd / vite / Capacitor / Actions
+# 这些 major 升级都带破坏性变更（已在 CI 上红过），必须人工评估 + 适配 + 回归，不能由
+# 机器人推进到 master。major 的发现靠人工定期核查，升级按「适配代码 → 跑全量回归」流程走。
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -11,8 +17,17 @@ updates:
       interval: weekly
       time: "04:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 10
-    labels: [ "dependencies" ]
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: [ "version-update:semver-major" ]
+    labels: [ "dependencies", "ci" ]
+    commit-message:
+      prefix: "chore(actions)"
+    groups:
+      actions-minor-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
 
   - package-ecosystem: npm
     directory: /ptv-frontend
@@ -20,8 +35,53 @@ updates:
       interval: weekly
       time: "04:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 10
-    labels: [ "dependencies" ]
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: [ "version-update:semver-major" ]
+    labels: [ "dependencies", "area:frontend" ]
+    commit-message:
+      prefix: "chore(frontend)"
+    groups:
+      frontend-minor-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
+
+  - package-ecosystem: npm
+    directory: /ptv-mobile
+    schedule:
+      interval: weekly
+      time: "04:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: [ "version-update:semver-major" ]
+    labels: [ "dependencies", "area:client" ]
+    commit-message:
+      prefix: "chore(mobile)"
+    groups:
+      mobile-minor-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
+
+  - package-ecosystem: npm
+    directory: /ptv-desktop
+    schedule:
+      interval: weekly
+      time: "04:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: [ "version-update:semver-major" ]
+    labels: [ "dependencies", "area:client" ]
+    commit-message:
+      prefix: "chore(desktop)"
+    groups:
+      desktop-minor-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
 
   - package-ecosystem: gomod
     directory: /deploy/gateway-go
@@ -29,7 +89,14 @@ updates:
       interval: weekly
       time: "04:00"
       timezone: "Asia/Shanghai"
-    labels: [ "dependencies" ]
+    open-pull-requests-limit: 5
+    labels: [ "dependencies", "area:deploy" ]
+    commit-message:
+      prefix: "chore(gateway)"
+    groups:
+      gateway-minor-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
 
   - package-ecosystem: cargo
     directory: /deploy/pipe-rust
@@ -37,7 +104,14 @@ updates:
       interval: weekly
       time: "04:00"
       timezone: "Asia/Shanghai"
-    labels: [ "dependencies" ]
+    open-pull-requests-limit: 5
+    labels: [ "dependencies", "area:deploy" ]
+    commit-message:
+      prefix: "chore(pipe)"
+    groups:
+      pipe-minor-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
 
   - package-ecosystem: pip
     directory: /deploy/ai
@@ -45,7 +119,14 @@ updates:
       interval: weekly
       time: "04:00"
       timezone: "Asia/Shanghai"
-    labels: [ "dependencies" ]
+    open-pull-requests-limit: 5
+    labels: [ "dependencies", "area:deploy" ]
+    commit-message:
+      prefix: "chore(ai)"
+    groups:
+      ai-minor-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
 
   - package-ecosystem: maven
     directory: /ptv-backend
@@ -53,11 +134,18 @@ updates:
       interval: weekly
       time: "04:00"
       timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
     ignore:
       # Java 语言版本锁定 21，禁止自动升主版本
       - dependency-name: "*"
         update-types: [ "version-update:semver-major" ]
-    labels: [ "dependencies" ]
+    labels: [ "dependencies", "area:backend" ]
+    commit-message:
+      prefix: "chore(backend)"
+    groups:
+      backend-minor-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
 
   - package-ecosystem: maven
     directory: /ptv-client
@@ -65,7 +153,14 @@ updates:
       interval: weekly
       time: "04:00"
       timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
     ignore:
       - dependency-name: "*"
         update-types: [ "version-update:semver-major" ]
-    labels: [ "dependencies" ]
+    labels: [ "dependencies", "area:client" ]
+    commit-message:
+      prefix: "chore(client)"
+    groups:
+      client-minor-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]

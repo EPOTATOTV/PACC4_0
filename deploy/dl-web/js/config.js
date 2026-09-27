@@ -1,35 +1,17 @@
-/* PACC motion config —— 所有动效的统一开关、降级与时长基准。
- * 尊重系统减弱动态；移动端抽稀粒子并放缓滚动锚定。低端环境直接关掉 JS 动效。
+/* PACC 下载站运行时配置
+ *
+ * 版本号唯一来源。scripts/bump-version.sh 会同步这里的 PACC_VERSION，
+ * 页面版本徽标与结构化数据（JSON-LD）都从它取值，
+ * 免得 HTML、i18n 文案、JS 三处版本号各自漂移。
  */
-(function () {
-  var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-  var reduced = !!(mq && mq.matches);
+window.PACC_CONFIG = (function () {
+  var PACC_VERSION = '5.4.0';
 
-  // 低端设备：内存/核心少时放弃 ScrollTrigger 与粒子，只留入场淡入
-  var tiny = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
-
-  function isMobile() {
-    return window.innerWidth < 720 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-  }
-
-  /* 时间基准：标准时长为基准毫秒；减弱动态时额外压到极短，视觉上几乎为零 */
-  function dur(ms) {
-    if (reduced) return Math.min(ms * 0.12, 100);
-    return ms / 1000;
-  }
-
-  gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
-
-  window.PACC_MOTION = {
-    reduced: reduced,
-    tiny: tiny,
-    isMobile: isMobile,
-    dur: dur,
-    eases: {
-      in: 'power3.out',
-      inSoft: 'power2.out',
-      back: 'back.out(1.8)',
-      expo: 'expo.out',
-    },
+  return {
+    PACC_VERSION: PACC_VERSION,
+    // 发布包目录，与 files/version.json 里的 URL 同源
+    filesBase: '/files',
+    // 下载站自身对外品牌版本，页脚等处引用
+    releaseLabel: 'DF Alpha 1.0.0'
   };
 })();

@@ -3,13 +3,15 @@
 // 职责（严格玩家端本地采样，不接触游戏服务器数据）：
 //  1) 共享库注入检测：遍历 /proc/self/maps 识别 Frida / Xposed / Substrate / 魔改 lib 特征模块；
 //  2) root / 越权检测：检查 su / Magisk / supersu 路径与命令；
-//  3) 调试器附着检测：读取 /proc/self/status 的 TracerPid；
+//  3) 调试器附着检测：/proc/self/status 的 TracerPid + /proc/net/unix 的 JDWP 控制套接字；
 //  4) 被篡改环境检测：自定义 ROM / 非官方签名 prop、LD_PRELOAD / GOT 劫持特征；
-//  5) 完整性：返回结构化 DetectionEvent 供 java 层经 ptv-client 折算上报 PTV。
+//  5) Frida 运行时检测：遍历 /proc/self/task/*/comm 匹配 gum-js-loop / gmain / pool-frida 等线程名；
+//  6) 完整性：返回结构化 DetectionEvent 供 java 层经 ptv-client 折算上报 PTV。
 //
 // 所有结果以 JNI 原生 int 位掩码 + 分数返回，纯本地，无网络。
 #include <jni.h>
 #include <android/log.h>
+#include <dirent.h>
 #include <string>
 #include <vector>
 #include <cstring>
@@ -63,6 +65,18 @@ const char *kRootPaths[] = {
     "/system/app/SuperUser.apk"
 };
 
+// Frida 运行时创建的线程名。这些名字由 Frida 的 GLib / Gum 运行时写死，
+// 与库文件名无关——改掉 libfrida 的文件名也躲不掉，是比 maps 扫描更稳的一路信号。
+const char *kFridaUniqueThreadNames[] = {
+    "gum-js-loop", "gum-js", "pool-frida", "linjector"
+};
+
+// GLib 通用线程名：正常应用也可能有（任何用 GLib 的库都会起 gmain），
+// 单独命中不足以定罪，仅在 maps 里同时出现 frida 痕迹时才计入。
+const char *kFridaGenericThreadNames[] = {
+    "gmain", "gdbus", "frida"
+};
+
 }  // namespace
 
 static bool pattern_in_maps(const char *needle) {
@@ -75,6 +89,68 @@ static bool pattern_in_maps(const char *needle) {
     }
     fclose(f);
     return found;
+}
+
+// 遍历 /proc/self/task/<tid>/comm 匹配线程名。
+// 用目录遍历而非硬编码 tid：注入框架的线程 tid 是动态的，只有名字可预测。
+static int scan_frida_threads() {
+    DIR *task = opendir("/proc/self/task");
+    if (!task) return 0;
+
+    bool uniqueHit = false;
+    bool genericHit = false;
+    struct dirent *ent;
+    while ((ent = readdir(task)) != nullptr) {
+        if (ent->d_name[0] == '.') continue;
+        char path[128];
+        snprintf(path, sizeof(path), "/proc/self/task/%s/comm", ent->d_name);
+        int fd = open(path, O_RDONLY);
+        if (fd < 0) continue;
+        char name[64] = {0};
+        ssize_t n = read(fd, name, sizeof(name) - 1);
+        close(fd);
+        if (n <= 0) continue;
+        // comm 带结尾换行，去掉后再比较
+        for (ssize_t i = 0; i < n; i++) {
+            if (name[i] == '\n') { name[i] = '\0'; break; }
+        }
+        for (const char *t : kFridaUniqueThreadNames) {
+            if (strcmp(name, t) == 0) {
+                LOGW("frida thread: %s", name);
+                uniqueHit = true;
+            }
+        }
+        for (const char *t : kFridaGenericThreadNames) {
+            if (strcmp(name, t) == 0) genericHit = true;
+        }
+    }
+    closedir(task);
+
+    // 只有「独有线程名」或「通用名 + maps 里已有 frida 痕迹」才计为注入，
+    // 否则任何用 GLib 的正常库都会把玩家误判成作弊。
+    if (uniqueHit || (genericHit && pattern_in_maps("frida"))) {
+        return TF_MODULE;
+    }
+    return 0;
+}
+
+// JDWP 调试：Java 调试器通过抽象 Unix 域套接字 @jdwp-control 与 VM 通信。
+// 该套接字在 /proc/net/unix 中以名字形式列出，是 Android 上最可靠的 JDWP 判据；
+// 只读 ro.debuggable 会把「可调试 ROM 上的正常玩家」一并误伤。
+static int scan_jdwp() {
+    FILE *f = fopen("/proc/net/unix", "r");
+    if (!f) return 0;
+    char line[512];
+    int flags = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (strstr(line, "jdwp") || strstr(line, "JDWP")) {
+            LOGW("jdwp control socket present: %s", line);
+            flags |= TF_DEBUGGER;
+            break;
+        }
+    }
+    fclose(f);
+    return flags;
 }
 
 static int scan_modules() {
@@ -104,24 +180,52 @@ static int scan_root() {
     return flags;
 }
 
+// 交叉校验：/proc/self/stat 第 3 个字段是进程状态，'t' / 'T' 表示正处于被跟踪的停止态。
+// 与 TracerPid 分属两个文件，攻击者要同时伪造两处才能骗过；单独改 status 会被这条抓到。
+static bool traced_via_stat() {
+    FILE *f = fopen("/proc/self/stat", "r");
+    if (!f) return false;
+    char buf[512];
+    size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    if (n == 0) return false;
+    buf[n] = '\0';
+    // comm 字段可能含空格与括号（如 "(WebViewCoreThre)"），故从最后一个 ')' 之后取状态位
+    const char *closeParen = strrchr(buf, ')');
+    if (!closeParen || closeParen[1] == '\0' || closeParen[2] == '\0') return false;
+    char state = closeParen[2];
+    return state == 't' || state == 'T';
+}
+
 static int scan_debugger() {
+    int flags = 0;
+
+    // 路径一：TracerPid（gdb / lldb / strace 等原生调试器附着时非 0）
     char buf[512];
     int fd = open("/proc/self/status", O_RDONLY);
-    if (fd < 0) return 0;
-    ssize_t n = read(fd, buf, sizeof(buf) - 1);
-    close(fd);
-    if (n <= 0) return 0;
-    buf[n] = '\0';
-
-    const char *m = strstr(buf, "TracerPid:");
-    if (m) {
-        int tp = atoi(m + strlen("TracerPid:"));
-        if (tp > 0) {
-            LOGW("debugger attached pid=%d", tp);
-            return TF_DEBUGGER;
+    if (fd >= 0) {
+        ssize_t n = read(fd, buf, sizeof(buf) - 1);
+        close(fd);
+        if (n > 0) {
+            buf[n] = '\0';
+            const char *m = strstr(buf, "TracerPid:");
+            if (m && atoi(m + strlen("TracerPid:")) > 0) {
+                LOGW("debugger attached (TracerPid)");
+                flags |= TF_DEBUGGER;
+            }
         }
     }
-    return 0;
+
+    // 路径二：进程状态位交叉校验
+    if (traced_via_stat()) {
+        LOGW("process in traced state (/proc/self/stat)");
+        flags |= TF_DEBUGGER;
+    }
+
+    // 路径三：JDWP。Java 层调试走 JDWP 协议，不产生 TracerPid，前两条都抓不到。
+    flags |= scan_jdwp();
+
+    return flags;
 }
 
 // 读系统 prop（无第三方依赖，读 /system/build.prop 方式解析关键键值）
@@ -223,6 +327,7 @@ Java_com_potatotv_pacc_android_NativeProbe_nativeScan(JNIEnv *env, jclass) {
     (void)env;
     int flags = 0;
     flags |= scan_modules();
+    flags |= scan_frida_threads();
     flags |= scan_root();
     flags |= scan_debugger();
     flags |= scan_rom_tamper();

@@ -1,0 +1,79 @@
+# PACC CodeQL —— 静态应用安全测试（SAST）
+#
+# 与 ci.yml 的分工：ci.yml 里的 gitleaks 查「密钥有没有提交上来」，Trivy 查「依赖有没有已知漏洞」，
+# 这里查「自己写的代码有没有可被利用的模式」（注入、路径穿越、不安全的反序列化等）。
+# 三者互补，不重复。
+#
+# 语言覆盖取舍：只分析本仓库实际承载业务的五类源码。
+#   - java-kotlin          后端与玩家端（ptv-backend / ptv-client / platform/java-agent）
+#   - javascript-typescript 管理台与下载站（ptv-frontend / deploy/dl-web）
+#   - python               AI 推理服务（deploy/ai）
+#   - go                   边缘网关（deploy/gateway-go）
+#   - c-cpp                原生探针与内核模块（platform/*）
+# 未纳入：Rust（CodeQL 支持尚在预览，稳定性不足）、Swift/Dart/C#（非安全关键面，避免拉长 CI 时长）。
+#
+# 构建模式：Java / JS / Python / C-C++ 一律 build-mode: none——它们要么依赖 NDK、Windows 驱动工具链、
+# 内核头文件而无法在 ubuntu 上完整构建，要么构建成本远高于收益。none 模式下 CodeQL 直接做源码级提取，
+# 覆盖率略低于编译式提取，但换来了「不会因为构建环境缺失而整条流水线失败」。
+# Go 依赖解析需要模块信息，走 autobuild。
+name: CodeQL
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # 每周一 04:30（北京时间）全量扫描：规则库更新后无需等下一次提交
+    - cron: '30 20 * * 0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: 分析 ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # 上传 SARIF 到 Code Scanning 需要该权限
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          - language: go
+            build-mode: autobuild
+          - language: c-cpp
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 初始化 CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # security-and-quality 比默认的 security 多出可维护性/正确性查询，
+          # 对安全关键代码值得多花这点时间
+          queries: security-and-quality
+
+      - name: 执行分析并上传结果
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
+        # 仓库未开启 Code Scanning（私有仓库需 GitHub Advanced Security）时，上传会失败。
+        # 此时保留为「告警不阻断」：扫描结果仍完整打印在日志里，可人工查阅。
+        # 开启 Code Scanning 后请删掉下面这行，让高危发现直接拦下合并。
+        continue-on-error: true

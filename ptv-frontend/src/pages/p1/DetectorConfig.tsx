@@ -87,7 +87,7 @@ export default function DetectorConfig() {
         <h3 style={{ margin: 0, fontSize: 18 }}>检测配置中心</h3>
         <div style={{ flex: 1 }} />
         <Button icon={<ReloadOutlined />} onClick={() => void load()}>刷新</Button>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
       <Card styles={{ body: { padding: 0 } }}>
         <Table<DetectorConfigRow> rowKey="detector_key" columns={columns} dataSource={rows} loading={loading} pagination={false} scroll={{ x: 780 }} locale={{ emptyText: '暂无检测器配置' }} />

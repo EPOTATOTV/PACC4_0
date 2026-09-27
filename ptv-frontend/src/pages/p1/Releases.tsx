@@ -152,7 +152,7 @@ export default function Releases() {
           ]}
         />
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新建发布</Button>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Card styles={{ body: { padding: 0 } }}>
@@ -161,7 +161,7 @@ export default function Releases() {
         </div>
       </Card>
 
-      <Modal title="新建版本发布" open={open} onCancel={() => setOpen(false)} onOk={submit} destroyOnClose>
+      <Modal title="新建版本发布" open={open} onCancel={() => setOpen(false)} onOk={submit} destroyOnHidden>
         <Form form={form} layout="vertical" style={{ marginTop: 12 }}>
           <Form.Item label="平台" name="platform" rules={[{ required: true }]}>
             <Select options={PLATFORMS.map((p) => ({ label: p, value: p }))} />

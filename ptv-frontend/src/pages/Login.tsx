@@ -133,7 +133,7 @@ export default function Login() {
           style={{ margin: '20px 0 4px' }}
         />
 
-        {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
+        {err && <Alert type="error" showIcon title={err} style={{ marginTop: 16 }} closable />}
 
         {mode === 'key' ? (
           <Form layout="vertical" onFinish={submit} style={{ marginTop: 16 }} requiredMark={false}>

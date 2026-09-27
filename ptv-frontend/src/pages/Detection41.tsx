@@ -53,7 +53,7 @@ export default function Detection41() {
         多层级行为分析引擎：对疑似作弊与正常操作分别输出判定与置信度，供特征团队复核迭代。
       </Text>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Button type="primary" danger onClick={() => run('cheat')}>一键检测 · 作弊特征演示</Button>

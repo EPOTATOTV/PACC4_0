@@ -1,0 +1,9 @@
+[package]
+name = "pacc-ml"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PACC 端侧 AI 推理：模型装载 + 轻量推理（零第三方依赖）"
+
+[dependencies]
+pacc-collector = { path = "../pacc-collector" }

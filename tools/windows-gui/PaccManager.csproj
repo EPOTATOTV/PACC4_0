@@ -9,8 +9,15 @@
     <RootNamespace>PaccManager</RootNamespace>
     <AssemblyName>PaccManager</AssemblyName>
     <Product>PACC Windows 管理工具</Product>
-    <Version>5.0.0</Version>
+    <Version>5.4.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- 发行件不带调试符号：PDB 会把混淆后的 IL 逐行映射回原始源码，
+         等于让 Obfuscar 白做。publish 目录里出现 PaccManager.pdb 即说明此项失效。 -->
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>

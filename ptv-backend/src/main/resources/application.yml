@@ -42,8 +42,19 @@ pacc:
     wss-sign-secret: ${PACC_SECURITY_WSS_SIGN_SECRET:}
     # 特征库热更新内容签名密钥：非 local 缺失时 SigSigner 启动即抛错（fail-closed）。
     sig-secret: ${PACC_SIG_SECRET:}
+    # v5.4 密钥管理根密钥：派生设备主密钥与各类子密钥（HKDF-SHA256）。
+    # 留空时回退到 jwt-secret 并在管理端标记「未独立配置」，生产建议单独注入强随机值。
+    key-root: ${PACC_SECURITY_KEY_ROOT:}
+    # 托管密钥自动轮换周期（天）。到期前由定时任务标记并告警，不自动吊销在用密钥。
+    key-rotation-days: ${PACC_SECURITY_KEY_ROTATION_DAYS:90}
     # 管理后台允许的跨域来源（Origin 白名单，逗号分隔）。
     allowed-origins: "https://admin.potatotv.asia,http://admin.potatotv.asia,http://localhost:5173,https://localhost:5173"
+    # 强制管理员两步验证（TOTP）。
+    # 开启后：登录必须完成第二步；且 X-Admin-Key 静态密钥直连被停用（否则同一密钥可绕过 2FA 调任意接口）。
+    # 开启顺序很重要——先在关闭状态下用登录会话调用 /api/admin/2fa/setup 与 /enable 完成绑定，
+    # 再打开本开关，否则未绑定的管理员会被挡在门外。
+    # 另外：开启后依赖 X-Admin-Key 的自动化脚本与桌面工具将无法直连，需改用会话令牌。
+    admin-2fa-required: ${PACC_SECURITY_ADMIN_2FA_REQUIRED:false}
   mail:
     # 仅 local 联调可开 stub；生产默认关闭（fail-closed：未配置真实 SMTP 时，找回邮件不实际发送）。
     stub-enabled: ${PACC_MAIL_STUB_ENABLED:false}
@@ -63,6 +74,16 @@ pacc:
     # 邮箱/手机验证码有效性窗口与同目标最小重发间隔
     ttl-minutes: 10
     resend-seconds: 60
+  auth:
+    lockout:
+      # 账户 / 来源 IP 的临时锁定：15 分钟窗口内累计失败达 10 次即拒绝登录，
+      # 与短窗限流（60s/5 次）叠加。计数随滑动窗口自然过期，锁定自动解除。
+      # 注意：阈值过低会误伤共用出口 IP 的场所（网吧 / 校园网），按实际流量调整。
+      max-failures: 10
+      # 渐进式延迟：每次失败后额外等待 base*failures 毫秒，上限 max-delay-ms。
+      # 延迟占用请求线程，上限不宜过大，否则洪峰下会耗尽线程池。
+      base-delay-ms: 80
+      max-delay-ms: 400
   detection:
     redscreen-threshold: 85        # 综合风险评分触发红屏阈值
     severe-threshold: 95           # 三级红屏阈值
@@ -83,18 +104,68 @@ pacc:
     baseline-weight: 0.2           # 个人行为基线偏离权重
     recon-scale: 1.2               # 重构误差映射到 (0,1] 的尺度（越小对偏离越敏感）
     baseline-scale: 3.0            # 基线 z-score 偏离映射尺度
+  # v5.4 APM 性能监控：端侧 1 分钟窗口聚合并每 5 分钟批量上报，服务端按小时再聚合。
+  apm:
+    # 原始（分钟级）指标保留天数，超期由定时任务清理；小时聚合结果长期保留。
+    raw-retention-days: ${PACC_APM_RAW_RETENTION_DAYS:7}
+    # 异常检测的 σ 倍数（偏离同指标近 24h 分布的阈值），越小越敏感、误报越多。
+    anomaly-sigma: ${PACC_APM_ANOMALY_SIGMA:3.0}
+    # 同一指标同类告警的静默窗口（分钟），避免抖动刷屏。
+    alert-cooldown-minutes: ${PACC_APM_ALERT_COOLDOWN_MINUTES:30}
+    alert-enabled: ${PACC_APM_ALERT_ENABLED:true}
+    # 告警外发 Webhook（留空则仅落库 + 管理端展示）。
+    alert-webhook-url: ${PACC_APM_ALERT_WEBHOOK_URL:}
+    # 帧率基准值：版本回归对比与 FPS 掉帧判定用。
+    fps-baseline: ${PACC_APM_FPS_BASELINE:60}
+    # 版本回归判定阈值（百分比）：新版本 P95 劣化超过该比例即标记回归。
+    regression-threshold-percent: ${PACC_APM_REGRESSION_THRESHOLD_PERCENT:20}
+  # v5.4 远程证明（挑战-响应）：客户端上报内存代码段哈希与运行态证据，服务端校验并留档。
+  attestation:
+    # 挑战有效性窗口（毫秒）；超时挑战由定时任务回收。
+    ttl-ms: ${PACC_ATTESTATION_TTL_MS:100000}
+    # 挑战下发到响应到达的最大允许耗时（毫秒），超出判为异常（疑似人工介入/录制重放）。
+    max-elapsed-ms: ${PACC_ATTESTATION_MAX_ELAPSED_MS:500}
+    # 是否强制要求上报的代码段哈希命中已知良好哈希库；灰度期默认 false（仅记录不拦截）。
+    require-known-hash: ${PACC_ATTESTATION_REQUIRE_KNOWN_HASH:false}
   websocket:
     endpoint: /ws                # 玩家端 WebSocket 长连接端点
+  wss:
+    # 信封时间戳窗口（毫秒）
+    ts-window-ms: 60000
+    # 是否强制要求 WSS 会话级动态密钥。
+    # false：v1（静态密钥）与 v2（会话密钥）都接受，旧客户端不受影响。
+    # true：仅接受 v2，未完成 session_init 的客户端二进制信令会被拒绝——这是真正
+    #       让「静态密钥泄露也无法伪造信令」生效的开关，需客户端同步开启
+    #       pacc.client.wss.session-key.enabled 后再打开。
+    session-key-required: ${PACC_WSS_SESSION_KEY_REQUIRED:false}
   webhook:
     retry: 3
   ai:
     # AI 推理服务（Python / FastAPI，deploy/ai）。启用后风险评分按 15% 权重融合 AI 分
     enabled: false
     inference-url: http://ai:8000
+  model:
+    # v5.2 §6.1 模型训练流水线：.paccm 模型产物目录（默认「数据目录下的 models/」）
+    store-dir: ${PACC_MODEL_STORE_DIR:${PACC_DATA_DIR:data}/models}
+    # 模型签名私钥（PKCS#8 Base64，RSA）。未配置时发布不签名并在签名列写空串（绝不伪造签名）
+    signing-key: ${PACC_MODEL_SIGNING_KEY:}
   rules:
-    # Lua 动态规则引擎（classpath:rules/*.lua，可热更新）
+    # PRL 动态规则引擎（classpath:rules/*.prl，管理端可触发热更新）
     enabled: true
     max-bonus: 15          # 规则命中加分上限
+  update:
+    # PCU 灰度发布（§5.3）。内部测试 PTEID 逗号分隔，任何灰度比例下都优先放行
+    internal-pteids: ${PACC_UPDATE_INTERNAL_PTEIDS:}
+    # 更新失败率超过该比例即暂停该版本的下发；低于 min-samples 时不做判定
+    failure-rate-limit-pct: 5
+    failure-rate-min-samples: 20
+    failure-rate-window-hours: 24
+  ratelimit:
+    # 通用令牌桶总开关（按身份 + 请求类别）；仅压测环境可关
+    enabled: ${PACC_RATELIMIT_ENABLED:true}
+    # 下载计数 /api/dl/track 的按来源 IP 自然日配额，超出返回 429。
+    # 只统计下载点击数，正常用户一天远达不到；共用出口 IP 的场所（网吧/校园网）可上调。
+    dl-track-per-day: ${PACC_RATELIMIT_DL_TRACK_PER_DAY:100}
 
 logging:
   level:
@@ -129,7 +200,7 @@ springdoc:
     path: /swagger-ui.html
   info:
     title: PACC PTV 管控后端 API
-    version: 5.0.0
+    version: 5.4.0
     description: PACC 管理后台 / 玩家门户 / 开放 API 接口文档（仅功能描述，不含内部检测逻辑）
   # 仅扫描控制器包，避免把内部组件卷入文档
   packages-to-scan: com.potatotv.pacc.controller

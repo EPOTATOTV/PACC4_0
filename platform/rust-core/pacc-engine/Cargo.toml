@@ -1,0 +1,9 @@
+[package]
+name = "pacc-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PACC 检测引擎：L0 规则层 + 多路信号分值融合 + 端云分层判定"
+
+[dependencies]
+pacc-collector = { path = "../pacc-collector" }

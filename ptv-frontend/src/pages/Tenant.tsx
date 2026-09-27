@@ -169,7 +169,7 @@ export default function TenantPage() {
         <div style={{ flex: 1 }} />
       </div>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginTop: 16 }} closable />}
 
       <Card style={{ marginTop: 20 }} styles={{ body: { paddingTop: 12 } }}
         title={<Space>
@@ -184,7 +184,7 @@ export default function TenantPage() {
           scroll={{ x: 1080 }} locale={{ emptyText: '暂无租户' }} />
       </Card>
 
-      <Modal title={editing ? `编辑租户 ${editing.tenant_id}` : '新建租户'} open={open} onOk={submit} onCancel={() => setOpen(false)} destroyOnClose>
+      <Modal title={editing ? `编辑租户 ${editing.tenant_id}` : '新建租户'} open={open} onOk={submit} onCancel={() => setOpen(false)} destroyOnHidden>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           {!editing && <Form.Item name="tenant_id" label="租户标识" rules={[{ required: true, message: '请输入租户标识' }]}>
             <Input placeholder="如 acme-corp" />
@@ -229,7 +229,7 @@ export default function TenantPage() {
           ]} />
       </Drawer>
 
-      <Modal title="绑定租户管理员" open={addOpen} onOk={submitAdmin} onCancel={() => setAddOpen(false)} destroyOnClose>
+      <Modal title="绑定租户管理员" open={addOpen} onOk={submitAdmin} onCancel={() => setAddOpen(false)} destroyOnHidden>
         <Form form={addForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="identity" label="管理员身份" rules={[{ required: true, message: '请输入管理员身份' }]}>
             <Input placeholder="如 admin@potatotv.asia" />

@@ -1,18 +1,39 @@
 package com.potatotv.paccclient;
 
+import com.potatotv.paccclient.ai.LocalAiModel;
+import com.potatotv.paccclient.ai.ModelRepository;
+import com.potatotv.paccclient.ai.ModelSync;
+import com.potatotv.paccclient.apm.ApmCollector;
+import com.potatotv.paccclient.apm.ClientHealthMetrics;
 import com.potatotv.paccclient.control.DetectionController;
 import com.potatotv.paccclient.control.LocalControlServer;
 import com.potatotv.paccclient.detection.DetectionEngine;
+import com.potatotv.paccclient.detection.FeatureVector;
+import com.potatotv.paccclient.detection.federated.FederatedModelDownlink;
+import com.potatotv.paccclient.detection.federated.FederatedSettings;
+import com.potatotv.paccclient.detection.federated.GradientUploader;
+import com.potatotv.paccclient.detection.federated.LocalGradientTrainer;
+import com.potatotv.paccclient.detection.stealth.StealthTelemetry;
+import com.potatotv.paccclient.detection.stream.StreamDetectionPipeline;
 import com.potatotv.paccclient.inspect.InspectAgent;
 import com.potatotv.paccclient.redscreen.FullScreenRed;
 import com.potatotv.paccclient.redscreen.RedscreenReceiver;
+import com.potatotv.paccclient.redscreen.SessionRecorder;
+import com.potatotv.paccclient.rules.RuleSync;
+import com.potatotv.paccclient.security.CodeIntegrityService;
+import com.potatotv.paccclient.security.ProcessProtector;
+import com.potatotv.paccclient.security.SecurityReporter;
+import com.potatotv.paccclient.store.HardwareFingerprintV2;
 import com.potatotv.paccclient.store.MachineFingerprint;
 import com.potatotv.paccclient.store.OfflineQueue;
 import com.potatotv.paccclient.store.RedScreenStatePersistence;
 import com.potatotv.paccclient.ops.OpsClient;
+import com.potatotv.paccclient.ops.UpdateService;
 import com.potatotv.paccclient.signature.SignatureSync;
+import com.potatotv.pbp.gen.PaccEnvelope;
 import com.potatotv.paccclient.transport.PaccWireSigner;
 import com.potatotv.paccclient.transport.WssReporter;
+import com.potatotv.paccclient.transport.WssSessionKey;
 
 import java.lang.management.ManagementFactory;
 import java.net.URI;
@@ -23,6 +44,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -37,7 +62,7 @@ import java.util.concurrent.TimeUnit;
 public final class PaccClient {
 
     /** 与桌面壳/版本元数据保持一致，供本地控制服务状态上报。 */
-    private static final String APP_VERSION = "5.0.0";
+    private static final String APP_VERSION = "5.4.0";
 
     public static void main(String[] args) {
         ClientConfig cfg = ClientConfig.load();
@@ -80,17 +105,77 @@ public final class PaccClient {
         OfflineQueue offlineQueue =
                 new OfflineQueue(storeDir.resolve("outbox.enc"), storePassword, 1000, true);
 
-        DetectionEngine engine = new DetectionEngine();
+        // ---- v5.2 端侧 AI：装载本地模型（下载链路见下方的 ModelSync 周期任务）----
+        ModelRepository modelRepository = new ModelRepository();
+        LocalAiModel localAi = new LocalAiModel();
+        try {
+            modelRepository.loadInto(localAi);
+        } catch (RuntimeException e) {
+            System.err.println("[PTV-Client] 本地模型装载失败（按无模型运行）: " + e.getMessage());
+        }
+        System.out.println("[PTV-Client] 端侧模型 loaded=" + localAi.loaded()
+                + " version=" + localAi.modelVersion());
+        // 隐身探针（§4）含系统命令扫描，后台线程预热一次，避免首个心跳被扫描拖慢
+        Thread.ofVirtual().name("ptv-stealth-warmup").start(StealthTelemetry::probe);
+
+        DetectionEngine engine = new DetectionEngine(localAi);
+
+        // ---- DF §4.1.1 实时流式检测管线：增量特征 + 滑动窗口 + 两级判定（规则层 <1ms，存疑才进 AI）----
+        // 消费线程无事件时 park，空闲不耗 CPU；判定与端到端延迟百分位由管线自身 metrics 暴露。
+        StreamDetectionPipeline streamPipeline = new StreamDetectionPipeline(localAi);
+        streamPipeline.start();
+
         // 远程查端代理：收到 inspect_* 信令时回传取证；出站经 protobuf 信封二进制帧上报
         InspectAgent inspectAgent = new InspectAgent();
         WssReporter reporter = new WssReporter(pteid, cfg.edition, cfg.buildConnectUri(token, pteid),
                 cfg.heartbeatSeconds, cfg.signatureVersion, cfg.reconnectDelaySeconds, cfg.autoReconnect,
                 cfg.wssSignSecret, json -> routeMessage(json, inspectAgent), offlineQueue);
         PaccWireSigner wire = new PaccWireSigner(cfg.wssSignSecret, pteid);
-        inspectAgent.setResponder(m -> reporter.sendEnvelope(wire.build(
-                m.containsKey("type") ? String.valueOf(m.get("type")) : "inspect_started",
-                m.get("session_id") instanceof String s ? s : null,
-                Json.encode(m)).toByteArray()));
+        // ---- WSS 会话级动态密钥（协商 → 轮换 → 断线即弃）----
+        // 静态密钥只在握手首帧用一次；之后每条信封都用本连接独有的会话密钥签名。
+        // 未启用时 session 为 null，wire 恒用静态密钥，行为与加固前完全一致。
+        WssSessionKey session = cfg.wssSessionKeyEnabled ? new WssSessionKey(cfg.wssSignSecret) : null;
+
+        inspectAgent.setResponder(m -> {
+            String type = m.containsKey("type") ? String.valueOf(m.get("type")) : "inspect_started";
+            String sid = m.get("session_id") instanceof String s ? s : null;
+            reporter.sendEnvelope(wire.build(type, sid, Json.encode(m)).toByteArray());
+            // 达到轮换阈值（条数或时长）就发 rekey；epoch 要等服务端 ack 后才推进，
+            // 否则本地已换密钥、服务端还在用旧的，中间这段消息会全部验签失败。
+            if (session != null && session.active() && session.dueForRotation() >= 0) {
+                reporter.sendEnvelope(wire.build(WssSessionKey.REKEY_TYPE, session.sessionId(),
+                        session.rekeyPayload()).toByteArray());
+            }
+        });
+
+        if (session != null) {
+            reporter.setOnConnected(() -> {
+                // 每次连接（含重连）都重新协商：新会话 ID + 新盐，旧密钥不跨连接复用
+                String initPayload = session.start();
+                wire.setSecret(cfg.wssSignSecret, WssSessionKey.SIG_V1);
+                reporter.sendEnvelope(wire.build(WssSessionKey.INIT_TYPE, session.sessionId(),
+                        initPayload).toByteArray());
+            });
+            reporter.setOnBinaryMessage(bytes -> {
+                try {
+                    PaccEnvelope env = PaccEnvelope.parseFrom(bytes);
+                    if (WssSessionKey.READY_TYPE.equals(env.getType())) {
+                        if (session.activate()) {
+                            wire.setSecret(session.signingKey(), session.sigVersion());
+                            System.out.println("[PTV-Client] WSS 会话密钥已激活 sid=" + session.sessionId());
+                        }
+                    } else if (WssSessionKey.ACK_TYPE.equals(env.getType())) {
+                        Object epoch = Json.decodeObject(env.getPayloadJson()).get("epoch");
+                        if (epoch instanceof Number n && session.commitRotation(n.longValue())) {
+                            wire.setSecret(session.signingKey(), session.sigVersion());
+                            System.out.println("[PTV-Client] WSS 会话密钥已轮换 epoch=" + session.epoch());
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("[PTV-Client] 会话密钥帧处理失败: " + e.getMessage());
+                }
+            });
+        }
 
         try {
             reporter.connect();
@@ -99,10 +184,14 @@ public final class PaccClient {
             System.err.println("[PTV-Client] 启动中断: " + e.getMessage());
             return;
         }
+        // 链路已连上：健康维度据此上报 client_wss_connected
+        ClientHealthMetrics.SINK.setWssConnected(true);
 
         // 后台周期采样上报：封装为可被本地控制服务启停的控制器（默认启动驱动，行为不变）
         DetectionController detector = new DetectionController(engine, reporter,
                 new DetectionController.RuntimeConfig(cfg.clientRisk, cfg.heartbeatSeconds, true));
+        // DF §4.1.1：每个检测事件同时投递进流式管线（无锁入队，不阻塞采样线程）
+        detector.attachStreamPipeline(streamPipeline, pteid);
         detector.start();
 
         // 本地回环控制服务：供桌面壳下发检测控制并查询状态/记录/配置（尽力而为，失败不阻断）
@@ -110,12 +199,65 @@ public final class PaccClient {
 
         // ---- v4.7 运维客户端：远程配置、崩溃上报、性能上报、特征库热更新（尽力而为，失败不阻断）----
         OpsClient opsClient = new OpsClient(cfg.serverUri, token);
+
+        // ---- v5.4 APM：系统/游戏/检测/客户端健康四类指标的秒级采样与批量上报 ----
+        // 采集器不认识 HTTP，传输经 BatchSink 注入；发送结果回填健康指标（上报成功率/积压条数）。
+        ApmCollector apmCollector = new ApmCollector(payload -> opsClient.reportApmBatch(payload));
+        apmCollector.start();
+
+        // ---- v5.4 安全：代码完整性、进程自保护、反调试/反注入评估与远程证明（尽力而为）----
+        CodeIntegrityService integrityService = new CodeIntegrityService();
+        ProcessProtector processProtector = new ProcessProtector();
+        ProcessProtector.ProtectionReport protection = processProtector.apply();
+        System.out.println("[PTV-Client] 进程自保护 coredump=" + protection.coredumpDisabled()
+                + " crashHandler=" + protection.crashHandlerInstalled()
+                + " 非守护线程=" + protection.nonDaemonThreads());
+
+        SecurityReporter securityReporter = new SecurityReporter(
+                body -> opsClient.reportSecurityEvents(body),
+                body -> opsClient.reportSecurityEvents(body));
+        securityReporter.setIntegrityService(integrityService);
+        securityReporter.setSignSecret(cfg.wssSignSecret);
+        String clientConfigHash = integrityService.resolveConfigHash("pacc-client.properties");
+        ClientHealthMetrics.SINK.setConfigHash(clientConfigHash);
+        securityReporter.setConfigHash(clientConfigHash);
+        securityReporter.setAttestationTransport(new SecurityReporter.AttestationTransport() {
+            @Override
+            public SecurityReporter.Challenge challenge(String codeHash, String configHash) {
+                OpsClient.AttestationChallenge c = opsClient.requestAttestationChallenge(
+                        ApmCollector.CLIENT_VERSION, ApmCollector.platform(), codeHash, configHash);
+                return c == null ? null : new SecurityReporter.Challenge(c.challengeId(), c.nonce());
+            }
+
+            @Override
+            public String respond(String challengeId, String nonce, String codeHash, String configHash,
+                                  Map<String, String> runtimeState, String signature, long elapsedMs) {
+                return opsClient.respondAttestation(SecurityReporter.encodeRespondBody(
+                        challengeId, nonce, codeHash, configHash, runtimeState, signature, elapsedMs));
+            }
+        });
+        securityReporter.start(60);
+
         SignatureSync signatureSync = new SignatureSync(cfg.sigSecret);
         ScheduledExecutorService opsScheduler = Executors.newSingleThreadScheduledExecutor(
                 r -> Thread.ofVirtual().name("ptv-ops").unstarted(r));
 
+        // ---- DF 第四章 PCU：跨平台更新。启动 60 秒后检查一次，之后每 6 小时一次 ----
+        // 这里只做「检查 → 下载（差分优先）→ 校验 → 暂存」：本进程换不掉自己（Windows 上运行中的
+        // JAR 被自己锁住，Linux 上 systemd restart 会连自己一起杀掉），所以暂停服务、备份、
+        // 原子替换、重启、失败回滚留给安装目录外的管理器进程（PaccManager / systemd 单元）执行。
+        // 校验不过绝不暂存，失败只记日志，不打扰检测与上报。
+        UpdateService updateService = new UpdateService(cfg, pteid, APP_VERSION);
+        // 更新自己占一个单线程：一轮更新要发 HTTP、算 SHA-256、还可能解压差分补丁，慢起来是几十秒
+        // 量级。挂在 opsScheduler 上会和遥测、特征库同步、联邦学习取样抢同一个线程，
+        // 把心跳拖成断流。
+        ScheduledExecutorService updateScheduler = Executors.newSingleThreadScheduledExecutor(
+                r -> Thread.ofVirtual().name("ptv-update").unstarted(r));
+        updateScheduler.scheduleWithFixedDelay(updateService::runOnce, 60, 6 * 3600, TimeUnit.SECONDS);
+
         // 未捕获异常兜底：上报崩溃堆栈后退出
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            ClientHealthMetrics.SINK.onCrash();
             opsClient.reportCrash(cfg.signatureVersion, osName(), archName(), platformName(),
                     stackOf(e), contextJson(cfg), null);
             System.err.println("[PTV-Client] 未捕获异常: " + e);
@@ -142,11 +284,151 @@ public final class PaccClient {
             }
         }, 10, 300, TimeUnit.SECONDS);
 
+        // v5.2 §2.1.3 模型下发同步：启动 45 秒后首次拉取，之后每 6 小时一次；失败保留现有模型
+        ModelSync modelSync = new ModelSync(cfg.serverUri, token, modelRepository);
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                if (modelSync.syncOnce(localAi)) {
+                    System.out.println("[PTV-Client] 端侧模型已更新 version=" + localAi.modelVersion());
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 模型同步异常（保留现有模型）: " + e.getMessage());
+            }
+        }, 45, 6 * 3600, TimeUnit.SECONDS);
+
+        // ---- §3.2.4 规则下发同步：先装载本地缓存，再启动 75 秒后首次拉取、之后每 6 小时一次 ----
+        // 缓存必须赶在同步之前装载：上一轮同步成功、这一轮离线的设备不该悄悄退回随包内置的旧规则。
+        RuleSync ruleSync = new RuleSync(cfg.serverUri, token, engine.ruleEngine());
+        try {
+            int cached = ruleSync.loadCache();
+            if (cached > 0) {
+                System.out.println("[PTV-Client] 已装载本地缓存规则 " + cached + " 条");
+            }
+        } catch (RuntimeException e) {
+            System.err.println("[PTV-Client] 规则缓存装载异常（保留内置规则）: " + e.getMessage());
+        }
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                int updated = ruleSync.syncOnce();
+                if (updated > 0) {
+                    System.out.println("[PTV-Client] 端侧规则已更新 " + updated + " 条");
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 规则同步异常（保留现有规则）: " + e.getMessage());
+            }
+        }, 75, 6 * 3600, TimeUnit.SECONDS);
+
+        // ---- DF §4.1.2 端侧联邦学习：本地取样 → 本地训练 → 队列上报；全局模型周期下发 ----
+        // 出网的只有梯度（模型增量）与聚合权重，原始特征与事件数据不出设备。
+        // 本地训练从零参数出发：既有 API 没把「下发的全局权重向量」暴露成数组，故不做无依据的
+        // 伪全局初始化；隐私护栏（范数上限 + 样本数门限）由 FederatedSettings 统一配置。
+        FederatedSettings fedSettings = FederatedSettings.fromEnvironment();
+        FederatedModelDownlink fedDownlink = new FederatedModelDownlink(cfg.serverUri, token, localAi, fedSettings);
+        GradientUploader gradientUploader = fedSettings.uploader(pteid, payload -> {
+            // 传输必须抛异常才会触发上传器的退避重试，失败一律抛出，不静默丢弃
+            if (!opsClient.submitFederatedUpdate(fedSettings.uploadPath(), Json.encode(payload))) {
+                throw new IllegalStateException("梯度上报未被服务端接受");
+            }
+        });
+        gradientUploader.start();
+        LocalGradientTrainer gradientTrainer = new LocalGradientTrainer(
+                fedSettings.featureDim(), fedSettings.autoencoderHidden());
+        Deque<FeatureVector> fedSamples = new ArrayDeque<>();
+        final int fedSampleCap = 512;
+
+        // 本地取样：每个心跳取一份真实特征，只在本机留存（有界，满则丢最旧）
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                FeatureVector fv = engine.lastFeatures();
+                if (fv.size() == 0) {
+                    return;
+                }
+                synchronized (fedSamples) {
+                    if (fedSamples.size() >= fedSampleCap) {
+                        fedSamples.removeFirst();
+                    }
+                    fedSamples.addLast(fv);
+                }
+            } catch (RuntimeException e) {
+                System.err.println("[PTV-Client] 联邦取样跳过: " + e.getMessage());
+            }
+        }, 30, Math.max(30, (long) cfg.heartbeatSeconds), TimeUnit.SECONDS);
+
+        // 本地训练 + 梯度上报：启动 5 分钟后首次，之后每 6 小时一次；样本不足就留到下一轮
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                List<FeatureVector> batch;
+                synchronized (fedSamples) {
+                    batch = new ArrayList<>(fedSamples);
+                }
+                LocalGradientTrainer.TrainingResult r = gradientTrainer.train(batch);
+                if (r.sampleCount() < fedSettings.minSamples()) {
+                    return;
+                }
+                if (gradientUploader.submit(null, r.gradient(), r.sampleCount(), r.loss())) {
+                    synchronized (fedSamples) {
+                        fedSamples.clear();
+                    }
+                    System.out.println("[PTV-Client] 本地梯度已入队 样本=" + r.sampleCount()
+                            + " loss=" + r.loss());
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 联邦训练/上报异常（本地样本保留，不影响检测）: " + e.getMessage());
+            }
+        }, 300, 6 * 3600, TimeUnit.SECONDS);
+
+        // 聚合模型下发：启动 90 秒后首次（排在 ModelSync 的 45 秒之后），之后每 6 小时一次；
+        // 版本相同、维度不符、摘要不一致一律保留上一版模型（FederatedModelDownlink 内部保证）
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                FederatedModelDownlink.AdoptionResult ar = fedDownlink.fetchAndAdopt();
+                if (ar.accepted()) {
+                    System.out.println("[PTV-Client] 联邦聚合模型已装载 version=" + ar.version());
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 联邦模型下发异常（保留现有模型）: " + e.getMessage());
+            }
+        }, 90, 6 * 3600, TimeUnit.SECONDS);
+
+        // v5.2 §7.1 硬件指纹上报：启动 20 秒后一次，之后每 12 小时一次（只上报摘要）
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                HardwareFingerprintV2.Snapshot fp = HardwareFingerprintV2.read();
+                if (opsClient.reportHardwareFingerprint(fp.fullHash())) {
+                    System.out.println("[PTV-Client] 硬件指纹已上报 维度=" + fp.components().size()
+                            + " 高稳定维度=" + fp.coverage() + "/" + HardwareFingerprintV2.STABLE_DIMENSIONS);
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 硬件指纹上报失败（不影响检测）: " + e.getMessage());
+            }
+        }, 20, 12 * 3600, TimeUnit.SECONDS);
+
+        // v5.2 §7.3 查端回放：默认关闭（PACC_REPLAY_ENABLED=true 才采集），红屏时导出并加密上传
+        SessionRecorder recorder = new SessionRecorder(maskPteid(pteid));
+        recorder.startRingBuffer();
+        RedscreenReceiver.onActivated((level, alertId) -> recorder.onRedScreen(alertId, recording -> {
+            ClientHealthMetrics.SINK.onRedscreen();
+            boolean ok = opsClient.uploadReplay(recording.alertId(), recording.cipher(),
+                    recording.key(), recording.iv(), recording.frames(), recording.width(),
+                    recording.height(), recording.fps(), recording.durationMillis(),
+                    recording.plainSize(), recording.sha256());
+            System.out.println("[PTV-Client] 查端回放 " + (ok ? "已上传" : "上传失败")
+                    + " alert=" + recording.alertId() + " 帧=" + recording.frames()
+                    + " 明文=" + recording.plainSize() + "B level=" + level);
+        }));
+
         // 常驻运行，Ctrl+C 退出
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            // 先声明正常关闭：退出守卫据此不把 Ctrl+C 记成崩溃
+            processProtector.markCleanExit();
             detector.stop();
+            streamPipeline.close();
+            gradientUploader.close();
+            recorder.stop();
             if (control != null) control.close();
             opsScheduler.shutdownNow();
+            updateScheduler.shutdownNow();
+            apmCollector.stop();
             reporter.close();
             System.out.println("[PTV-Client] 玩家端已退出");
         }));
@@ -157,6 +439,12 @@ public final class PaccClient {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /** PTEID 脱敏（回放水印用，与后端 mask 口径一致）。 */
+    private static String maskPteid(String pteid) {
+        if (pteid == null || pteid.length() < 4) return "****";
+        return pteid.substring(0, 2) + "***" + pteid.substring(pteid.length() - 2);
     }
 
     /** 依平台解析本地加密存储目录。 */

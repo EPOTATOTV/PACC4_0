@@ -1,0 +1,43 @@
+# autoblock：自动格挡（格挡覆盖率高 + 攻击后切换耗时接近 0 + 时序异常）
+# 对应检测 cheat/rules/AutoBlockRule
+
+rule "autoblock" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "cheat"
+    description: "自动格挡：格挡覆盖率高且攻击后切换耗时接近 0"
+    enabled: true
+
+    input {
+        features: map[string, float]
+        temporal_anomaly: float
+    }
+
+    let ratio = features["feature_autoblock_ratio"] ?? 0.0
+    let switch_time = features["feature_autoblock_switch_time"] ?? 0.0
+
+    let score = (if ratio >= 0.5: 40.0 else: 0.0 end)
+        + (if ratio >= 0.9: 15.0 else: 0.0 end)
+        + (if switch_time < 50.0: 30.0 else: 0.0 end)
+        + (if temporal_anomaly > 0.5: 10.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if ratio >= 0.5: ["feature_autoblock_ratio"] else: no_keys end)
+        + (if switch_time < 50.0: ["feature_autoblock_switch_time"] else: no_keys end)
+        + (if temporal_anomaly > 0.5: ["feature_attack_interval_cv"] else: no_keys end)
+
+    when:
+        ratio > 0.0 AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "autoblock",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

@@ -3,6 +3,8 @@ package com.potatotv.pacc.domain;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -36,7 +38,8 @@ public class DetectionEvent {
     /** low / medium / high / critical */
     private String severity;
 
-    /** 0=BEDROCK 1=JAVA */
+    /** 枚举名存库（BEDROCK / JAVA） */
+    @Enumerated(EnumType.STRING)
     private Edition edition;
 
     /** 端侧预评分 0-100 */

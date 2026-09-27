@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Potatotv.Pbp</RootNamespace>
+    <AssemblyName>Pbp</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- NuGet 打包元数据：发布坐标 Potatotv.Pbp，与 runtime-java/Cargo.toml/… 的 1.0.0 对齐 -->
+    <PackageId>Potatotv.Pbp</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>PotatoTV</Authors>
+    <Description>PBP 二进制协议运行时（C#）：帧封装、VarInt/ZigZag 有序字段编解码、HMAC-SHA256 签名、自研零依赖 zstd 子集。</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/EPOTATOTV/pacc-binary-protocol</RepositoryUrl>
+    <PackageTags>minecraft;anticheat;protocol;binary;pbp</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- tests 是独立的控制台工程，别被库工程的默认通配收进来 -->
+    <Compile Remove="tests/**" />
+    <None Remove="tests/**" />
+  </ItemGroup>
+
+</Project>

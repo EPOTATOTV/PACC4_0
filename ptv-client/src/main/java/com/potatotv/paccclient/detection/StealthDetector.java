@@ -1,16 +1,113 @@
 package com.potatotv.paccclient.detection;
 
+import com.potatotv.paccclient.Json;
+import com.potatotv.paccclient.detection.stealth.StealthSnapshot;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
- * v4.1 隐身外挂检测器（端侧硬件层/内存层/环境层）：
+ * 隐身外挂检测器（端侧硬件层/内存层/环境层）：
  * DMA 硬件 / 幽灵客户端 / 反射式注入 / 虚拟化 / 人类行为模拟度 探测。
  * 网络层与行为层由 PTV 五层对抗引擎完成。
+ *
+ * <p>v5.2 §4：新增 {@link #inspect(StealthSnapshot)}，判定输入改为真实探针取证
+ * （PCIe 枚举 / IOMMU 状态 / 注入痕迹 / 调试通道 / 虚拟化 / 沙箱特征，见
+ * {@code detection.stealth.StealthTelemetry}）；旧的参数化 {@link #probe} 保留给平台层回填场景。</p>
  */
 public final class StealthDetector {
 
+    // ---- v5.2 §4 风险权重 ----
+    /** 命中可疑 DMA 设备（Xilinx/Altera 等 FPGA 板卡）。 */
+    private static final int W_DMA = 70;
+    /** 可疑 DMA 设备叠加 IOMMU 关闭：直读物理内存的完整条件。 */
+    private static final int W_DMA_NO_IOMMU = 30;
+    /** 注入痕迹基础分（未知 agent / attach 文件）。 */
+    private static final int W_INJECT = 60;
+    /** 每条额外注入痕迹加分上限。 */
+    private static final int W_INJECT_EXTRA = 20;
+    /** 检出调试通道（JDWP 等）：玩家机上出现调试通道即上报中风险（文档 §4.3.1）。 */
+    private static final int W_DEBUGGER = 50;
+    /** 虚拟化 + 多沙箱特征（分析环境嫌疑）。 */
+    private static final int W_SANDBOX = 45;
+    /** 仅虚拟化：只体现在特征里，不产生事件。 */
+    private static final int W_VM_ONLY = 20;
+    /** 事件上报下限：低于该分只进特征向量，避免给云端的稳态信号刷事件。 */
+    private static final int REPORT_FLOOR = 45;
+
     /**
-     * 采样隐身对抗特征：探测本机环境并构造特征向量。
+     * v5.2 §4 判定入口：基于真实探针快照。
+     *
+     * <p>判定规则：可疑 PCIe DMA 设备命中即高危；未知 agent/attach 痕迹按注入上报；
+     * 调试通道单列中风险；虚拟化只在同时命中多个沙箱特征时才上报（单开虚拟机是合法场景）。</p>
+     *
+     * @param s 探针快照（{@code null} 或全未知时返回空）
+     */
+    public Optional<DetectionEvent> inspect(StealthSnapshot s) {
+        if (s == null) return Optional.empty();
+
+        int risk = 0;
+        String type = null;
+
+        if (s.dmaPresent()) {
+            risk += W_DMA;
+            type = "dma_cheat";
+            if (Boolean.TRUE.equals(s.iommuDisabled())) risk += W_DMA_NO_IOMMU;
+        }
+        if (s.injected()) {
+            int artifacts = s.unknownAgents().size() + s.attachArtifacts().size();
+            risk = Math.max(risk, W_INJECT + Math.min(W_INJECT_EXTRA, artifacts * 10));
+            if (type == null) type = "reflective_dll";
+        }
+        if (s.debuggerPresent()) {
+            risk = Math.max(risk, W_DEBUGGER);
+            if (type == null) type = "anti_debug";
+        }
+        boolean vmLike = Boolean.TRUE.equals(s.vm()) || Boolean.TRUE.equals(s.hypervisor());
+        if (vmLike && s.sandboxIndicators() >= 3) {
+            risk = Math.max(risk, W_SANDBOX);
+            if (type == null) type = "sandbox";
+        } else if (vmLike && risk == 0) {
+            risk = W_VM_ONLY;
+            if (type == null) type = "virtualization";
+        }
+
+        if (risk < REPORT_FLOOR || type == null) return Optional.empty();
+        risk = Math.min(100, risk);
+        String severity = risk >= 70 ? "high" : "medium";
+        return Optional.of(new DetectionEvent(type, severity, risk,
+                "javaw.exe", null, null, "win10_x64", detail(s)));
+    }
+
+    /** 事件明细：只带取证结论，不含原始注册表 / 线程表全量内容。 */
+    private static String detail(StealthSnapshot s) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("pcie_dma_present", s.dmaPresent());
+        putList(m, "suspicious_pcie", s.suspiciousPcie());
+        if (s.iommuDisabled() != null) m.put("iommu_disabled", s.iommuDisabled());
+        putList(m, "unknown_agents", s.unknownAgents());
+        putList(m, "attach_artifacts", s.attachArtifacts());
+        m.put("unknown_threads", s.unknownThreads());
+        putList(m, "unknown_thread_names", s.unknownThreadNames());
+        if (s.debuggerPresent()) putList(m, "debug_channels", s.debugChannels());
+        if (s.vm() != null) m.put("vm", s.vm());
+        if (s.hypervisor() != null) m.put("hypervisor", s.hypervisor());
+        putList(m, "vm_evidence", s.vmEvidence());
+        m.put("sandbox_indicators", s.sandboxIndicators());
+        putList(m, "sandbox_evidence", s.sandboxEvidence());
+        return Json.encode(m);
+    }
+
+    /** 列表按逗号拼接成标量：客户端极简 JSON 编码器只输出一层标量，拼接后仍是可读的合法 JSON。 */
+    private static void putList(Map<String, Object> m, String key, List<String> values) {
+        if (values == null || values.isEmpty()) return;
+        m.put(key, String.join(",", values));
+    }
+
+    /**
+     * 采样隐身对抗特征：探测本机环境并构造特征向量（平台层回填路径，兼容旧调用）。
      *
      * @param pcieDmaPresent    是否检测到 PCIe DMA 设备（0/1）
      * @param iommuDisabled     IOMMU 是否被关闭（0/1）

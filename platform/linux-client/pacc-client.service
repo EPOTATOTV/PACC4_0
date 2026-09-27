@@ -1,0 +1,65 @@
+# PACC Linux 原生客户端 systemd 单元
+#
+# 安装：install.sh 会把它放到 /etc/systemd/system/ 并 daemon-reload。
+# 手工安装：cp pacc-client.service /etc/systemd/system/ && systemctl daemon-reload
+#
+# 这里刻意**不**设置 ProtectProc=invisible/hidepid：
+# procfs 回退扫描要读别的进程的 /proc/<pid>/{cmdline,maps}，
+# 把 /proc 藏起来等于把唯一可用的回退事件源废掉。
+
+[Unit]
+Description=PACC Linux 原生客户端（eBPF 优先 / procfs 回退的端侧检测上报）
+Documentation=https://github.com/potatotv/pacc
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/pacc-linux-client --config /etc/pacc/pacc-client.properties
+
+# 专属低权限账号。安装脚本会创建 system 用户 pacc。
+User=pacc
+Group=pacc
+
+# 采集能力：读别的进程 /proc/<pid>/maps 要 CAP_SYS_PTRACE；
+# eBPF 侧（loader 由本进程按需拉起时不适用，此处是为直接加载场景预留）要 CAP_BPF/CAP_PERFMON。
+# 注意：loader 的 socket 必须允许 pacc 用户访问（chgrp pacc + chmod 0660），
+# 否则 eBPF 源连不上，客户端自动回退 procfs 并打日志。
+AmbientCapabilities=CAP_BPF CAP_PERFMON CAP_SYS_PTRACE
+CapabilityBoundingSet=CAP_BPF CAP_PERFMON CAP_SYS_PTRACE
+
+# 崩溃 / 被 OOM 杀掉后自动拉起，但不做无限快速重启。
+Restart=always
+RestartSec=5s
+StartLimitIntervalSec=0
+
+# 退出方式：客户端已注册 SIGTERM 处理器，会收敛当前轮次后退出。
+KillSignal=SIGTERM
+TimeoutStopSec=15s
+
+# ---- 沙箱加固 ----
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RemoveIPC=yes
+# 只允许本机 UNIX socket（loader）与出站 TCP（上报）。
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# 日志走 journald；客户端只往 stderr 写，不做控制字符以外的加工。
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pacc-linux-client
+
+[Install]
+WantedBy=multi-user.target

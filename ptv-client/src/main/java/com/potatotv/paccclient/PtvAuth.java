@@ -41,7 +41,7 @@ public final class PtvAuth {
                 .uri(URI.create(base + "/api/auth/login"))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
-                .header("User-Agent", "PACC-PlayerClient/5.0.0")
+                .header("User-Agent", "PACC-PlayerClient/5.4.0")
                 .POST(HttpRequest.BodyPublishers.ofString(Json.encode(body), StandardCharsets.UTF_8))
                 .build();
         try {

@@ -1,0 +1,34 @@
+# fastplace：快速放置（每秒放置方块数超阈值，随速率线性加分）
+# 对应检测 cheat/rules/FastPlaceRule
+
+rule "fastplace" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "cheat"
+    description: "快速放置：每秒放置方块数超过人类上限"
+    enabled: true
+
+    input {
+        features: map[string, float]
+    }
+
+    let per_sec = features["feature_fastplace_block_per_sec"] ?? 0.0
+
+    let score = min([40.0 + (per_sec - 2.0) * 8.0, 85.0])
+
+    let keys = ["feature_fastplace_block_per_sec"]
+
+    when:
+        per_sec >= 2.0
+
+    then:
+        emit_alert(
+            type = "fastplace",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

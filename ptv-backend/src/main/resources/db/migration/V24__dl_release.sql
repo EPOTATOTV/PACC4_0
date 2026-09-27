@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS t_dl_release (
     artifact    VARCHAR(48)  NOT NULL COMMENT 'client / probe',
     version     VARCHAR(32)  NOT NULL,
     file_url    VARCHAR(512) NOT NULL,
-    sha256      CHAR(64)     NOT NULL,
+    sha256      VARCHAR(64) NOT NULL,
     size_bytes  BIGINT       NOT NULL DEFAULT 0,
     enabled     TINYINT(1)   NOT NULL DEFAULT 1,
     updated_at  DATETIME(6)  NOT NULL,

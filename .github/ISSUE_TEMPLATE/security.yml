@@ -1,0 +1,49 @@
+name: 安全问题
+description: 加固、扫描告警、供应链问题。可利用的漏洞请不要用这个模板。
+title: "[security] "
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **能被利用的漏洞**（绕过检测、伪造红屏解锁、WSS 签名或重放绕过、越权查端）不要写在这里，
+        走 [私密漏洞上报](https://github.com/EPOTATOTV/PACC4_0/security/advisories/new)。
+        这个模板只用于加固项、扫描器告警、依赖与供应链问题。
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 类型
+      options:
+        - 依赖漏洞（Dependabot / Trivy 告警）
+        - CodeQL / Code Scanning 告警
+        - 密钥泄露（Secret scanning / gitleaks）
+        - 加固项（默认配置、日志、头部、CORS、限流）
+        - 供应链（action 版本、镜像来源、签名）
+        - CI 权限与 Secrets
+    validations:
+      required: true
+
+  - type: input
+    id: reference
+    attributes:
+      label: 告警或扫描结果链接
+      description: Code Scanning / Dependabot 的告警链接，或 CI run 链接
+    validations:
+      required: false
+
+  - type: textarea
+    id: detail
+    attributes:
+      label: 问题描述
+      description: 涉及哪个模块、哪个配置项、哪条依赖。密钥类问题只写"哪个变量名"，不要贴值。
+    validations:
+      required: true
+
+  - type: textarea
+    id: fix
+    attributes:
+      label: 打算怎么修
+      description: 密钥类问题要额外说明是否需要在部署环境轮换该密钥
+    validations:
+      required: true

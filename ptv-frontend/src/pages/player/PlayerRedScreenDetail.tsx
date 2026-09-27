@@ -43,7 +43,7 @@ export default function PlayerRedScreenDetail() {
       <div>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/portal/records')} style={{ marginBottom: 16 }}>返回记录</Button>
         {err ? (
-          <Alert type="error" showIcon message={err} />
+          <Alert type="error" showIcon title={err} />
         ) : (
           <Empty style={{ padding: 48 }} description="加载中…" />
         )}
@@ -119,7 +119,7 @@ export default function PlayerRedScreenDetail() {
         <Col xs={24} lg={10}>
           <Card title="事件时间线" size="small">
             <Steps
-              direction="vertical"
+              orientation="vertical"
               size="small"
               current={detail.timeline.length}
               items={detail.timeline.map((t) => ({

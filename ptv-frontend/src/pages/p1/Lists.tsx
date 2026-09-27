@@ -95,14 +95,14 @@ export default function Lists() {
           ]}
         />
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增条目</Button>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Card styles={{ body: { padding: 0 } }}>
         <Table<ListEntryRow> rowKey="id" columns={columns} dataSource={visible} pagination={false} scroll={{ x: 860 }} locale={{ emptyText: '暂无名单条目' }} />
       </Card>
 
-      <Modal title="新增名单条目" open={open} onCancel={() => setOpen(false)} onOk={submit} destroyOnClose>
+      <Modal title="新增名单条目" open={open} onCancel={() => setOpen(false)} onOk={submit} destroyOnHidden>
         <Form form={form} layout="vertical" style={{ marginTop: 12 }}>
           <Form.Item label="名单方向" name="list_type" rules={[{ required: true }]}>
             <Select options={listTypes.map((t) => ({ label: t, value: t }))} />

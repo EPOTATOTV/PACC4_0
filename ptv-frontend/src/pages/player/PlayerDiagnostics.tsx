@@ -19,7 +19,7 @@ export default function PlayerDiagnostics() {
   function exportJson() {
     const payload = {
       app: 'PACC 玩家端',
-      version: 'v5.0.0',
+      version: 'v5.4.0',
       exported_at: new Date().toISOString(),
       user_agent: navigator.userAgent,
       pteid,
@@ -40,12 +40,12 @@ export default function PlayerDiagnostics() {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Title level={3} style={{ margin: 0 }}>诊断工具</Title>
         <div style={{ flex: 1 }} />
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable />}
       </div>
 
       <Card title="账号健康概览" variant="borderless" style={{ marginBottom: 16 }}>
         {summary ? (
-          <Descriptions column={2} size="small" labelStyle={{ width: 160 }}>
+          <Descriptions column={2} size="small" styles={{ label: { width: 160 } }}>
             <Descriptions.Item label="PTEID"><span style={{ fontFamily: 'monospace' }}>{pteid}</span></Descriptions.Item>
             <Descriptions.Item label="检测记录">{summary.record_count} 条</Descriptions.Item>
             <Descriptions.Item label="已撤销记录">{summary.revoked_count} 条</Descriptions.Item>
@@ -58,7 +58,7 @@ export default function PlayerDiagnostics() {
       </Card>
 
       <Card title="采集诊断信息" variant="borderless">
-        <Space direction="vertical">
+        <Space orientation="vertical">
           <Button type="primary" icon={<DownloadOutlined />} onClick={exportJson}>一键导出诊断 JSON</Button>
           <Text type="secondary" style={{ fontSize: 12 }}>
             本地完整诊断（CPU / 内存 / 检测模块 / 最近日志）由桌面客户端壳收集，位于

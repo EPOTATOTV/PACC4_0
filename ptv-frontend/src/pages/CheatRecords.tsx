@@ -73,7 +73,7 @@ export default function CheatRecords() {
         <div style={{ flex: 1 }} />
       </div>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Input

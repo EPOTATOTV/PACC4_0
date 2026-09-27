@@ -40,7 +40,27 @@ const zhTW: Record<string, string> = {
   'nav.detectorConfig': '檢測配置',
   'nav.motionConfig': '動效配置',
   'nav.releases': '版本發布',
+  'nav.prlEditor': 'PRL 規則編輯器',
   'nav.exportCenter': '數據導出',
+  // v5.2 智能檢測運營（管理端補齊）
+  'nav.group.v52': '智能檢測運營',
+  'nav.v52Model': '模型管理',
+  'nav.v52Profile': '行為畫像',
+  'nav.v52Reputation': '信譽管理',
+  'nav.v52Replay': '查端回放',
+  'nav.v52Devices': '硬體指紋',
+  // v5.4 效能與安全加固（管理端補齊）
+  'nav.group.v54': '效能與安全加固',
+  'nav.v54Apm': 'APM 效能監控',
+  'nav.v54Security': '安全稽核',
+  'nav.v54Keys': '金鑰管理',
+  // DF（Deep Fortress）Alpha 1.0.0
+  'nav.group.df': '深度堡壘 DF',
+  'nav.dfScreen': '數據可視化大屏',
+  'nav.dfAlertNoise': '告警降噪',
+  'nav.dfAutomation': '自動化響應',
+  'nav.dfPlugins': '插件執行時',
+  'nav.dfTenantQuota': '租戶配額',
 
   'player.overview': '我的概覽',
   'player.group.protection': '防護與監控',

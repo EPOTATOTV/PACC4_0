@@ -5,7 +5,6 @@ const OPEN_SOURCE = [
   { name: 'React', version: '18.x', license: 'MIT' },
   { name: 'ECMAScript / ECharts', version: '5.x', license: 'Apache-2.0' },
   { name: 'Bouncy Castle', version: '1.78.x', license: 'MIT' },
-  { name: 'org.luaj (LuaJ)', version: '3.0.1', license: 'MIT' },
 ]
 
 export default function PlayerAbout() {

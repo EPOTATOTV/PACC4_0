@@ -9,6 +9,11 @@ out/
 # .NET 编译产物
 bin/
 obj/
+# Gradle 构建缓存（各模块本地生成，含锁文件与哈希索引）
+**/.gradle/
+# --- Python（tools/pbpgen 的字节码缓存，属产物不入库）---
+__pycache__/
+*.pyc
 # 下载站发布二进制（由脚本构建产出，不入库）
 deploy/dl-web/files/*.zip
 deploy/dl-web/files/*.apk
@@ -20,8 +25,13 @@ deploy/dl-web/archive/
 node_modules/
 .vite/
 coverage/
+# 测试报告（JUnit XML 等，由 test:ci 产出，仅供 CI 上传 artifact）
+reports/
 # TypeScript 增量构建缓存（产物，不入库）
 *.tsbuildinfo
+# tsconfig.node.json 用 emitDeclarationOnly 避免生成 vite.config.js（.js 会盖过 .ts），
+# 代价是每次构建都产出这个 .d.ts：属产物，不入库
+vite.config.d.ts
 
 # --- IDE ---
 .idea/
@@ -67,7 +77,6 @@ deploy/gateway/certs/*.pem
 /RELEASE_CHECKLIST.md
 /Untitled.md
 /PACC v4.0 企业级游戏反作弊系统技术设计文档（基岩版 + Java 版双端统一架构）.md
-/PACC v4.1 企业级全平台反作弊系统 AI 设计文档（基岩版 + Java 版双端统一 _ PTEID 账号体系 _ 红屏强制管控架构）.md
 /PACC 纯玩家端反作弊系统 v3.0 技术设计文档（红屏警告 + PTV 管控架构）.md
 /PACC 客户端与管理端页面升级技术设计文档（v4.1 App化版）.md
 /PACC v4.0 开发者使用说明.md

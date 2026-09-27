@@ -13,4 +13,6 @@ public interface ReleaseRepository extends JpaRepository<ReleaseInfo, String> {
     List<ReleaseInfo> findAllByOrderByCreatedAtDesc();
 
     Optional<ReleaseInfo> findTopByPlatformAndChannelAndStatusOrderByBuildNoDesc(String platform, String channel, String status);
+
+    List<ReleaseInfo> findByPlatformAndChannelAndStatus(String platform, String channel, String status);
 }

@@ -35,7 +35,9 @@ public class SupportTicket {
 
     private String title;
 
+    /** length 取 int 上限：Hibernate 据此推导为 longtext，与迁移脚本一致。 */
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String description;
 
     /** OPEN | RESPONDED | RESOLVED | CLOSED */

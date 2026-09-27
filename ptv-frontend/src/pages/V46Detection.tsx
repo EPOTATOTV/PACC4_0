@@ -243,7 +243,7 @@ export default function V46Detection() {
         零日外挂检测与威胁情报 / 主动学习回流，样本复核确认后回灌特征库
       </Text>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col span={8}><Card><Statistic title="零日发现（待复核）" value={zOpen} /></Card></Col>

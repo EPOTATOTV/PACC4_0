@@ -51,6 +51,15 @@ public class Appeal {
     @Builder.Default
     private int prescreenScore = 0;
 
+    /**
+     * v5.2 §7.4 AI 自动复核结论：
+     * {@code PENDING}（待复核）/ {@code MISREPORT}（确认误报，已自动撤销）/
+     * {@code CONFIRMED}（确认违规，转人工）/ {@code INCONCLUSIVE}（证据不足，转人工）。
+     */
+    @Builder.Default
+    @Column(length = 16)
+    private String autoReview = "PENDING";
+
     /** 证据快照（作弊记录哈希、告警 ID、检测证据摘要、设备信息等 JSON）。 */
     @Column(length = 4000)
     private String evidenceJson;

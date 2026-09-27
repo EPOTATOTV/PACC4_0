@@ -33,7 +33,7 @@ export default function RedScreenDetail() {
     return (
       <div>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/redscreen')} style={{ marginBottom: 16 }}>返回红屏列表</Button>
-        <Alert type="error" showIcon message={err} />
+        <Alert type="error" showIcon title={err} />
       </div>
     )
   }
@@ -116,7 +116,7 @@ export default function RedScreenDetail() {
         <Col xs={24} lg={9}>
           <Card title="事件时间线" size="small">
             <Steps
-              direction="vertical"
+              orientation="vertical"
               size="small"
               current={d.timeline.length}
               items={d.timeline.map((t) => ({
@@ -137,7 +137,7 @@ export default function RedScreenDetail() {
           )}
 
           <Card title="操作" size="small" style={{ marginTop: 14 }}>
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               <Button type="primary" block onClick={() => message.success('已发起查端（后端就绪后生效）')}>发起查端</Button>
               <Button block danger onClick={() => message.success('已标记为误报（后端就绪后写入）')}>标记误报</Button>
               <Button block onClick={() => message.success('已提取特征入库（后端就绪后写入）')}>提取特征入库</Button>

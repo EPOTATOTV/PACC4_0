@@ -1,0 +1,9 @@
+[package]
+name = "pacc-stealth"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PACC 隐身外挂检测（DMA/注入/调试/虚拟化，设计文档 §4）"
+
+[dependencies]
+pacc-platform = { path = "../pacc-platform" }

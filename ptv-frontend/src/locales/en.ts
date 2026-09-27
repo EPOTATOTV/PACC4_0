@@ -40,7 +40,27 @@ const en: Record<string, string> = {
   'nav.detectorConfig': 'Detector Config',
   'nav.motionConfig': 'Motion Config',
   'nav.releases': 'Releases',
+  'nav.prlEditor': 'PRL Rule Editor',
   'nav.exportCenter': 'Data Export',
+  // v5.2 AI detection operations (admin console)
+  'nav.group.v52': 'AI Detection Ops',
+  'nav.v52Model': 'Model Versions',
+  'nav.v52Profile': 'Behavior Profile',
+  'nav.v52Reputation': 'Reputation',
+  'nav.v52Replay': 'Replay Archive',
+  'nav.v52Devices': 'Device Fingerprints',
+  // v5.4 performance & security hardening (admin console)
+  'nav.group.v54': 'Perf & Security Hardening',
+  'nav.v54Apm': 'APM Monitoring',
+  'nav.v54Security': 'Security Audit',
+  'nav.v54Keys': 'Key Management',
+  // DF (Deep Fortress) Alpha 1.0.0
+  'nav.group.df': 'Deep Fortress DF',
+  'nav.dfScreen': 'Ops Wall',
+  'nav.dfAlertNoise': 'Alert Noise Reduction',
+  'nav.dfAutomation': 'Automated Response',
+  'nav.dfPlugins': 'Plugin Runtime',
+  'nav.dfTenantQuota': 'Tenant Quota',
 
   'player.overview': 'My Overview',
   'player.group.protection': 'Protection & Monitor',

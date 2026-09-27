@@ -1,0 +1,44 @@
+# module_injection：可疑模块注入（反射式 / 网络式类加载器或注入被检出）
+# 文档 §6.1 内存注入类
+
+rule "module_injection" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "memory"
+    description: "可疑模块注入：反射式或网络式类加载器，或注入被检出"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let inject = features["feature_mod_inject_detected"] ?? 0.0
+    let reflective = features["feature_mod_reflective_loader_count"] ?? 0.0
+    let network = features["feature_mod_network_loader_count"] ?? 0.0
+
+    let score = 40.0
+        + (if inject >= 1.0: 30.0 else: 0.0 end)
+        + (if reflective > 0.0: 20.0 else: 0.0 end)
+        + (if network > 0.0: 15.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if inject >= 1.0: ["feature_mod_inject_detected"] else: no_keys end)
+        + (if reflective > 0.0: ["feature_mod_reflective_loader_count"] else: no_keys end)
+        + (if network > 0.0: ["feature_mod_network_loader_count"] else: no_keys end)
+
+    when:
+        (inject >= 1.0 OR reflective > 0.0 OR network > 0.0) AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "module_injection",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

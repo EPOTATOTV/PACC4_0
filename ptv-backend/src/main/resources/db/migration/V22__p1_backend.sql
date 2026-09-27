@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS t_release (
     min_app_version  VARCHAR(48),
     manual_enabled   TINYINT(1)   NOT NULL DEFAULT 0,  -- 白名单放量
     forced_enabled   TINYINT(1)   NOT NULL DEFAULT 0,  -- 强制更新
-    crash_rate_pct   DECIMAL(8,4) NOT NULL DEFAULT 0,  -- 崩溃率（%），展示型
+    crash_rate_pct   DECIMAL(38,2) NOT NULL DEFAULT 0,  -- 崩溃率（%），展示型
     status           VARCHAR(16)  NOT NULL,   -- DRAFT / PUBLISHED / ARCHIVED
     published_at     DATETIME(6),
     created_by       VARCHAR(128),

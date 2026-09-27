@@ -29,6 +29,8 @@ public class AlertRule {
     /** REALTIME | QUEUE | SIGNATURE ... */
     private String scope;
 
+    /** 触发条件（如内存写入/调试器）。列名避开 MySQL 保留字 CONDITION，否则裸写 column 名会让查询语法报错。 */
+    @Column(name = "rule_condition")
     private String condition;
 
     private Integer threshold;

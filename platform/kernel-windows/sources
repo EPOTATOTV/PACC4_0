@@ -14,9 +14,15 @@ BUFFERED_IO=1
 # 源码文件
 SOURCES= \
     pacc_driver.c \
+    pacc_event.c \
     pacc_obhook.c \
     pacc_scanner.c \
-    pacc_device.c
+    pacc_device.c \
+    pacc_procmon.c \
+    pacc_imagemon.c \
+    pacc_regmon.c \
+    pacc_ssdt.c \
+    pacc_drivenum.c
 
 # 用户态控制台工具（optional, 需显式开启）
 # SOURCES_ALT=ptvctl

@@ -2,6 +2,8 @@ package com.potatotv.pacc.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -45,6 +47,7 @@ public class Plugin {
     private String description;
 
     @Column(nullable = false, length = 32)
+    @Enumerated(EnumType.STRING)
     private Type type;
 
     @Column(nullable = false, length = 64)

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    // 只产出类型声明，不产出 vite.config.js。否则 tsc -b 会在 vite.config.ts 旁生成
+    // vite.config.js，Vite 解析配置时 .js 优先于 .ts，会静默使用陈旧副本。
+    "emitDeclarationOnly": true
+  },
+  "include": ["vite.config.ts"]
+}

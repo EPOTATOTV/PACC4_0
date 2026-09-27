@@ -37,6 +37,7 @@ import type {
   SystemConfig,
   SystemAdmins,
   EffectConfigDto,
+  EffectConfigAuditRow,
   DlRelease,
   DlStats,
   ProtectionStatus,
@@ -101,6 +102,45 @@ import type {
   CheatTypeDistRow,
   DetectorConfigRow,
   ReputationSummary,
+  V52ModelVersion,
+  V52TrainResult,
+  V52BehaviorProfile,
+  V52HighRiskPlayer,
+  V52ReputationDetail,
+  V52ReputationAdjustResult,
+  V52ReplayList,
+  V53DeviceList,
+  V53Trend,
+  V53ReputationOverview,
+  V54ApmCatalogEntry,
+  V54ApmOverview,
+  V54ApmTrend,
+  V54ApmMatrix,
+  V54ApmVersionRegression,
+  V54ApmAnomalyList,
+  V54ApmAlertList,
+  V54SecurityOverview,
+  V54SecurityEventList,
+  V54SecurityChain,
+  V54AttestationList,
+  V54KnownHash,
+  V54KnownHashList,
+  V54ManagedKey,
+  V54ManagedKeyList,
+  V54KeyAudit,
+  V54KeyAuditRow,
+  BiRealtime,
+  DfStreamMetrics,
+  AlertNoiseStats,
+  AlertNoiseGroupPage,
+  AlertSuppressionRule,
+  AutomationRuleRow,
+  AutomationExecutionPage,
+  AutomationExecutionRow,
+  PluginMarketList,
+  PluginRuntimeRow,
+  TenantQuotaView,
+  TenantUsageView,
 } from '../types'
 
 // 管理后台凭据已迁至 HttpOnly 会话 cookie（pacc_admin）：JS 不再持有/读取密钥或令牌，
@@ -432,6 +472,8 @@ export const api = {
     redscreenHealth: () => request<BiRedscreenHealth>('/bi/redscreen-health'),
     playerProfile: () => request<BiPlayerProfile>('/bi/player-profile'),
     loginAudit: (days = 30) => request<BiLoginAudit>(`/bi/login-audit?days=${days}`),
+    /** 实时大屏快照：单次请求拿到在线数、近 1h/24h 检测与红屏量、待查验与最新红屏事件流。 */
+    realtime: () => request<BiRealtime>('/bi/realtime'),
   },
 
   redscreens: {
@@ -569,6 +611,11 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ enabled }),
       }),
+
+    // ---- §4.2.3 多租户配额 / 计费计量 ----
+    quota: () => request<TenantQuotaView>('/tenant/quota'),
+    usage: (tenantId?: string) =>
+      request<TenantUsageView>(`/tenant/usage${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ''}`),
   },
 
   // ---- v5.0 赛事直播转播：管理端 CRUD ----
@@ -622,6 +669,7 @@ export const api = {
     get: () => request<EffectConfigDto>('/effect'),
     update: (body: Record<string, unknown>) =>
       request<EffectConfigDto>('/effect', { method: 'PUT', body: JSON.stringify(body) }),
+    history: (limit = 20) => request<EffectConfigAuditRow[]>(`/effect/history?limit=${limit}`),
   },
   dl: {
     releases: () => request<DlRelease[]>('/dl/releases'),
@@ -715,7 +763,62 @@ export const api = {
         body: JSON.stringify({ note: note ?? '' }),
       }),
     stats: () => request<AlertStats>('/alerts/stats'),
+
+    // ---- §4.3.2 智能告警降噪：降噪率统计 / 聚合组 / 误报抑制规则 ----
+    noiseStats: (windowHours = 24) =>
+      request<AlertNoiseStats>(`/alerts/noise/stats?windowHours=${windowHours}`),
+    noiseGroups: (page = 0, size = 20, windowHours = 24) =>
+      request<AlertNoiseGroupPage>(`/alerts/groups?page=${page}&size=${size}&windowHours=${windowHours}`),
+    suppressions: () => request<AlertSuppressionRule[]>('/alerts/suppressions'),
+    addSuppression: (body: {
+      name: string
+      pattern: string
+      familyCode?: string
+      reason?: string
+    }) => request<AlertSuppressionRule>('/alerts/suppressions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    removeSuppression: (id: string) =>
+      request<{ deleted: string }>(`/alerts/suppressions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   },
+
+  // ---- §4.3.3 自动化响应：规则 / 启停 / 执行审计 ----
+  automation: {
+    rules: () => request<AutomationRuleRow[]>('/automation/rules'),
+    toggleRule: (code: string, enabled: boolean) =>
+      request<AutomationRuleRow>(`/automation/rules/${encodeURIComponent(code)}/toggle`, {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      }),
+    executions: (page = 0, size = 20) =>
+      request<AutomationExecutionPage>(`/automation/executions?page=${page}&size=${size}`),
+    revertExecution: (id: number) =>
+      request<AutomationExecutionRow>(`/automation/executions/${id}/revert`, { method: 'POST' }),
+  },
+
+  // ---- §4.2.2 插件运行时：市场条目 + 运行时热加载 / 卸载 ----
+  plugins: {
+    market: (status?: string, page = 0, size = 20) => {
+      const p = new URLSearchParams({ page: String(page), size: String(size) })
+      if (status) p.set('status', status)
+      return request<PluginMarketList>(`/plugins?${p.toString()}`)
+    },
+    runtime: () => request<PluginRuntimeRow[]>('/plugins/runtime'),
+    loadRuntime: (id: string, path?: string) =>
+      request<PluginRuntimeRow>(`/plugins/runtime/${encodeURIComponent(id)}/load`, {
+        method: 'POST',
+        body: JSON.stringify(path ? { path } : {}),
+      }),
+    unloadRuntime: (id: string) =>
+      request<PluginRuntimeRow>(`/plugins/runtime/${encodeURIComponent(id)}/unload`, { method: 'POST' }),
+  },
+
+  // ---- DF §4.1.1 流式检测运行指标（延迟百分位，A18 观测面） ----
+  df: {
+    streamMetrics: () => request<DfStreamMetrics>('/df/stream/metrics'),
+  },
+
   roles: {
     list: () => request<AdminRole[]>('/roles'),
     get: (id: string) => request<AdminRole>(`/roles/${id}`),
@@ -834,6 +937,150 @@ export const api = {
       request<{ detectors: DetectorConfigRow[]; catalog: DetectorConfigRow[] }>('/detector-config'),
     saveDetectorConfig: (body: Record<string, unknown>) =>
       request<DetectorConfigRow>('/detector-config', { method: 'PUT', body: JSON.stringify(body) }),
+  },
+
+  // ---- v5.3 管理端补齐：v5.2 模型版本 / 行为画像 / 信誉 v2 / 查端回放 ----
+  // 均为只读或既有写接口的调用封装，不改动后端契约。
+  v52: {
+    model: {
+      versions: (modelType?: string) =>
+        request<{ versions: V52ModelVersion[] }>(
+          `/v52/model/versions${modelType ? `?modelType=${encodeURIComponent(modelType)}` : ''}`,
+        ),
+      active: (modelType: string) =>
+        request<V52ModelVersion>(`/v52/model/active?modelType=${encodeURIComponent(modelType)}`),
+      /** 灰度放量：percent 走查询参数（后端 @RequestParam，非请求体）。 */
+      gray: (id: string, percent: number) =>
+        request<V52ModelVersion>(`/v52/model/${encodeURIComponent(id)}/gray?percent=${percent}`, {
+          method: 'POST',
+        }),
+      activate: (id: string) =>
+        request<V52ModelVersion>(`/v52/model/${encodeURIComponent(id)}/activate`, { method: 'POST' }),
+      rollback: (id: string) =>
+        request<V52ModelVersion>(`/v52/model/${encodeURIComponent(id)}/rollback`, { method: 'POST' }),
+      /** 手动触发一轮训练（无入参：窗口与门禁由后端常量决定）。 */
+      train: () => request<V52TrainResult>('/v52/model/train', { method: 'POST' }),
+    },
+    profile: {
+      highRisk: (limit = 50) =>
+        request<{ players: V52HighRiskPlayer[] }>(`/v52/profile/high-risk?limit=${limit}`),
+      detail: (pteid: string) =>
+        request<V52BehaviorProfile>(`/v52/profile/${encodeURIComponent(pteid)}`),
+      reputation: (pteid: string, limit = 20) =>
+        request<V52ReputationDetail>(
+          `/v52/profile/${encodeURIComponent(pteid)}/reputation?limit=${limit}`,
+        ),
+      /** 人工调整信誉分：必须填原因，后端全程审计。 */
+      adjust: (pteid: string, delta: number, reason: string) =>
+        request<V52ReputationAdjustResult>(
+          `/v52/profile/${encodeURIComponent(pteid)}/reputation/adjust`,
+          { method: 'POST', body: JSON.stringify({ delta, reason }) },
+        ),
+    },
+    replay: {
+      list: (pteid?: string, limit = 20) => {
+        const p = new URLSearchParams({ limit: String(limit) })
+        if (pteid) p.set('pteid', pteid)
+        return request<V52ReplayList>(`/v52/replay?${p.toString()}`)
+      },
+      /** 解密下载地址：同源导航自动携带管理端会话 cookie。 */
+      downloadUrl: (id: string) => `/api/admin/v52/replay/${encodeURIComponent(id)}/download`,
+    },
+  },
+
+  // ---- v5.3 管理端只读聚合：硬件指纹 / 行为趋势 / 信誉全量分布 / 回放逐帧预览 ----
+  v53: {
+    devices: (pteid?: string, sharedOnly = false) => {
+      const p = new URLSearchParams({ sharedOnly: String(sharedOnly) })
+      if (pteid) p.set('pteid', pteid)
+      return request<V53DeviceList>(`/v53/devices?${p.toString()}`)
+    },
+    trend: (pteid: string, days = 30) =>
+      request<V53Trend>(`/v53/profile/${encodeURIComponent(pteid)}/trend?days=${days}`),
+    reputationOverview: () => request<V53ReputationOverview>('/v53/reputation/overview'),
+    /** 逐帧预览地址：JPEG 由浏览器直接加载（同源自动带 cookie），水印已在服务端烧好。 */
+    replayFrameUrl: (id: string, index: number) =>
+      `/api/admin/v53/replay/${encodeURIComponent(id)}/frame?index=${index}`,
+  },
+
+  // ---- v5.4 性能与安全加固：APM 监控 / 安全审计 / 密钥管理 ----
+  // 契约已冻结；查询串统一用 URLSearchParams 构造，空值不写入，避免后端误判为显式筛选项。
+  v54: {
+    apm: {
+      overview: (hours = 24, platform?: string, clientVer?: string) => {
+        const p = new URLSearchParams({ hours: String(hours) })
+        if (platform) p.set('platform', platform)
+        if (clientVer) p.set('clientVer', clientVer)
+        return request<V54ApmOverview>(`/apm/overview?${p.toString()}`)
+      },
+      trend: (metric: string, hours = 24, platform?: string, clientVer?: string) => {
+        const p = new URLSearchParams({ metric, hours: String(hours) })
+        if (platform) p.set('platform', platform)
+        if (clientVer) p.set('clientVer', clientVer)
+        return request<V54ApmTrend>(`/apm/trend?${p.toString()}`)
+      },
+      matrix: (metrics: string[], hours = 24) => {
+        const p = new URLSearchParams({ metrics: metrics.join(','), hours: String(hours) })
+        return request<V54ApmMatrix>(`/apm/platform-matrix?${p.toString()}`)
+      },
+      versionRegression: (metric: string, platform?: string) => {
+        const p = new URLSearchParams({ metric })
+        if (platform) p.set('platform', platform)
+        return request<V54ApmVersionRegression>(`/apm/version-regression?${p.toString()}`)
+      },
+      anomalies: (metric?: string, platform?: string, hours = 168) => {
+        const p = new URLSearchParams({ hours: String(hours) })
+        if (metric) p.set('metric', metric)
+        if (platform) p.set('platform', platform)
+        return request<V54ApmAnomalyList>(`/apm/anomalies?${p.toString()}`)
+      },
+      alerts: (status?: string, limit = 50) => {
+        const p = new URLSearchParams({ limit: String(limit) })
+        if (status) p.set('status', status)
+        return request<V54ApmAlertList>(`/apm/alerts?${p.toString()}`)
+      },
+      ackAlert: (id: string) =>
+        request<{ id: string; status: string }>(`/apm/alerts/${encodeURIComponent(id)}/ack`, { method: 'POST' }),
+      catalog: () => request<{ items: V54ApmCatalogEntry[] }>('/apm/catalog'),
+    },
+    security: {
+      overview: (hours = 24) => request<V54SecurityOverview>(`/security/overview?hours=${hours}`),
+      events: (params: { level?: string; type?: string; pteid?: string; limit?: number } = {}) => {
+        const p = new URLSearchParams({ limit: String(params.limit ?? 100) })
+        if (params.level) p.set('level', params.level)
+        if (params.type) p.set('type', params.type)
+        if (params.pteid) p.set('pteid', params.pteid)
+        return request<V54SecurityEventList>(`/security/events?${p.toString()}`)
+      },
+      chainVerify: (limit = 500) => request<V54SecurityChain>(`/security/chain/verify?limit=${limit}`),
+      attestation: (pteid?: string, limit = 50) => {
+        const p = new URLSearchParams({ limit: String(limit) })
+        if (pteid) p.set('pteid', pteid)
+        return request<V54AttestationList>(`/security/attestation?${p.toString()}`)
+      },
+      hashes: () => request<V54KnownHashList>('/security/hashes'),
+      addHash: (body: { label: string; kind: string; hash: string; active: boolean }) =>
+        request<V54KnownHash>('/security/hashes', { method: 'POST', body: JSON.stringify(body) }),
+      deactivateHash: (id: string) =>
+        request<{ ok: boolean }>(`/security/hashes/${encodeURIComponent(id)}/deactivate`, { method: 'POST' }),
+    },
+    keys: {
+      list: () => request<V54ManagedKeyList>('/keys'),
+      purposes: () => request<{ items: string[] }>('/keys/purposes'),
+      audit: () => request<V54KeyAudit>('/keys/audit'),
+      create: (purpose: string, note: string) =>
+        request<V54ManagedKey>('/keys', { method: 'POST', body: JSON.stringify({ purpose, note }) }),
+      rotate: (keyId: string, note: string) =>
+        request<V54ManagedKey>(`/keys/${encodeURIComponent(keyId)}/rotate`, {
+          method: 'POST', body: JSON.stringify({ note }),
+        }),
+      revoke: (keyId: string, reason: string) =>
+        request<V54ManagedKey>(`/keys/${encodeURIComponent(keyId)}/revoke`, {
+          method: 'POST', body: JSON.stringify({ reason }),
+        }),
+      keyAudit: (keyId: string) =>
+        request<{ items: V54KeyAuditRow[] }>(`/keys/${encodeURIComponent(keyId)}/audit`),
+    },
   },
 
   // ---- 玩家门户：信誉分（P1） ----

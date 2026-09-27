@@ -1,0 +1,53 @@
+# kill_aura：击杀光环（高命中率 + 快速转火 + 非人类点击模式）
+# 对应设计文档 §2.2.1 的示例规则。
+
+rule "kill_aura_detection" {
+    # 元数据
+    version: "1.2.0"
+    author: "PACC Security Team"
+    severity: high              # low / medium / high / critical
+    category: "combat"
+    cooldown: 300s              # 同一玩家触发后冷却时间
+    enabled: true
+
+    # 输入变量声明（强类型）
+    input {
+        player: PlayerContext
+        attack_events: list[AttackEvent]
+        system_state: SystemState
+    }
+
+    # 局部变量
+    let attack_rate = rate(attack_events, 1s)
+    let hit_accuracy = accuracy(attack_events)
+    let target_switch_rate = rate(filter(attack_events, e -> e.target_changed), 1s)
+    let click_pattern = analyze_click_pattern(attack_events)
+    # 文档示例在 emit_alert 里直接写了字面量 0.92，又在 if 里引用了 confidence；
+    # 这里把它提成变量，规则才能通过类型检查真正跑起来。
+    let confidence = 0.92
+
+    # 触发条件（when-then结构）
+    when:
+        attack_rate > 8 per_second
+        AND hit_accuracy > 0.95
+        AND target_switch_rate > 3 per_second
+        AND NOT click_pattern.is_human_like()
+        AND NOT player.is_trusted()
+
+    then:
+        # 动作列表
+        emit_alert(
+            type = "KILL_AURA",
+            confidence = confidence,
+            evidence = {
+                "attack_rate": attack_rate,
+                "hit_accuracy": hit_accuracy,
+                "target_switch_rate": target_switch_rate,
+                "click_pattern": click_pattern.to_json()
+            }
+        )
+        record_evidence("attack_timeline", last_n(attack_events, 100))
+        if confidence > 0.9:
+            trigger_redscreen(reason = "kill_aura_detected")
+        end
+}

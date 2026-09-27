@@ -1,0 +1,44 @@
+# trajectory_anomaly：移动轨迹异常（路径过于笔直/平滑，输入与位移脱钩）
+# 文档 §6.1 行为异常类
+
+rule "trajectory_anomaly" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "behavior"
+    description: "移动轨迹异常：路径过于笔直平滑，输入与位移脱钩"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let straight = features["feature_movement_input_lag"] ?? 0.0
+    let smooth = features["feature_path_smoothness"] ?? 0.0
+    let curvature = features["feature_path_curvature"] ?? 0.0
+
+    let score = 40.0
+        + (if straight > 0.95: 25.0 else: 0.0 end)
+        + (if smooth > 0.9: 20.0 else: 0.0 end)
+        + (if curvature > 0.0 AND curvature < 0.01: 15.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if straight > 0.95: ["feature_movement_input_lag"] else: no_keys end)
+        + (if smooth > 0.9: ["feature_path_smoothness"] else: no_keys end)
+        + (if curvature > 0.0 AND curvature < 0.01: ["feature_path_curvature"] else: no_keys end)
+
+    when:
+        straight > 0.95 AND smooth > 0.9 AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "trajectory_anomaly",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

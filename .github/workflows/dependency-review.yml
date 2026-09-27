@@ -1,0 +1,30 @@
+# 依赖变更评审 —— 在 PR 阶段就挡掉有已知漏洞的依赖
+#
+# 与 Trivy 的分工：Trivy 扫「合并之后仓库里有什么」，这个扫「这次 PR 新引入了什么」。
+# 配合 dependabot 用才完整：dependabot 负责提，这个负责拦。
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: 依赖变更评审
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write   # 把结论写回 PR
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 评审依赖差异
+        # v5.0.0
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
+        with:
+          fail-on-severity: high        # 引入 high 及以上漏洞直接红
+          comment-summary-in-pr: on-failure

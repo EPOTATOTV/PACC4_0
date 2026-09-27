@@ -3,14 +3,15 @@
 //! 用途（PACC v5.0 安全基线）：
 //!   - 检测事件指纹（事件去重 / 篡改检测）
 //!   - HMAC-SHA256 检测上报签名（防伪造 / 防篡改，密钥由部署方持有）
+//!
 //! 实现参考 FIPS 180-4 / RFC 2104，仅依赖 `std`，无外部 crate。
 
 /// SHA-256 哈希（返回 32 字节摘要）。
 pub fn sha256(data: &[u8]) -> [u8; 32] {
     // 初始哈希值 H0（FIPS 180-4 §5.3.3）
     let mut h: [u32; 8] = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+        0x5be0cd19,
     ];
 
     // 消息填充：追加 0x80，补零至 56 mod 64，最后 8 字节为大端比特长度
@@ -22,10 +23,10 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
     }
     padded.extend_from_slice(&bit_len.to_be_bytes());
 
-    for block in padded.chunks_exact(64) {
+    for block in padded.as_chunks::<64>().0 {
         let mut w = [0u32; 64];
-        for (i, chunk) in block.chunks_exact(4).enumerate() {
-            w[i] = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        for (i, chunk) in block.as_chunks::<4>().0.iter().enumerate() {
+            w[i] = u32::from_be_bytes(*chunk);
         }
         for i in 16..64 {
             let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
@@ -144,7 +145,9 @@ mod tests {
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         );
         assert_eq!(
-            hex(&sha256(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")),
+            hex(&sha256(
+                b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+            )),
             "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
         );
     }
@@ -152,7 +155,8 @@ mod tests {
     #[test]
     fn hmac_known_vector() {
         // RFC 4231 Test Case 1
-        let key = b"\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
+        let key =
+            b"\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
         let data = b"Hi There";
         assert_eq!(
             hex(&hmac_sha256(key, data)),

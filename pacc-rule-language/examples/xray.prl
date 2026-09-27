@@ -1,0 +1,44 @@
+# xray：透视（挖矿路径高度收敛到矿脉，且与暴露面无关）
+
+rule "xray_detection" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "world"
+    cooldown: 900s
+    enabled: true
+
+    input {
+        player: PlayerContext
+        mining_events: list[MiningEvent]
+        system_state: SystemState
+    }
+
+    let total_count = count(mining_events)
+    let ore_ratio = to_float(count(filter(mining_events, e -> e.is_ore()))) / to_float(total_count)
+    let exposed_ratio = to_float(count(filter(mining_events, e -> e.exposed))) / to_float(total_count)
+    let straightness = average(map(mining_events, e -> e.path_straightness))
+    let vein_precision = average(map(mining_events, e -> e.distance_to_vein))
+
+    when:
+        total_count > 50
+        AND ore_ratio > 0.7
+        AND straightness > 0.9
+        AND exposed_ratio < 0.2
+        AND vein_precision < 1.5
+        AND NOT player.is_trusted()
+
+    then:
+        emit_alert(
+            type = "XRAY",
+            confidence = clamp(ore_ratio * straightness, 0.0, 1.0),
+            evidence = {
+                "ore_ratio": ore_ratio,
+                "straightness": straightness,
+                "exposed_ratio": exposed_ratio,
+                "vein_precision": vein_precision,
+                "sample_count": total_count
+            }
+        )
+        record_evidence("mining_timeline", last_n(mining_events, 200))
+}

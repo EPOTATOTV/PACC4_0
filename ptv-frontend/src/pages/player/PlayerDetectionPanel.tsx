@@ -56,7 +56,7 @@ export default function PlayerDetectionPanel() {
   }
 
   if (!api.available) {
-    return <Alert type="info" showIcon message={'检测能力仅在原生 App（桌面端/移动端）内可用。'} />
+    return <Alert type="info" showIcon title={'检测能力仅在原生 App（桌面端/移动端）内可用。'} />
   }
 
   const platformLabel = 'desktop' === api.platform ? '桌面端' : '移动端'

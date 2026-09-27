@@ -1,0 +1,33 @@
+# account_history：账号历史劣迹
+# 迁移自 rules/account_history.lua。历史作弊次数多（信誉低）的账号，命中时额外加分。
+#
+# 刻意不写 cooldown：后端规则按事件逐条求值，加分必须每次事件都参与计算。
+# 写冷却会把同一账号后续事件的加分整段吞掉，与旧 Lua 引擎的行为不一致。
+
+rule "account_history" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: low
+    category: "reputation"
+    description: "账号历史劣迹"
+    enabled: true
+
+    input {
+        reputation: float
+    }
+
+    let history_factor = (100.0 - reputation) / 100.0
+
+    when:
+        history_factor >= 0.3
+
+    then:
+        emit_alert(
+            type = "account_history",
+            confidence = history_factor,
+            evidence = {
+                "score": history_factor * 8.0,
+                "reason": "账号历史劣迹加成"
+            }
+        )
+}

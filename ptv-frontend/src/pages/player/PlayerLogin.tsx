@@ -75,7 +75,7 @@ export default function PlayerLogin() {
           </span>
         }
       >
-        {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
+        {err && <Alert type="error" showIcon title={err} style={{ marginTop: 16 }} closable />}
 
         <Form
           layout="vertical"
@@ -116,7 +116,7 @@ export default function PlayerLogin() {
       subtitle="手机号 / MCID / ECID / QQ / 邮箱任一均可登录"
       footer={<Link to="/" style={{ fontSize: 12 }}>‹ 返回管理后台</Link>}
     >
-      {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginTop: 16 }} closable />}
 
       <Form layout="vertical" onFinish={onFinish} style={{ marginTop: 20 }} requiredMark={false}>
         <Form.Item

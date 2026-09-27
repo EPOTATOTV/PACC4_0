@@ -100,7 +100,7 @@ export default function PlayerNotifications() {
         <Space style={{ marginLeft: 'auto' }}>
           <Button icon={<ReadOutlined />} onClick={markAll} disabled={unread === 0}>全部已读</Button>
         </Space>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Card styles={{ body: { padding: 0 } }}>

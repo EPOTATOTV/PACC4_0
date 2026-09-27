@@ -5,6 +5,9 @@
 #define PACC_MAX_AUTH_PID 16
 static ULONG g_paccAuthorizedPids[PACC_MAX_AUTH_PID];
 
+// ObRegisterCallbacks 注册句柄；卸载时必须反注册，否则驱动无法卸载。
+static PVOID g_paccObRegistration = NULL;
+
 // 被禁用的 Process 访问权限位掩码（检测/取证工具常尝试拿 FULL_CONTROL）
 #define PACC_FORBIDDEN_MASK \
     (PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_SUSPEND_RESUME \
@@ -62,6 +65,7 @@ PaccObHookInitialize(VOID)
 {
     OB_CALLBACK_REGISTRATION obReg = {0};
     OB_OPERATION_REGISTRATION op[1];
+    UNICODE_STRING altitude = RTL_CONSTANT_STRING(L"328001");
     op[0].ObjectType = PsProcessType;
     op[0].Operations = OB_OPERATION_HANDLE_CREATE | OB_OPERATION_HANDLE_DUPLICATE;
     op[0].PreOperation = PaccObPreOperation;
@@ -69,16 +73,22 @@ PaccObHookInitialize(VOID)
 
     obReg.Version = OB_FLT_REGISTRATION_VERSION;
     obReg.OperationRegistrationCount = 1;
-    obReg.Altitude = RTL_CONSTANT_STRING(L"328001");
+    obReg.Altitude = altitude;
     obReg.OperationRegistration = op;
 
-    NTSTATUS status = ObRegisterCallbacks(&obReg, NULL);
+    PVOID registration = NULL;
+    NTSTATUS status = ObRegisterCallbacks(&obReg, &registration);
+    if (NT_SUCCESS(status)) {
+        g_paccObRegistration = registration;
+    }
     return status;
 }
 
 VOID
 PaccObHookUninitialize(VOID)
 {
-    // 若后续引入回调注册句柄，此处应调用 ObUnRegisterCallbacks。
-    // 骨架驱动采用一次性注册，卸载前由 DriverUnload 完成释放。
+    if (g_paccObRegistration != NULL) {
+        ObUnRegisterCallbacks(g_paccObRegistration);
+        g_paccObRegistration = NULL;
+    }
 }

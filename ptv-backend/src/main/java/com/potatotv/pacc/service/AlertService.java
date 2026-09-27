@@ -4,6 +4,8 @@ import com.potatotv.pacc.domain.AlertEvent;
 import com.potatotv.pacc.domain.AlertRule;
 import com.potatotv.pacc.repository.AlertEventRepository;
 import com.potatotv.pacc.repository.AlertRuleRepository;
+import com.potatotv.pacc.service.alert.AlertAggregationService;
+import com.potatotv.pacc.service.alert.AlertSignal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,8 @@ public class AlertService {
     private final com.potatotv.pacc.repository.RedscreenAlertRepository redscreenRepository;
     private final com.potatotv.pacc.repository.DetectionEventRepository eventRepository;
     private final com.potatotv.pacc.repository.InspectSessionRepository inspectRepository;
+    /** §4.3.2 降噪入口：告警触发后进入聚合/抑制/优先级流水线。 */
+    private final AlertAggregationService alertAggregationService;
 
     /** 抑制窗口：ruleId:severity -> 最后触发时间，避免短窗口内重复轰炸。 */
     private final Map<String, Instant> suppressedUntil = new ConcurrentHashMap<>();
@@ -116,6 +120,8 @@ public class AlertService {
                 .createdAt(Instant.now())
                 .build();
         alertEventRepository.save(ev);
+        // §4.3.2 进入降噪流水线：抑制 → 聚合 → 优先级 → 通知队列
+        alertAggregationService.ingest(AlertSignal.fromEvent(ev));
         suppressedUntil.put(key, Instant.now().plusSeconds(cooldownSec(rule)));
         log.warn("告警规则触发 rule={} metric={} threshold={} actual={}", rule.getName(),
                 rule.getCondition(), rule.getThreshold(), actual);

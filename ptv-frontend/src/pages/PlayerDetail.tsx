@@ -62,7 +62,7 @@ export default function PlayerDetail() {
   return (
     <div>
       <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/accounts')} style={{ marginBottom: 16 }}>返回账号列表</Button>
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       {!d && !err ? (
         <Empty description="加载中…" style={{ padding: 48 }} />

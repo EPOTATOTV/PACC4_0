@@ -40,10 +40,9 @@ export default function PageHeader({
         <Alert
           type="error"
           showIcon
-          message={error}
+          title={error}
           style={{ flex: 1, minWidth: 200 }}
-          closable={!!onCloseError}
-          onClose={onCloseError}
+          closable={onCloseError ? { onClose: onCloseError } : false}
         />
       )}
       {extra}

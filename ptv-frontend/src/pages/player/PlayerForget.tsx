@@ -62,7 +62,7 @@ export default function PlayerForget() {
       {!token ? (
         <>
           {reqMsg && (
-            <Alert type={sent ? 'success' : 'error'} showIcon message={reqMsg} style={{ marginTop: 16 }} />
+            <Alert type={sent ? 'success' : 'error'} showIcon title={reqMsg} style={{ marginTop: 16 }} />
           )}
             {!sent && (
               <Form layout="vertical" onFinish={requestReset} requiredMark={false} style={{ marginTop: 20 }}>
@@ -90,7 +90,7 @@ export default function PlayerForget() {
           </>
         ) : (
           <>
-            {res && <Alert type={res.ok ? 'success' : 'error'} showIcon message={res.msg} style={{ marginTop: 16 }} />}
+            {res && <Alert type={res.ok ? 'success' : 'error'} showIcon title={res.msg} style={{ marginTop: 16 }} />}
             {!res?.ok && (
               <Form layout="vertical" onFinish={doReset} requiredMark={false} style={{ marginTop: 20 }}>
                 <Form.Item

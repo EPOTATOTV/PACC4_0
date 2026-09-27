@@ -7,19 +7,23 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
     <groupId>com.potatotv.pacc</groupId>
     <artifactId>ptv-backend</artifactId>
-    <version>5.0.0</version>
+    <version>5.4.0</version>
     <name>PACC PTV 管控后端</name>
     <description>PACC v5.0 PTV 管控层：账号 / 检测 / AI 评分 / 红屏广播 / 远程查端 / 记录 / 特征库 / 统计</description>
 
     <properties>
         <java.version>21</java.version>
-        <jjwt.version>0.12.5</jjwt.version>
+        <jjwt.version>0.13.0</jjwt.version>
+        <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
+        <pacc.pbp.version>1.0.0</pacc.pbp.version>
+        <!-- PRL 自研规则语言运行时，版本同样独立于 PACC；bump-version.sh 只做一致性断言，不改它 -->
+        <pacc.prl.version>1.0.0</pacc.prl.version>
     </properties>
 
     <dependencies>
@@ -58,7 +62,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.5.0</version>
+            <version>2.9.1</version>
         </dependency>
 
         <!-- 邮件（密码找回真实发送；对公上线必须配置真实 SMTP） -->
@@ -99,7 +103,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.78.1</version>
+            <version>1.86</version>
         </dependency>
 
         <!-- JWT -->
@@ -128,18 +132,20 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Lua 动态规则引擎（热更新检测规则） -->
+        <!-- 自研规则语言（PRL）：动态检测规则由 rules/*.prl 提供，替代原先的 LuaJ。
+             PRL 运行时零第三方依赖，规则在自研 VM 上执行，宿主能力经 PrlHostContext 白名单暴露。 -->
         <dependency>
-            <groupId>org.luaj</groupId>
-            <artifactId>luaj-jse</artifactId>
-            <version>3.0.1</version>
+            <groupId>com.potatotv</groupId>
+            <artifactId>pacc-rule-language</artifactId>
+            <version>${pacc.prl.version}</version>
         </dependency>
 
-        <!-- Protobuf：WSS 信令信封（PaccWire 生成）拼装/解析；proto 定义见 ../proto/pacc_wire.proto -->
+        <!-- 自研二进制协议（PBP）：WSS 信令信封拼装/解析；消息定义见 pacc-binary-protocol/mdl/pacc_wire.mdl，
+             类型 com.potatotv.pbp.gen.PaccEnvelope 由 tools/pbpgen 生成后入库。零第三方依赖。 -->
         <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>3.23.2</version>
+            <groupId>com.potatotv</groupId>
+            <artifactId>pacc-binary-protocol</artifactId>
+            <version>${pacc.pbp.version}</version>
         </dependency>
 
         <dependency>
@@ -170,6 +176,29 @@
                         </exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+            <!-- JaCoCo 覆盖率：prepare-agent 挂在 initialize，report 挂在 test 之后。
+                 因此 `mvn package` 一次就能同时产出 surefire 报告与 site/jacoco/，
+                 CI 直接取产物，不需要额外跑一遍 test（重复跑会拖慢构建）。 -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.15</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

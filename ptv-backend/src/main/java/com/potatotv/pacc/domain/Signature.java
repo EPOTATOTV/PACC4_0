@@ -1,6 +1,8 @@
 package com.potatotv.pacc.domain;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -34,6 +36,7 @@ public class Signature {
     /** 1-5，风险等级 */
     private int riskLevel;
 
+    @Enumerated(EnumType.STRING)
     private Edition edition;
 
     private String libraryVersion;

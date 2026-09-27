@@ -37,7 +37,27 @@ const ja = {
   'nav.detectorConfig': '検出設定',
   'nav.motionConfig': 'モーション設定',
   'nav.releases': 'バージョン配信',
+  'nav.prlEditor': 'PRL ルールエディタ',
   'nav.exportCenter': 'データエクスポート',
+  // v5.2 インテリジェント検出運用（管理コンソール）
+  'nav.group.v52': 'インテリジェント検出運用',
+  'nav.v52Model': 'モデル管理',
+  'nav.v52Profile': '行動プロファイル',
+  'nav.v52Reputation': 'レピュテーション',
+  'nav.v52Replay': '端末リプレイ',
+  'nav.v52Devices': 'ハードウェア指紋',
+  // v5.4 パフォーマンスとセキュリティ強化（管理コンソール）
+  'nav.group.v54': '性能とセキュリティ強化',
+  'nav.v54Apm': 'APM モニタリング',
+  'nav.v54Security': 'セキュリティ監査',
+  'nav.v54Keys': '鍵管理',
+  // DF（Deep Fortress）Alpha 1.0.0
+  'nav.group.df': 'ディープフォートレス DF',
+  'nav.dfScreen': '可視化ウォール',
+  'nav.dfAlertNoise': 'アラートノイズ低減',
+  'nav.dfAutomation': '自動応答',
+  'nav.dfPlugins': 'プラグインランタイム',
+  'nav.dfTenantQuota': 'テナントクォータ',
 
   // 玩家门户导航
   'player.overview': 'マイ概要',

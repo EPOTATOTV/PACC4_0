@@ -3,6 +3,7 @@ package com.potatotv.pacc.controller;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.service.AccountService;
 import com.potatotv.pacc.service.CompetitionService;
+import com.potatotv.pacc.service.LoginLockout;
 import com.potatotv.pacc.service.LoginThrottle;
 import com.potatotv.pacc.service.TokenService;
 import com.potatotv.pacc.service.TotpService;
@@ -31,7 +32,9 @@ import java.util.Map;
 
 /**
  * 玩家端账号接口（注册 / 登录）。返回 PTEID 与 JWT 访问令牌。
- * <p>登录含来源身份频率限制与审计日志（不落明文密码/令牌）。</p>
+ * <p>登录含来源身份频率限制（{@link LoginThrottle}，60s/5 次）、账户与 IP 的临时锁定
+ * （{@link LoginLockout}，15 分钟/10 次失败）与审计日志（不落明文密码/令牌）。
+ * 对外一律使用通用错误文案，不区分账号不存在、密码错误与锁定状态。</p>
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -42,6 +45,7 @@ public class AuthController {
 
     private final AccountService accountService;
     private final LoginThrottle throttle;
+    private final LoginLockout lockout;
     private final CompetitionService competitionService;
     private final VerifyCodeService verifyCodeService;
     private final SmsProvider smsProvider;
@@ -234,6 +238,12 @@ public class AuthController {
         String ip = clientIp(request);
         String idScope = "auth:" + (identity == null ? "?" : identity);
         String ipScope = "ip:" + ip;
+        // 长窗锁定优先于短窗限流：短窗已放行但仍在 15 分钟锁定窗口内时同样拒绝。
+        // 与限流共用 429 与同一句文案，不暴露「被锁定」这一状态，避免账号枚举。
+        if (lockout.isLocked(idScope) || lockout.isLocked(ipScope)) {
+            log.warn("玩家登录被临时锁定 identity={} ip={}", identity, ip);
+            return ResponseEntity.status(429).body(Map.of("error", "尝试过于频繁，请稍后再试"));
+        }
         if (!throttle.allowed(idScope) || !throttle.allowed(ipScope)) {
             log.warn("玩家登录被限流 identity={} ip={}", identity, ip);
             return ResponseEntity.status(429).body(Map.of("error", "尝试过于频繁，请稍后再试"));
@@ -245,6 +255,8 @@ public class AuthController {
                     deviceFp, remember);
             throttle.clear(idScope);
             throttle.clear(ipScope);
+            lockout.reset(idScope);
+            lockout.reset(ipScope);
             // 2FA：若该账号已启用两步验证，先判断当前设备是否已被信任；
             // 可信设备（30 天内验证过且未过期）免于二次验证，直接签发主会话。
             if (totpService.enabled(token.pteid())) {
@@ -279,11 +291,17 @@ public class AuthController {
         } catch (IllegalArgumentException e) {
             throttle.hit(idScope);
             throttle.hit(ipScope);
+            lockout.recordFailure(idScope);
+            lockout.recordFailure(ipScope);
+            lockout.applyProgressiveDelay(idScope);
             log.warn("玩家登录失败 ip={}: {}", ip, e.getMessage());
-            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+            // 统一文案：不区分「账号不存在」与「密码错误」，防止账号枚举
+            return ResponseEntity.status(401).body(Map.of("error", "账号或密码错误"));
         } catch (IllegalStateException e) {
             throttle.hit(idScope);
             throttle.hit(ipScope);
+            lockout.recordFailure(idScope);
+            lockout.recordFailure(ipScope);
             log.warn("玩家登录被锁定 ip={}: {}", ip, e.getMessage());
             // 与“账号/密码错误”一致返回 401，不暴露锁定与账号状态（防枚举）
             return ResponseEntity.status(401).body(Map.of("error", "账号或密码错误"));
@@ -305,10 +323,29 @@ public class AuthController {
         } catch (SecurityException e) {
             return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
         }
+        // 第二步同样限流：6 位 TOTP 空间仅百万级，不设限可被在线暴力枚举。
+        // pending 令牌本身 5 分钟有效，攻击者只要持有口令即可不断续签，故必须在此处拦截。
+        String ip = clientIp(request);
+        String idScope = "2fa:" + pteid;
+        String ipScope = "ip:" + ip;
+        if (lockout.isLocked(idScope) || lockout.isLocked(ipScope)
+                || !throttle.allowed(idScope) || !throttle.allowed(ipScope)) {
+            log.warn("2FA 第二步验证被限流 pteid={} ip={}", pteid, ip);
+            return ResponseEntity.status(429).body(Map.of("error", "尝试过于频繁，请稍后再试"));
+        }
         if (!totpService.validate(pteid, code)) {
-            log.warn("2FA 第二步验证失败 pteid={}", pteid);
+            throttle.hit(idScope);
+            throttle.hit(ipScope);
+            lockout.recordFailure(idScope);
+            lockout.recordFailure(ipScope);
+            lockout.applyProgressiveDelay(idScope);
+            log.warn("2FA 第二步验证失败 pteid={} ip={}", pteid, ip);
             return ResponseEntity.status(401).body(Map.of("error", "验证码不正确或已失效"));
         }
+        throttle.clear(idScope);
+        throttle.clear(ipScope);
+        lockout.reset(idScope);
+        lockout.reset(ipScope);
         boolean remember = Boolean.parseBoolean(body.getOrDefault("remember", "false"));
         // 信任此设备：勾选且提交真实 TOTP（非恢复码）时记录设备指纹，30 天内免再次二次验证。
         boolean trust = Boolean.parseBoolean(body.getOrDefault("trust_device", "false"));
@@ -317,7 +354,7 @@ public class AuthController {
             totpService.trustDevice(pteid, deviceFp, 30L);
         }
         TokenService.Token token = accountService.issueToken(pteid, remember);
-        competitionService.recordLogin(pteid, accountFingerprint(pteid), clientIp(request));
+        competitionService.recordLogin(pteid, accountFingerprint(pteid), ip);
         log.info("2FA 第二步验证成功 pteid={}", pteid);
         setPlayerCookie(response, token.accessToken(), token.expiresAt());
         Map<String, Object> out = new LinkedHashMap<>();

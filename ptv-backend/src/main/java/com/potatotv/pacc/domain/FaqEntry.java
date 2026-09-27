@@ -1,5 +1,6 @@
 package com.potatotv.pacc.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
@@ -27,7 +28,9 @@ public class FaqEntry {
 
     private String question;
 
+    /** length 取 int 上限：Hibernate 据此推导为 longtext，与迁移脚本一致。 */
     @Lob
+    @Column(length = Integer.MAX_VALUE)
     private String answer;
 
     /** 以逗号分隔的关键词。 */

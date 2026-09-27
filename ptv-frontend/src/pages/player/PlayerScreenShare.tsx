@@ -103,14 +103,14 @@ export default function PlayerScreenShare() {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Title level={3} style={{ margin: 0 }}>远程查端 · 屏幕共享</Title>
       </div>
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Card size="small">
           <Badge
             status={status === '共享中' ? 'processing' : status === '已断开' || status === '错误' ? 'error' : 'success'}
             text={status === '连接中' ? '已连接，等待查端请求' : status}
           />
         </Card>
-        {warn && <Alert type="error" showIcon message={warn} />}
+        {warn && <Alert type="error" showIcon title={warn} />}
         <Button danger block disabled={status !== '共享中'} onClick={() => void stop()}>
           结束共享
         </Button>

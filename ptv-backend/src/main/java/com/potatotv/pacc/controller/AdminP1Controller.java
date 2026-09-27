@@ -106,7 +106,7 @@ public class AdminP1Controller {
         return ResponseEntity.ok(releaseService.create(
                 str(body.get("platform")), str(body.get("channel")), str(body.get("version")),
                 buildNo, str(body.get("notes")), str(body.get("download_url")),
-                str(body.get("sha256")), actor(req)));
+                str(body.get("sha256")), actor(req), body));
     }
 
     @PutMapping("/releases/{id}")
