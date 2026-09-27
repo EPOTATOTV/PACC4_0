@@ -2,17 +2,22 @@
  * PRL 规则编辑器（设计文档 §3.3 管理端规则管理）。
  *
  * 组件本身来自 `@potatotv/prl-editor`，本页只做接线：
- * 把源码、诊断、端点在三块面板之间传，并补一个「提交草稿」入口。
+ * 把源码、诊断、端点在各块面板之间传，并补一个「提交草稿」入口。
  *
  * 为什么还要自己补一个提交草稿的入口：版本管理面板的四个按钮都作用在「列表里已有的版本」上，
  * 一条规则第一次入库时列表是空的，面板里点不出任何东西。首版必须由页面来建。
+ *
+ * 调试与性能布局也来自同一个包（§3.3.1 的调试器 / 性能分析），都吃当前编辑框里的源码：
+ * 调试面板按断点把这份源码在服务端跑一遍，性能面板查的是这条规则真实的累计采样。
  */
 import { useCallback, useMemo, useState } from 'react'
 import {
+  Debugger,
   Editor,
   InlineError,
   Linter,
   Panel,
+  Profiler,
   RuleVersionManager,
   createDraftVersion,
   describePrlError,
@@ -38,6 +43,8 @@ const HOST_FUNCTIONS: readonly string[] = ['to_float', 'to_int', 'to_string']
 
 const VERSION_RE = /^\d+\.\d+\.\d+$/
 const RULE_NAME_RE = /^\s*rule\s+"([^"]+)"/m
+/** 源码里声明的版本号，与下面草稿要提交的版本号不是一回事。 */
+const RULE_VERSION_RE = /^\s*version\s*:\s*"([^"]+)"/m
 
 const DEFAULT_SOURCE = `# 左边写规则，右边看诊断，Ctrl/Cmd + S 提交草稿。
 rule "usb_device" {
@@ -93,6 +100,8 @@ export default function RuleEditor() {
   const endpoint = useMemo<PrlClientOptions>(() => ({ baseUrl: PRL_BASE, fetcher: prlFetcher }), [])
   // 规则名以源码里的 rule 声明为准：面板和接口都按它查版本，不能由界面单独填一个
   const ruleName = useMemo(() => RULE_NAME_RE.exec(source)?.[1] ?? '', [source])
+  // 面板按源码声明的版本查采样；下面草稿输入框里的版本是「准备提交成哪一版」，两者不能混用
+  const sourceVersion = useMemo(() => RULE_VERSION_RE.exec(source)?.[1] ?? '', [source])
   const lineCount = useMemo(() => source.split(/\r?\n/).length, [source])
 
   const handleDiagnostics = useCallback((next: Diagnostic[]) => setDiagnostics(next), [])
@@ -210,6 +219,11 @@ export default function RuleEditor() {
         source={source}
         canaryPercent={1}
       />
+
+      {/* 调试会话数在服务端有上限，会话也不会跨页面存活：离开本页前记得点「停止」 */}
+      <Debugger {...endpoint} source={source} ruleName={ruleName} ruleVersion={sourceVersion} />
+
+      <Profiler {...endpoint} ruleName={ruleName} ruleVersion={sourceVersion} />
     </div>
   )
 }
