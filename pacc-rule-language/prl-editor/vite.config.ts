@@ -2,14 +2,25 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
-// PRL 管理端编辑器组件包。demo 页面（index.html + src/main.tsx）只是给人肉看效果用的；
-// 真实接入方式是管理端直接引用 src/index.ts 的组件。
+// PRL 管理端编辑器组件包。发布到 npm 的是库产物（src/index.ts → dist/index.js + dist/index.d.ts）；
+// demo 页面（index.html + src/main.tsx）只用于本地 `npm run dev` 预览，不参与库构建。
 export default defineConfig({
   plugins: [react()],
   build: {
     // 与 ptv-frontend 一致：发行产物不带 Source Map
     sourcemap: false,
     target: 'es2020',
+    lib: {
+      entry: 'src/index.ts',
+      formats: ['es'],
+      fileName: () => 'index.js',
+      // 入口 import 了 styles.css，固定产物名，好让 package.json 的 "./style.css" 指得到
+      cssFileName: 'style',
+    },
+    rollupOptions: {
+      // React 由宿主（管理端）提供，作为 external 不打进产物，避免出现两份 React 实例
+      external: ['react', 'react-dom', 'react/jsx-runtime'],
+    },
   },
   server: {
     port: 5183,

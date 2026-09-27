@@ -115,6 +115,47 @@
   font-size: 12.5px;
 }
 
+/*
+ * 嵌进管理端时用的容器，替代 demo 页的 .prl-app。
+ * 管理端可以切浅色主题，而编辑器本身是固定的深色，所以这里自己铺一层底色 + 圆角，
+ * 让它成为一块自洽的深色面板，而不是在浅色页面上糊一层半透明黑。
+ * 不带 .prl-app 的 fixed 视差背景：那是铺满视口的，嵌进去会跑到整个管理端背后。
+ */
+.prl-workbench {
+  position: relative;
+  padding: 20px 22px 46px;
+  border: 1px solid var(--prl-line);
+  border-radius: 16px;
+  background: var(--prl-bg);
+  color: var(--prl-text);
+  font-family: var(--prl-font);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* 提交草稿用的一对输入框；管理端主题色不进来，跟面板同一套黑金变量 */
+.prl-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--prl-gold-line);
+  border-radius: 8px;
+  background: var(--prl-panel-2);
+  color: var(--prl-text);
+  font-family: inherit;
+  font-size: 13.5px;
+}
+
+.prl-input::placeholder {
+  color: var(--prl-muted);
+}
+
+.prl-input:focus-visible {
+  outline: none;
+  border-color: var(--prl-gold);
+  box-shadow: 0 0 0 3px var(--prl-gold-soft);
+}
+
 .prl-split {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);

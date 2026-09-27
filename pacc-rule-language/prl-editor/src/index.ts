@@ -1,7 +1,13 @@
 /**
  * PRL 管理端规则编辑器组件包的统一出口。
- * 管理端只需要 `import { Editor, Linter } from '@pacc/prl-editor'`。
+ * 管理端只需要 `import { Editor, Linter } from '@potatotv/prl-editor'`。
+ *
+ * 样式从入口引入：库产物是 ESM 模块，组件不会自己注入 CSS，宿主必须另外
+ * `import '@potatotv/prl-editor/style.css'`。写在这里是为了让 vite 库构建把
+ * styles.css 提取成 dist/style.css，管理端才有东西可引。
  */
+import './styles.css'
+
 export { Editor } from './Editor'
 export type { EditorProps } from './Editor'
 
