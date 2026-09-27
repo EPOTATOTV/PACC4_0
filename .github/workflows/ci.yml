@@ -285,7 +285,7 @@ jobs:
       - name: 安装依赖
         working-directory: ptv-frontend
         run: npm ci
-      # 零告警门禁：AGENTS.md 要求前端 ESLint 零告警零错误，
+      # 零告警门禁：仓库约定前端 ESLint 零告警零错误，
       # lint 脚本自带 --max-warnings 0，所以这一步能挡住新增的 any / hooks 违规。
       - name: ESLint 检查
         working-directory: ptv-frontend
