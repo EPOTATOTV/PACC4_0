@@ -37,6 +37,7 @@ const ja = {
   'nav.detectorConfig': '検出設定',
   'nav.motionConfig': 'モーション設定',
   'nav.releases': 'バージョン配信',
+  'nav.prlEditor': 'PRL ルールエディタ',
   'nav.exportCenter': 'データエクスポート',
   // v5.2 インテリジェント検出運用（管理コンソール）
   'nav.group.v52': 'インテリジェント検出運用',

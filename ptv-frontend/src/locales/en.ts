@@ -40,6 +40,7 @@ const en: Record<string, string> = {
   'nav.detectorConfig': 'Detector Config',
   'nav.motionConfig': 'Motion Config',
   'nav.releases': 'Releases',
+  'nav.prlEditor': 'PRL Rule Editor',
   'nav.exportCenter': 'Data Export',
   // v5.2 AI detection operations (admin console)
   'nav.group.v52': 'AI Detection Ops',

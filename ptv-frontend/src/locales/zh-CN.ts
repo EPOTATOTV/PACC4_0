@@ -42,6 +42,7 @@ const zhCN = {
   'nav.detectorConfig': '检测配置',
   'nav.motionConfig': '动效配置',
   'nav.releases': '版本发布',
+  'nav.prlEditor': 'PRL 规则编辑器',
   'nav.exportCenter': '数据导出',
   // v5.2 智能检测运营（管理端补齐）
   'nav.group.v52': '智能检测运营',

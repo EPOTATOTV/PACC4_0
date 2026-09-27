@@ -37,6 +37,7 @@ const ko = {
   'nav.detectorConfig': '탐지 설정',
   'nav.motionConfig': '모션 설정',
   'nav.releases': '버전 배포',
+  'nav.prlEditor': 'PRL 규칙 편집기',
   'nav.exportCenter': '데이터 내보내기',
   // v5.2 지능형 탐지 운영 (관리 콘솔)
   'nav.group.v52': '지능형 탐지 운영',
