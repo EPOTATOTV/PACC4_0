@@ -232,7 +232,7 @@ export default function AlertNoise() {
             percent={ratePercent === undefined ? 0 : Math.min(100, Math.round(ratePercent * 10) / 10)}
             showInfo={false}
             strokeColor={meets ? 'var(--kpi-green)' : 'var(--kpi-amber)'}
-            trailColor="rgba(255,255,255,.06)"
+            railColor="rgba(255,255,255,.06)"
             size={['100%', 7]}
           />
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>

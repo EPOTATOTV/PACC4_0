@@ -27,7 +27,7 @@ export default function PlayerSettings() {
   return (
     <div>
       <Title level={3} style={{ marginTop: 0 }}>客户端设置</Title>
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       <Card title="账号与安全" variant="borderless" style={{ marginBottom: 16 }}>
         <Space wrap size={16}>
@@ -68,9 +68,9 @@ export default function PlayerSettings() {
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="客户端启动即自动加载反作弊守护，全程强制运行，无手动开关，玩家不可关闭或调整。"
+          title="客户端启动即自动加载反作弊守护，全程强制运行，无手动开关，玩家不可关闭或调整。"
         />
-        <Descriptions column={2} size="small" labelStyle={{ width: 150 }}>
+        <Descriptions column={2} size="small" styles={{ label: { width: 150 } }}>
           {moduleSwitches.map(([k, v]) => (
             <Descriptions.Item key={k} label={k} span={2}>{v} · 已启用</Descriptions.Item>
           ))}

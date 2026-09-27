@@ -62,9 +62,9 @@ export default function PlayerMapPools() {
       <Title level={3} style={{ marginTop: 0 }}>地图池</Title>
 
       {denied && (
-        <Alert type="info" showIcon message="你尚未通过参赛审批，仅可浏览地图池，无法参与 BP。" style={{ marginBottom: 16 }} />
+        <Alert type="info" showIcon title="你尚未通过参赛审批，仅可浏览地图池，无法参与 BP。" style={{ marginBottom: 16 }} />
       )}
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       {currentBp && (
         <Card style={{ marginBottom: 16, background: 'rgba(88,166,255,.06)', borderColor: 'var(--kpi-blue)' }}>

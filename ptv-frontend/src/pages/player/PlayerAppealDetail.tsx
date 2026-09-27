@@ -62,7 +62,7 @@ export default function PlayerAppealDetail() {
     return (
       <div>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/portal/appeals')} style={{ marginBottom: 16 }}>返回申诉</Button>
-        {err ? <Alert type="error" showIcon message={err} /> : <Empty description="加载中…" style={{ padding: 48 }} />}
+        {err ? <Alert type="error" showIcon title={err} /> : <Empty description="加载中…" style={{ padding: 48 }} />}
       </div>
     )
   }
@@ -101,7 +101,7 @@ export default function PlayerAppealDetail() {
 
           <Card title="审核时间线" size="small" style={{ marginTop: 14 }}>
             <Steps
-              direction="vertical"
+              orientation="vertical"
               size="small"
               current={detail.timeline.length}
               items={detail.timeline.map((t) => ({

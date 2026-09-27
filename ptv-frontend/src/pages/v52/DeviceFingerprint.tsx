@@ -182,7 +182,7 @@ export default function DeviceFingerprint() {
                 type="warning"
                 showIcon
                 style={{ marginBottom: 13 }}
-                message={`该指纹被 ${detail.shared_count} 个账号使用`}
+                title={`该指纹被 ${detail.shared_count} 个账号使用`}
                 description="共享设备常见于账号租借 / 代打 / 工作室；建议结合信誉分与检测记录人工复核。"
               />
             )}

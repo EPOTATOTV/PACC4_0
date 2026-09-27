@@ -76,7 +76,7 @@ export default function Effectiveness() {
             系统{sum.healthy ? '健康' : '需关注'}（误报率 {sum.false_positive_pct}%）
           </Tag>
         )}
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Row gutter={[16, 16]}>

@@ -197,7 +197,7 @@ export default function ReputationManager() {
               <Empty description="按 PTEID 查询玩家信誉，或从右侧风险池选择" />
             </Card>
           ) : (
-            <Space direction="vertical" size={15} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={15} style={{ width: '100%' }}>
               <Card
                 title="信誉详情"
                 className="pacc-glass-lg"
@@ -231,7 +231,7 @@ export default function ReputationManager() {
                   type="info"
                   showIcon
                   style={{ marginBottom: 13 }}
-                  message="调整必须填写原因，操作人取自管理端会话，全程写入审计且不可删除。"
+                  title="调整必须填写原因，操作人取自管理端会话，全程写入审计且不可删除。"
                 />
                 <Form form={form} layout="inline" style={{ gap: 11, rowGap: 11 }}>
                   <Form.Item
@@ -282,7 +282,7 @@ export default function ReputationManager() {
         </Col>
 
         <Col xs={24} xl={9}>
-          <Space direction="vertical" size={15} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={15} style={{ width: '100%' }}>
             <Card title="信誉分布" className="pacc-glass-md" extra={<span style={{ fontSize: 12, color: 'var(--muted)' }}>全服 {overview?.total ?? 0} 人</span>}>
               <div ref={chartRef}>
                 <EChart option={chartOption} height={190} />
@@ -293,7 +293,7 @@ export default function ReputationManager() {
             </Card>
 
             <Card title="风险池玩家" className="pacc-glass-md" styles={{ body: { padding: 0 } }}>
-              {riskErr && <Alert type="error" showIcon message={riskErr} style={{ margin: 12 }} />}
+              {riskErr && <Alert type="error" showIcon title={riskErr} style={{ margin: 12 }} />}
               <Table<V52HighRiskPlayer>
                 rowKey="pteid"
                 size="small"

@@ -210,7 +210,7 @@ export default function V47ThreatIntel() {
         家族可视化 / 谱系研判 · 主动威慑分级处置 · IOC 中心化检索与订阅
       </Text>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       <Tabs
         items={[

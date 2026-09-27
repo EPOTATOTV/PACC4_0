@@ -64,7 +64,7 @@ export default function Redscreen() {
           onChange={(v) => setState(v as string)}
           options={states}
         />
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Card styles={{ body: { padding: 0 } }}>

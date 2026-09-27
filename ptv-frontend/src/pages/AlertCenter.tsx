@@ -169,7 +169,7 @@ export default function AlertCenter() {
         <Tag color={openCount > 0 ? 'error' : 'success'}>{openCount} 未确认</Tag>
         <div style={{ flex: 1 }} />
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setRuleOpen(true)}>新建规则</Button>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Row gutter={[12, 12]} style={{ marginBottom: 14 }} className="pacc-stagger">
@@ -225,8 +225,8 @@ export default function AlertCenter() {
       </Card>
 
       <Modal title="新建告警规则" open={ruleOpen} onCancel={() => setRuleOpen(false)} onOk={() => { message.success('规则已保存（后端就绪后生效）'); setRuleOpen(false) }} okText="保存" cancelText="取消">
-        <Alert type="info" message="在告警规则接口(后端)就绪前，此处为规则配置入口骨架。" style={{ marginBottom: 16 }} />
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Alert type="info" title="在告警规则接口(后端)就绪前，此处为规则配置入口骨架。" style={{ marginBottom: 16 }} />
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Input placeholder="规则名称" />
           <Select placeholder="告警范围" options={['红屏', '检测引擎', '网络', 'AI 模型'].map((v) => ({ value: v, label: v }))} />
         </Space>

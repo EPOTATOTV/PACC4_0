@@ -129,20 +129,20 @@ export default function StreamLivePage() {
         <Button type="primary" onClick={openCreate}>新增转播</Button>
       </div>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       <Row gutter={[12, 12]} className="pacc-in" style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} md={6}><MetricCard label="直播中" value={liveCount} accent="var(--kpi-green)" /></Col>
         <Col xs={12} sm={8} md={6}><MetricCard label="转播总数" value={rows.length} accent="var(--kpi-blue)" /></Col>
       </Row>
 
-      <Card title="转播列表" bordered={false}
+      <Card title="转播列表" variant="borderless"
         extra={<Text type="secondary" style={{ fontSize: 12 }}>点击标题可外跳观看</Text>}>
         <Table<Broadcast> rowKey="id" columns={cols} dataSource={rows} loading={loading} size="middle"
           pagination={false} locale={{ emptyText: '暂无转播，点击右上角新增' }} scroll={{ x: 900 }} />
       </Card>
 
-      <Modal title={editing ? `编辑转播 · ${editing.title}` : '新增转播'} open={open} onOk={submit} onCancel={() => setOpen(false)} destroyOnClose>
+      <Modal title={editing ? `编辑转播 · ${editing.title}` : '新增转播'} open={open} onOk={submit} onCancel={() => setOpen(false)} destroyOnHidden>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="title" label="直播标题" rules={[{ required: true, message: '请输入直播标题' }]}>
             <Input placeholder="如 PACC 冬季赛决赛》" />

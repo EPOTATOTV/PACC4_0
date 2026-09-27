@@ -78,7 +78,7 @@ export default function BpConsole() {
   }
 
   if (!state) {
-    return <div style={{ color: 'var(--muted)', padding: 24 }}>加载中…{err && <Alert type="error" showIcon message={err} style={{ marginTop: 12 }} />}</div>
+    return <div style={{ color: 'var(--muted)', padding: 24 }}>加载中…{err && <Alert type="error" showIcon title={err} style={{ marginTop: 12 }} />}</div>
   }
 
   const currentSide = state.can_act_for
@@ -118,7 +118,7 @@ export default function BpConsole() {
         )}
       </div>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       {/* 回合条 */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>

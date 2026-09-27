@@ -261,7 +261,7 @@ export default function SupportCenter() {
         工单创建 / 分类 / SLA 首响跟踪 / 智能回复(FAG) / 知识库，简单数据分析。
       </Text>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 18 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 18 }} closable />}
 
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 20 }}>
         <Card style={{ minWidth: 160 }}>
@@ -325,7 +325,7 @@ export default function SupportCenter() {
         ]}
       />
 
-      <Modal title="创建工单" open={createOpen} onCancel={() => setCreateOpen(false)} onOk={() => createForm.submit()} destroyOnClose>
+      <Modal title="创建工单" open={createOpen} onCancel={() => setCreateOpen(false)} onOk={() => createForm.submit()} destroyOnHidden>
         <Form form={createForm} layout="vertical" onFinish={onCreate}>
           <Form.Item name="category" label="分类" initialValue="TECHNICAL">
             <Select options={CATEGORIES.map((c) => ({ value: c, label: `${c} · ${categoryLabel[c]}` }))} />
@@ -347,13 +347,13 @@ export default function SupportCenter() {
         open={replyOpen}
         onCancel={() => setReplyOpen(false)}
         onOk={() => replyForm.submit()}
-        destroyOnClose
+        destroyOnHidden
       >
         {slaResult && (
           <Alert
             style={{ marginBottom: 12 }}
             type={slaResult.in_sla ? 'success' : 'error'}
-            message={`SLA(${slaResult.priority})：首响 ${fmtSec(slaResult.first_reply_seconds)} / 预算 ${fmtSec(slaResult.budget)} → ${slaResult.in_sla ? '未超时' : '已超时'}`}
+            title={`SLA(${slaResult.priority})：首响 ${fmtSec(slaResult.first_reply_seconds)} / 预算 ${fmtSec(slaResult.budget)} → ${slaResult.in_sla ? '未超时' : '已超时'}`}
           />
         )}
         <Form form={replyForm} layout="vertical" onFinish={doReply}>

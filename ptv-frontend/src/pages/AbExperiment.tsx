@@ -223,7 +223,7 @@ export default function AbExperiment() {
         v4.7 · 创建实验 → 采集曝光/命中/误报指标 → z 检验显著性判定 → 采纳发布
       </Text>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       <Card title="新建实验" style={{ marginBottom: 16 }}>
         <Form form={form} layout="inline" style={{ rowGap: 12 }}>

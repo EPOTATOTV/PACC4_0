@@ -129,7 +129,7 @@ export default function SignatureLibrary() {
           <Button loading={diffLoading} onClick={openDiff}>查看增量</Button>
           <Button loading={rolling} onClick={autoRollback}>自动回滚(误报&gt;0.5%)</Button>
         </Space>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable />}
       </div>
 
       <Space style={{ marginBottom: 16 }} wrap>
@@ -181,7 +181,7 @@ export default function SignatureLibrary() {
         footer={<Button onClick={() => setDiffOpen(false)}>关闭</Button>}
       >
         {diff && (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
             <Text>本次变更条目数：<Text strong>{diff.count}</Text></Text>
             <div>
               <Text type="secondary" style={{ fontSize: 12 }}>digest（SHA-256）：</Text>

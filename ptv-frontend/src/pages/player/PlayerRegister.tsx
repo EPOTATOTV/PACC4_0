@@ -80,7 +80,7 @@ export default function PlayerRegister() {
       {devLink && (
         <Alert
           type={devLink.startsWith('请先填写正确的邮箱') || devLink.startsWith('无法') ? 'error' : 'info'}
-          showIcon message={devLink} style={{ marginTop: 16 }} closable
+          showIcon title={devLink} style={{ marginTop: 16 }} closable
         />
       )}
 

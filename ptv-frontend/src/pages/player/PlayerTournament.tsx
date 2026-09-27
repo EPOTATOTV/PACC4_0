@@ -65,7 +65,7 @@ export default function PlayerTournament() {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Title level={3} style={{ margin: 0 }}>赛事中心</Title>
         <div style={{ flex: 1 }} />
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable />}
       </div>
 
       {/* 报名引导 */}
@@ -109,7 +109,7 @@ export default function PlayerTournament() {
           <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>
             第 2 步 · 绑定参赛设备（对局将以该设备入场）
           </Text>
-          <Space direction="vertical" style={{ width: '100%' }} size={10}>
+          <Space orientation="vertical" style={{ width: '100%' }} size={10}>
             <Input placeholder="设备指纹（客户端自动获取，可手动粘贴）" value={fp} onChange={(e) => setFp(e.target.value)} />
             <Input placeholder="参赛昵称（可选）" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </Space>

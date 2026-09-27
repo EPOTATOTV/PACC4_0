@@ -171,7 +171,7 @@ export default function BiReport() {
         >
           导出全部 CSV
         </Button>
-        {err && <Alert type="error" showIcon message={err} closable onClose={() => setErr('')} style={{ flex: 1, minWidth: 200 }} />}
+        {err && <Alert type="error" showIcon title={err} closable={{ onClose: () => setErr('') }} style={{ flex: 1, minWidth: 200 }} />}
       </div>
 
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>

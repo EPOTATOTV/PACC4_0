@@ -86,7 +86,7 @@ export default function Exports() {
         <h3 style={{ margin: 0, fontSize: 18 }}>数据导出中心</h3>
         <div style={{ flex: 1 }} />
         <Button icon={<ReloadOutlined />} onClick={() => void load()}>刷新</Button>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Card title="新建导出任务" size="small" style={{ marginBottom: 16 }}>

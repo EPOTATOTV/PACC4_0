@@ -54,7 +54,7 @@ export default function Compliance() {
   return (
     <div>
       <Title level={3} style={{ marginTop: 0 }}>客服工单</Title>
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       {summary && (
         <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>

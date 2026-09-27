@@ -93,7 +93,7 @@ export default function RoleManage() {
         <Title level={3} style={{ margin: 0 }}>角色与权限</Title>
         <div style={{ flex: 1 }} />
         <Button type="primary" icon={<PlusOutlined />} onClick={() => message.info('新建角色（接入后端后启用）')}>新建角色</Button>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Card styles={{ body: { padding: 0 } }}>

@@ -212,7 +212,7 @@ export default function BehaviorProfile() {
             styles={{ body: { padding: risk.length ? '4px 0' : 20 } }}
           >
             <div ref={riskRef}>
-              {riskErr && <Alert type="error" showIcon message={riskErr} style={{ margin: 12 }} />}
+              {riskErr && <Alert type="error" showIcon title={riskErr} style={{ margin: 12 }} />}
               {risk.length === 0 && !riskErr ? (
                 <Empty description="暂无风险玩家" />
               ) : (
@@ -251,13 +251,13 @@ export default function BehaviorProfile() {
         </Col>
 
         <Col xs={24} lg={17}>
-          {detailErr && <Alert type="error" showIcon message={detailErr} style={{ marginBottom: 14 }} closable onClose={() => setDetailErr('')} />}
+          {detailErr && <Alert type="error" showIcon title={detailErr} style={{ marginBottom: 14 }} closable={{ onClose: () => setDetailErr('') }} />}
           {!selected ? (
             <Card className="pacc-glass-md" styles={{ body: { padding: 60 } }}>
               <Empty description="从左侧风险池选择玩家，或按 PTEID 精确查询" />
             </Card>
           ) : (
-            <Space direction="vertical" size={15} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={15} style={{ width: '100%' }}>
               <Card
                 title="画像概览"
                 className="pacc-glass-lg"
@@ -267,7 +267,7 @@ export default function BehaviorProfile() {
                   <Alert
                     type="warning"
                     showIcon
-                    message="该玩家尚无行为画像"
+                    title="该玩家尚无行为画像"
                     description="画像行在客户端首次上报特征向量后生成；此时检测阈值按新玩家倍率收紧。"
                   />
                 ) : (

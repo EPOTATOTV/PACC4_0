@@ -142,7 +142,7 @@ export default function OpenApi() {
         <div style={{ flex: 1 }} />
       </div>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 18 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 18 }} closable={{ onClose: () => setErr('') }} />}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, alignItems: 'center' }}>
         <span style={{ fontWeight: 600 }}>API 密钥</span>
@@ -216,7 +216,7 @@ export default function OpenApi() {
         onCancel={() => setResult(null)}
         footer={<Button type="primary" onClick={() => setResult(null)}>我已保存</Button>}
       >
-        <Alert type="warning" showIcon message="密钥只显示这一次，关闭后无法再次查看；落库为加密存储。" style={{ marginBottom: 14 }} />
+        <Alert type="warning" showIcon title="密钥只显示这一次，关闭后无法再次查看；落库为加密存储。" style={{ marginBottom: 14 }} />
         <Paragraph><Text type="secondary">Key ID</Text></Paragraph>
         <Paragraph copyable style={{ marginBottom: 10 }}><Text code>{result?.keyId}</Text></Paragraph>
         <Paragraph><Text type="secondary">Secret（用于 HMAC 签名）</Text></Paragraph>

@@ -164,7 +164,7 @@ export default function MapPoolManager() {
   return (
     <div>
       <Title level={3} style={{ marginTop: 0 }}>地图池管理</Title>
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       {/* 池级统计概览 */}
       {pool && (
@@ -291,7 +291,7 @@ export default function MapPoolManager() {
 
       {/* 新建池 Modal */}
       <Modal title="新建地图池" open={poolOpen} okText="创建" cancelText="取消" onOk={createPool} onCancel={() => setPoolOpen(false)}>
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Input placeholder="地图池名称" value={poolName} onChange={(e) => setPoolName(e.target.value)} />
           <Text type="secondary" style={{ fontSize: 12 }}>赛事 ID 可留空＝通用池；创建后可在后续编辑（本版暂仅支持改名/停用）。</Text>
         </Space>

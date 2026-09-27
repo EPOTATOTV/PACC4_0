@@ -69,7 +69,7 @@ export default function AdminLoginLogs() {
         </Text>
         <div style={{ flex: 1 }} />
         <Tag color="volcano" style={{ margin: 0 }}>仅超级管理员可访问</Tag>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Card styles={{ body: { padding: 0 } }}>

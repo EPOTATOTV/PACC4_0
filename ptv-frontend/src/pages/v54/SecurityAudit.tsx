@@ -322,7 +322,7 @@ export default function SecurityAudit() {
           type="error"
           showIcon
           style={{ marginBottom: 15 }}
-          message={`哈希链在第 ${brokenSeq} 条断裂，可能存在日志删改`}
+          title={`哈希链在第 ${brokenSeq} 条断裂，可能存在日志删改`}
           description={
             <Space wrap>
               <span>{chainInfo.detail || '请核查该序号附近的安全事件记录，确认是否有人为删改。'}</span>
@@ -460,7 +460,7 @@ export default function SecurityAudit() {
         onOk={() => void submitHash()}
         okText="登记"
         confirmLoading={hashSaving}
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', rowGap: 13, alignItems: 'center' }}>
           <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>标签</span>

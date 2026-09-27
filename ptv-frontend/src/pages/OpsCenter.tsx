@@ -219,7 +219,7 @@ export default function OpsCenter() {
         服务健康检查 · 客户端崩溃/性能上报 · 远程配置下发
       </Text>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }} className="pacc-stagger">
         <Col span={6}>
@@ -325,7 +325,7 @@ export default function OpsCenter() {
         open={modalOpen}
         onOk={saveConfig}
         onCancel={() => setModalOpen(false)}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" initialValues={{ valueType: 'int', intValue: 1, category: 'DETECTION' }}>
           <Form.Item name="key" label="Key" rules={[{ required: true, message: '请输入配置 Key' }]}>

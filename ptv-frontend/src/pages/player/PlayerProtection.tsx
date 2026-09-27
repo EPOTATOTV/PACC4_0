@@ -155,13 +155,13 @@ export default function PlayerProtection() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Title level={3} style={{ margin: 0 }}>实时保护</Title>
         {stateBadge}
-        {err && <Alert type="error" showIcon message={err} style={{ flex: 1, minWidth: 200 }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flex: 1, minWidth: 200 }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Row gutter={[14, 14]}>
         <Col xs={24} lg={8}>
           <Card
-            bordered={false}
+            variant="borderless"
             style={{
               background: running
                 ? 'radial-gradient(600px 300px at 20% -20%, rgba(63,185,80,.18), transparent 70%)'

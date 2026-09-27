@@ -289,7 +289,7 @@ export default function Tournament() {
       children: (
         <>
           <Card title="发布公告" style={{ marginBottom: 16 }}>
-            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+            <Space orientation="vertical" style={{ width: '100%' }} size={8}>
               <Input placeholder="公告标题 *" value={nTitle} onChange={(e) => setNTitle(e.target.value)} />
               <TextArea placeholder="公告内容（赛制说明 / 对阵 / 提醒 / 成绩公示…）" value={nContent} onChange={(e) => setNContent(e.target.value)} rows={4} />
               <Space size={12} align="center">
@@ -327,7 +327,7 @@ export default function Tournament() {
           <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13 }}>
             选手经腾讯文档收集表填资料 → 本平台绑设备 → 提交申请
           </Text>
-          <Space direction="vertical" style={{ width: '100%' }} size={10}>
+          <Space orientation="vertical" style={{ width: '100%' }} size={10}>
             <Input placeholder="赛事名称（公开展示）" value={cfgTitle} onChange={(e) => setCfgTitle(e.target.value)} />
             <Input placeholder="腾讯文档收集表链接 https://..." value={docUrl} onChange={(e) => setDocUrl(e.target.value)} />
             <Space wrap>
@@ -349,7 +349,7 @@ export default function Tournament() {
     <div>
       <Title level={3} style={{ marginTop: 0 }}>赛事进程</Title>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Input value={tournamentId} onChange={(e) => setTournamentId(e.target.value)} placeholder="赛事 ID" style={{ width: 220 }} />

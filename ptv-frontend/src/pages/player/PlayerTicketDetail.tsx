@@ -69,7 +69,7 @@ export default function PlayerTicketDetail() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/portal/tickets')}>返回工单</Button>
         <div style={{ flex: 1 }} />
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       {ticket ? (

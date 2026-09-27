@@ -130,7 +130,7 @@ export default function Automation() {
     {
       title: '规则', dataIndex: 'name', width: 200,
       render: (v: string | undefined, r) => (
-        <Space size={6} direction="vertical" style={{ gap: 1 }}>
+        <Space size={6} orientation="vertical" style={{ gap: 1 }}>
           <span>{v || r.code || '-'}</span>
           <span className="mono" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{r.code || '-'}</span>
         </Space>

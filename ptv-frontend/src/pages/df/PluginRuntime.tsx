@@ -132,7 +132,7 @@ export default function PluginRuntime() {
     {
       title: '插件', dataIndex: 'name', width: 200,
       render: (v: string | undefined, r) => (
-        <Space size={6} direction="vertical" style={{ gap: 1 }}>
+        <Space size={6} orientation="vertical" style={{ gap: 1 }}>
           <span>{v || r.id || '-'}</span>
           <span className="mono" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{r.id || '-'}</span>
         </Space>
@@ -235,7 +235,7 @@ export default function PluginRuntime() {
         type="warning"
         showIcon
         style={{ marginBottom: 15 }}
-        message="插件代码以进程内方式运行"
+        title="插件代码以进程内方式运行"
         description="加载后插件可访问声明的宿主 API。请仅加载来源可信、已审核的插件；卸载前确认无流程依赖其声明的接口。"
       />
 
@@ -289,7 +289,7 @@ export default function PluginRuntime() {
           type="warning"
           showIcon
           style={{ marginBottom: 12 }}
-          message="确认要执行该插件的字节码吗？"
+          title="确认要执行该插件的字节码吗？"
           description="加载后插件将获得其声明 API 的访问权限。留空类路径则回退到市场条目的安装包。"
         />
         <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>类路径 / 安装包覆盖（可选）</div>
