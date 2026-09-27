@@ -86,6 +86,13 @@ public class ReleaseService {
         if (body.containsKey("delta_url")) r.setDeltaUrl(str(body.get("delta_url")));
         if (body.containsKey("delta_sha256")) r.setDeltaSha256(str(body.get("delta_sha256")));
         if (body.containsKey("delta_size")) r.setDeltaSize(lng(body.get("delta_size")));
+        if (body.containsKey("rollout_percent")) r.setRolloutPercent(clampPercent(lng(body.get("rollout_percent"))));
+    }
+
+    /** 灰度比例收敛到 0-100：越界值一律夹紧，负数当 0（不放量）而不是当 100（全量）。 */
+    private static int clampPercent(long value) {
+        if (value < 0) return 0;
+        return value > 100 ? 100 : (int) value;
     }
 
     /** 发布：状态置 PUBLISHED，记录发布时间。 */
@@ -141,15 +148,24 @@ public class ReleaseService {
      * （否则 5.10.0 会被排到 5.9.9 之前）。
      */
     public Optional<ReleaseInfo> latestPublished(String platform, String channel) {
+        List<ReleaseInfo> ordered = publishedNewestFirst(platform, channel);
+        return ordered.isEmpty() ? Optional.empty() : Optional.of(ordered.get(0));
+    }
+
+    /**
+     * 已发布版本按语义化版本降序（设计文档 §5.3）。
+     *
+     * <p>灰度是按「版本」放量的，所以服务端不能只看最新那一个版本：新版本只对部分设备开放时，
+     * 其余设备应当继续拿到上一个已全量的版本。这里把顺序一次性排好交给调用方，避免每个调用点
+     * 各自实现一遍比较逻辑。</p>
+     */
+    public List<ReleaseInfo> publishedNewestFirst(String platform, String channel) {
         String pf = norm(platform, PLATFORMS, "windows");
         String ch = norm(channel, CHANNELS, "stable");
-        ReleaseInfo best = null;
-        for (ReleaseInfo r : releaseRepository.findByPlatformAndChannelAndStatus(pf, ch, "PUBLISHED")) {
-            if (best == null || compareVersions(r.getVersion(), best.getVersion()) > 0) {
-                best = r;
-            }
-        }
-        return Optional.ofNullable(best);
+        List<ReleaseInfo> published = new ArrayList<>(
+                releaseRepository.findByPlatformAndChannelAndStatus(pf, ch, "PUBLISHED"));
+        published.sort((a, b) -> compareVersions(b.getVersion(), a.getVersion()));
+        return published;
     }
 
     /** 语义化版本比较：>=0 表示 a 不低于 b。非法/缺段按 0 处理。 */
