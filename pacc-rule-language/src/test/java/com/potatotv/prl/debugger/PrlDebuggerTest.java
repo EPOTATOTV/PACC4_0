@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -65,6 +66,25 @@ class PrlDebuggerTest {
 
     private static final long TIMEOUT_SECONDS = 3;
 
+    /** 循环体足够长：放行之后必然跨过 §2.11.1 L2 的超时检查点。 */
+    private static final String LONG_LOOP = """
+            rule "long_loop" {
+                input {
+                    values: list[int]
+                }
+                let total = 0
+
+                when:
+                    count(values) > 0
+
+                then:
+                    for v in values:
+                        total += v
+                    end
+                    record_evidence("total", total)
+            }
+            """;
+
     // ------------------------------------------------------------------ 助手
 
     private static PrlBytecode compile(String source) {
@@ -84,6 +104,15 @@ class PrlDebuggerTest {
 
     private static Map<String, Object> input(long threshold) {
         return Map.of("events", List.of(10L, 20L), "threshold", threshold);
+    }
+
+    /** 造一个 {@code count} 个元素的 int 列表。 */
+    private static List<Object> ramp(int count) {
+        List<Object> values = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            values.add((long) i);
+        }
+        return values;
     }
 
     private static DebugState pause(PrlDebugger debugger) {
@@ -323,6 +352,29 @@ class PrlDebuggerTest {
                     () -> debugger.start(compile(SOURCE), "debug_me", input(5)));
             debugger.resume();
             debugger.awaitFinish(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } finally {
+            debugger.close();
+        }
+    }
+
+    // ------------------------------------------------------------------ 挂起与执行预算
+
+    @Test
+    void suspendingAtABreakpointDoesNotEatTheExecutionBudget() throws InterruptedException {
+        // 断点下在循环之前：落在循环体里的话，放行后每次回到那一行都会再停一次，测的就不是预算了。
+        int line = lineOf(LONG_LOOP, "let total = 0");
+        PrlDebugger debugger = new PrlDebugger();
+        try {
+            debugger.setBreakpoint(line);
+            debugger.start(compile(LONG_LOOP), "long_loop", Map.of("values", ramp(400)));
+            assertEquals(line, pause(debugger).line());
+
+            // 人在面板上停留的时间不是规则在跑，不该记进 §2.11.1 L2 的 100ms 预算。
+            Thread.sleep(300L);
+
+            debugger.resume();
+            assertDoesNotThrow(() -> debugger.awaitFinish(TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                    "断点挂起的时间被算成了执行耗时，放行后误报超时");
         } finally {
             debugger.close();
         }

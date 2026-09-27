@@ -219,7 +219,7 @@ final 类，implements `AutoCloseable`。看守一个目录，文件改了自动
 
 回调（都是 default，可只实现关心的几个）：`onInstruction(PrlFrameView frame)`、`onRuleStart(String ruleName)`、`onRuleEnd(String ruleName, long elapsedNanos)`、`onEnterFunction(String functionName)`、`onExitFunction(String functionName, long elapsedNanos)`。
 
-`PrlFrameView` 是当前帧的只读视图：`String functionName()`、`int line()`、`int depth()`、`Map<String,Object> variables()`（拷贝）、`List<String> callStack()`。
+`PrlFrameView` 是当前帧的只读视图：`String functionName()`、`int line()`、`int depth()`、`Map<String,Object> variables()`（拷贝）、`List<String> callStack()`。唯一的写回方法是 `reportSuspendedNanos(long nanos)`：调试器在断点上阻塞了多久就上报多久，`PrlVm` 会把它从 §2.11.1 L2 的 100ms 墙钟预算里扣掉，不然人在面板上停一会儿再放行就会被判成执行超时。
 
 ### `PrlStdlib`
 

@@ -1,8 +1,13 @@
 package com.potatotv.pacc.rule;
 
+import com.potatotv.prl.PrlException;
+import com.potatotv.prl.analysis.PrlAnalyzer;
+import com.potatotv.prl.analysis.RuleMetrics;
 import com.potatotv.prl.bytecode.PrlBytecode;
 import com.potatotv.prl.bytecode.PrlcFormat;
 import com.potatotv.prl.bytecode.RuleEntry;
+import com.potatotv.prl.check.Diagnostic;
+import com.potatotv.prl.compiler.CompileResult;
 import com.potatotv.prl.compiler.PrlCompiler;
 import com.potatotv.prl.engine.DetectionResult;
 import com.potatotv.prl.engine.RuleInstance;
@@ -10,6 +15,7 @@ import com.potatotv.prl.engine.RuleManager;
 import com.potatotv.prl.engine.RuleStatus;
 import com.potatotv.prl.engine.RuleVersion;
 import com.potatotv.prl.engine.RuleVersionStore;
+import com.potatotv.prl.profiler.PrlProfiler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,8 +90,17 @@ public class PrlRuleEngine {
     /** 管理端发布出来的规则版本；为 {@code null} 表示只有随包内置规则（单元测试与最小部署）。 */
     private final RuleVersionStore versionStore;
     private final RuleHostContext hostContext = new RuleHostContext();
-    private final RuleManager manager = new RuleManager(hostContext);
+
+    /**
+     * §2.15.2 的性能采样器，作为执行观察者挂在规则运行路径上。
+     *
+     * <p>随应用常驻、不设采样窗口：「这条规则现在有多慢」每次都得答得上，一断采样就答不上来。
+     * 面板读到的就是进程启动至今的累计值。</p>
+     */
+    private final PrlProfiler profiler = new PrlProfiler();
+    private final RuleManager manager = new RuleManager(hostContext, profiler);
     private final PrlCompiler compiler = new PrlCompiler(hostContext);
+    private final PrlAnalyzer analyzer = new PrlAnalyzer(hostContext);
 
     /** 规则名 → 展示信息；与 {@link RuleManager} 里的装载集合保持同步。 */
     private volatile Map<String, RuleMeta> metas = Map.of();
@@ -135,6 +150,11 @@ public class PrlRuleEngine {
         return manager;
     }
 
+    /** §2.15.2 的性能采样器，管理端性能面板从这里取报告。 */
+    public PrlProfiler profiler() {
+        return profiler;
+    }
+
     /**
      * 重新加载 classpath 下的全部 PRL 规则，已删除的规则一并卸载。
      *
@@ -153,10 +173,17 @@ public class PrlRuleEngine {
                 String id = fileName.substring(0, fileName.length() - RULE_SUFFIX.length());
                 try (InputStream in = resource.getInputStream()) {
                     String source = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                    PrlBytecode bytecode = compiler.compile(source);
-                    manager.loadBytecode(id, bytecode);
+                    // 走 compileChecked 而不是 compile：编译产物还要喂给分析器取静态内存估算，
+                    // 分析器直接吃 CompileResult，这样就只编译一次。
+                    CompileResult compiled = compiler.compileChecked(source);
+                    if (!compiled.ok()) {
+                        throw compileFailure(compiled);
+                    }
+                    manager.loadBytecode(id, compiled.bytecode());
                     loaded.add(id);
-                    nextMetas.put(id, RuleMeta.of(id, fileName, bytecode));
+                    RuleMeta meta = RuleMeta.of(id, fileName, compiled.bytecode());
+                    nextMetas.put(id, meta);
+                    profiler.register(id, meta.version(), estimatedHeapBytes(compiled, id));
                 } catch (Exception e) {
                     // 单条编译失败不影响其余规则；同名旧规则保持原样。
                     log.warn("[PrlRuleEngine] 规则加载失败 {}: {}", fileName, e.getMessage());
@@ -174,6 +201,31 @@ public class PrlRuleEngine {
         }
         this.metas = Map.copyOf(nextMetas);
         return loaded.size();
+    }
+
+    /**
+     * 把编译失败折成异常。
+     *
+     * <p>{@code CompileResult.toException()} 只在 prl 包内可见，宿主这边自己取第一条错误 —— 与它
+     * 的实现一致，异常里带的行号列号是日志排查最需要的那两个数。</p>
+     */
+    private static PrlException compileFailure(CompileResult compiled) {
+        Diagnostic diagnostic = compiled.errors().get(0);
+        return new PrlException(diagnostic.message(), diagnostic.line(), diagnostic.col());
+    }
+
+    /**
+     * 规则静态估算的堆占用，作为性能面板「内存峰值」的基线。
+     *
+     * <p>宿主没有实测堆占用的手段（真去量就得开 Instrumentation），所以这个静态估算就是面板上那个
+     * 数字。实测值比它大时以实测值计，这是 {@code PrlProfiler.register} 的既有语义。</p>
+     */
+    private long estimatedHeapBytes(CompileResult compiled, String ruleName) {
+        return analyzer.analyze(compiled).metrics().stream()
+                .filter(metrics -> ruleName.equals(metrics.ruleName()))
+                .mapToLong(RuleMetrics::estimatedHeapBytes)
+                .findFirst()
+                .orElse(0L);
     }
 
     /**
@@ -199,6 +251,9 @@ public class PrlRuleEngine {
                 nextMetas.put(version.ruleName(),
                         RuleMeta.of(version.ruleName(), version.ruleName() + RULE_SUFFIX, bytecode)
                                 .withOrigin("published"));
+                // 版本号跟着发布版本走；内存基线保留内置版本登记的值 —— 版本库里只有字节码，
+                // 没有源码可估算。register 的第二个重载不会把已有的基线清零。
+                profiler.register(version.ruleName(), version.version());
             }
         } catch (RuntimeException e) {
             log.error("[PrlRuleEngine] 读取规则版本库失败，本次只装载内置规则: {}", e.getMessage());
