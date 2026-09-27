@@ -1,0 +1,41 @@
+# injector_tool：注入工具进程（作弊进程黑名单 + 模块外远程线程）
+# 文档 §6.1 系统级类
+
+rule "injector_tool" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "system"
+    description: "注入工具进程：命中作弊进程黑名单且存在模块外的远程线程"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let procs = features["feature_suspicious_process_count"] ?? 0.0
+    let threads = features["feature_remote_threads"] ?? 0.0
+
+    let score = 45.0
+        + (if procs > 0.0: min([procs * 10.0, 30.0]) else: 0.0 end)
+        + (if threads > 0.0: min([threads * 5.0, 25.0]) else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if procs > 0.0: ["feature_suspicious_process_count"] else: no_keys end)
+        + (if threads > 0.0: ["feature_remote_threads"] else: no_keys end)
+
+    when:
+        (procs > 0.0 OR threads > 0.0) AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "injector_tool",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

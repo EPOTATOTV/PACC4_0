@@ -1,6 +1,7 @@
 package com.potatotv.paccclient.detection;
 
 import com.potatotv.paccclient.ai.LocalAiModel;
+import com.potatotv.paccclient.detection.cheat.PrlDetectionEngine;
 import com.potatotv.paccclient.detection.samples.InputEvent;
 import com.potatotv.paccclient.detection.stealth.StealthSnapshot;
 import com.potatotv.paccclient.detection.stealth.StealthTelemetry;
@@ -64,6 +65,11 @@ public final class DetectionEngine {
     /** 行为采样落点：Java Agent 轮询把 {@code runtime_sample} 写进来。 */
     public BufferedInputSource inputSource() {
         return inputSource;
+    }
+
+    /** L0 PRL 规则引擎；规则热更新链路要拿到它与检测用的是同一份装载表。 */
+    public PrlDetectionEngine ruleEngine() {
+        return bruteForceDetector.ruleEngine();
     }
 
     public LayeredDecision.Decision lastDecision() {

@@ -1,0 +1,40 @@
+# velocity：击退抑制（受击后水平速度衰减比例被压低）
+# 对应检测 cheat/rules/VelocityRule
+
+rule "velocity" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "cheat"
+    description: "击退抑制：受击后水平速度衰减比例被压低"
+    enabled: true
+
+    input {
+        features: map[string, float]
+    }
+
+    let horizontal = features["feature_velocity_horizontal"] ?? 0.0
+    let reduction = features["feature_velocity_reduction_ratio"] ?? 0.0
+
+    let score = 45.0
+        + (if reduction < 0.3: 25.0 else: 0.0 end)
+        + (if reduction < 0.1: 15.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = ["feature_velocity_reduction_ratio"]
+        + (if reduction < 0.1: ["feature_velocity_vertical"] else: no_keys end)
+
+    when:
+        horizontal > 0.0 AND reduction < 0.6
+
+    then:
+        emit_alert(
+            type = "velocity",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

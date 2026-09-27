@@ -1,0 +1,43 @@
+# blink：位置闪烁（数据包延迟 + 位置跳变；高丢包/高延迟时扣分）
+# 对应检测 cheat/rules/BlinkRule
+
+rule "blink" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "cheat"
+    description: "位置闪烁：低延迟链路下出现大位移跳变"
+    enabled: true
+
+    input {
+        features: map[string, float]
+    }
+
+    let teleports = features["feature_teleport_count"] ?? 0.0
+    let jump = features["feature_blink_position_jump"] ?? 0.0
+    let rtt = features["feature_net_rtt_ms"] ?? 0.0
+    let loss = features["feature_net_packet_loss_ratio"] ?? 0.0
+
+    let score = (if teleports > 0.0: 40.0 else: 0.0 end)
+        + (if jump >= 5.0: 25.0 else: 0.0 end)
+        + (if rtt > 0.0 AND rtt < 60.0: 15.0 else: 0.0 end)
+        - (if loss > 0.3: 20.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if teleports > 0.0: ["feature_teleport_count"] else: no_keys end)
+        + (if jump >= 5.0: ["feature_blink_position_jump"] else: no_keys end)
+
+    when:
+        (teleports > 0.0 OR jump >= 5.0) AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "blink",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

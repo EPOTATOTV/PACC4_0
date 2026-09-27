@@ -1,0 +1,34 @@
+# invmanager：背包管理（背包操作速率超过人工上限）
+# 对应检测 cheat/rules/InvManagerRule
+
+rule "invmanager" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "cheat"
+    description: "背包管理：背包操作速率超过人工上限"
+    enabled: true
+
+    input {
+        features: map[string, float]
+    }
+
+    let per_sec = features["feature_invmanager_ops_per_sec"] ?? 0.0
+
+    let score = min([40.0 + (per_sec - 8.0) * 4.0, 85.0])
+
+    let keys = ["feature_invmanager_ops_per_sec"]
+
+    when:
+        per_sec > 8.0
+
+    then:
+        emit_alert(
+            type = "invmanager",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

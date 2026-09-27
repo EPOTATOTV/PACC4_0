@@ -1,0 +1,44 @@
+# virtual_machine：虚拟化运行环境（改机 / 多开场景）
+# 文档 §6.1 系统级类
+
+rule "virtual_machine" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "system"
+    description: "虚拟化运行环境：运行在虚拟机/沙箱里"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let vm = features["feature_vm_detected"] ?? 0.0
+    let model = features["feature_system_model_virtual"] ?? 0.0
+    let sandbox = features["feature_sandbox_indicator_count"] ?? 0.0
+
+    let score = 40.0
+        + (if vm >= 1.0: 25.0 else: 0.0 end)
+        + (if model >= 1.0: 20.0 else: 0.0 end)
+        + (if sandbox >= 3.0: 15.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if vm >= 1.0: ["feature_vm_detected"] else: no_keys end)
+        + (if model >= 1.0: ["feature_system_model_virtual"] else: no_keys end)
+        + (if sandbox >= 3.0: ["feature_sandbox_indicator_count"] else: no_keys end)
+
+    when:
+        (vm >= 1.0 OR model >= 1.0 OR sandbox >= 3.0) AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "virtual_machine",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

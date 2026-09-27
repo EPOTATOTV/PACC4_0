@@ -1,0 +1,41 @@
+# memory_region：内存区域异常（可执行的非镜像内存区 / 幽灵客户端内存）
+# 文档 §6.1 内存注入类
+
+rule "memory_region" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "memory"
+    description: "内存区域异常：出现可执行的非镜像内存区"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let ratio = features["feature_non_image_mem_ratio"] ?? 0.0
+    let ghost = features["feature_ghost_client_mem"] ?? 0.0
+
+    let score = 45.0
+        + (if ratio >= 0.2: 25.0 else: 0.0 end)
+        + (if ghost >= 1.0: 30.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if ratio >= 0.2: ["feature_non_image_mem_ratio"] else: no_keys end)
+        + (if ghost >= 1.0: ["feature_ghost_client_mem"] else: no_keys end)
+
+    when:
+        ratio >= 0.2 OR ghost >= 1.0
+
+    then:
+        emit_alert(
+            type = "memory_region",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

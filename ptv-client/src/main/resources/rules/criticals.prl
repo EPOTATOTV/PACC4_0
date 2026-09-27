@@ -1,0 +1,43 @@
+# criticals：非法暴击（暴击率 + 非跳跃暴击 + 离地占比 + 连点器）
+# 对应检测 cheat/rules/CriticalsRule
+
+rule "criticals" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "cheat"
+    description: "非法暴击：暴击不依赖下落或暴击率异常"
+    enabled: true
+
+    input {
+        features: map[string, float]
+        click_highly_likely: bool
+    }
+
+    let impossible = features["feature_criticals_impossible"] ?? 0.0
+    let rate = features["feature_criticals_rate"] ?? 0.0
+    let airborne = features["feature_criticals_airborne_ratio"] ?? 0.0
+
+    let score = (if impossible > 0.0: min([20.0 + impossible * 10.0, 50.0]) else: 0.0 end)
+        + (if rate >= 0.85 AND airborne < 0.9: 35.0 else: 0.0 end)
+        + (if click_highly_likely: 15.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if impossible > 0.0: ["feature_criticals_impossible"] else: no_keys end)
+        + (if rate >= 0.85 AND airborne < 0.9: ["feature_criticals_rate"] else: no_keys end)
+        + (if click_highly_likely: ["feature_click_interval_cv"] else: no_keys end)
+
+    when:
+        (impossible > 0.0 OR rate > 0.0) AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "criticals",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

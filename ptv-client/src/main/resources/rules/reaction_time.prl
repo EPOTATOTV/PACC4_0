@@ -1,0 +1,50 @@
+# reaction_time：反应时间异常（目标锁定占比极高且命中后几乎不修正）
+# 文档 §6.1 行为异常类
+
+rule "reaction_time" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "behavior"
+    description: "反应时间异常：目标锁定占比极高且命中后几乎不修正"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let lock = features["feature_aim_lock_time"] ?? 0.0
+    let correction = features["feature_aim_post_hit_correction"] ?? 0.0
+    let attack_cv = features["feature_attack_interval_cv"] ?? 0.0
+
+    # 缺失采集时 correction 会拿到 0.0，若只判 < 0.05 就会把「没采到」当成「不修正」白送分，
+    # 因此带 > 0.0 前置哨兵，与 autoarmor / velocity 的写法一致。
+    let no_correction = correction > 0.0 AND correction < 0.05
+
+    let score = 40.0
+        + (if lock > 0.9: 30.0 else: 0.0 end)
+        + (if no_correction: 15.0 else: 0.0 end)
+        + (if attack_cv > 0.0 AND attack_cv < 0.1: 15.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if lock > 0.9: ["feature_aim_lock_time"] else: no_keys end)
+        + (if no_correction: ["feature_aim_post_hit_correction"] else: no_keys end)
+        + (if attack_cv > 0.0 AND attack_cv < 0.1: ["feature_attack_interval_cv"] else: no_keys end)
+
+    # 描述与打分都依赖「锁定高且不修正」，门限必须同时卡住两条件；
+    # 只看 lock 会把「锁定高但命中后有正常修正」的正常玩家也报出来。
+    when:
+        lock > 0.9 AND correction > 0.0 AND correction < 0.05
+
+    then:
+        emit_alert(
+            type = "reaction_time",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

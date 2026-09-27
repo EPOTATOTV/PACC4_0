@@ -1,0 +1,34 @@
+# autoarmor：自动护甲（护甲穿戴耗时低于人类下限）
+# 对应检测 cheat/rules/AutoArmorRule
+
+rule "autoarmor" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "cheat"
+    description: "自动护甲：护甲穿戴耗时低于人类下限"
+    enabled: true
+
+    input {
+        features: map[string, float]
+    }
+
+    let delay = features["feature_autoarmor_equip_delay"] ?? 0.0
+
+    let score = if delay < 100.0: 70.0 else: if delay < 250.0: 55.0 else: 45.0 end end
+
+    let keys = ["feature_autoarmor_equip_delay"]
+
+    when:
+        delay > 0.0 AND delay < 400.0
+
+    then:
+        emit_alert(
+            type = "autoarmor",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

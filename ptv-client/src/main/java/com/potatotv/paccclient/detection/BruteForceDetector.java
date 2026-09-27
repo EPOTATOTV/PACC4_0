@@ -6,7 +6,7 @@ import com.potatotv.paccclient.detection.analysis.ClickIntervalAnalyzer;
 import com.potatotv.paccclient.detection.analysis.TemporalAnomalyDetector;
 import com.potatotv.paccclient.detection.analysis.TrajectoryAnalyzer;
 import com.potatotv.paccclient.detection.cheat.CheatFinding;
-import com.potatotv.paccclient.detection.cheat.CheatRuleRegistry;
+import com.potatotv.paccclient.detection.cheat.PrlDetectionEngine;
 import com.potatotv.paccclient.detection.samples.Point2D;
 
 import java.util.List;
@@ -24,7 +24,7 @@ import java.util.Optional;
  *   <li><b>时序自编码</b>（{@link TemporalAnomalyDetector}）：序列重构误差；</li>
  *   <li><b>端侧 AI</b>（{@link LocalAiModel}）：模型推理分，回退（无模型/超时）时按 0 处理，
  *       不参与判定；</li>
- *   <li><b>作弊类型规则</b>（{@link CheatRuleRegistry}）：文档 §3.2 的 15 种类型。</li>
+ *   <li><b>作弊类型规则</b>（{@link PrlDetectionEngine}）：文档 §3.2 的 15 种类型，规则由 PRL 脚本描述。</li>
  * </ol>
  *
  * <p>性能开关见 {@link PerfToggles}：{@code brute_force} 关闭时退化为纯硬阈值，
@@ -66,7 +66,7 @@ public final class BruteForceDetector {
 
     private final ClickIntervalAnalyzer clickAnalyzer = new ClickIntervalAnalyzer();
     private final TrajectoryAnalyzer trajectoryAnalyzer = new TrajectoryAnalyzer();
-    private final CheatRuleRegistry registry = new CheatRuleRegistry();
+    private final PrlDetectionEngine rules = new PrlDetectionEngine();
     private final LocalAiModel aiModel;
     private final TemporalAnomalyDetector temporalDetector;
 
@@ -84,6 +84,19 @@ public final class BruteForceDetector {
     public BruteForceDetector(LocalAiModel aiModel, TemporalAnomalyDetector temporalDetector) {
         this.aiModel = aiModel == null ? new LocalAiModel() : aiModel;
         this.temporalDetector = temporalDetector == null ? new TemporalAnomalyDetector() : temporalDetector;
+        // PRL 规则的装载结果只在这里出现一次：装载失败的具体规则名由引擎自己打到 stderr，
+        // 构造器不该因为「少了一条规则」就把整个检测链路拉不起来。
+        this.rules.loadBuiltin();
+    }
+
+    /**
+     * L0 PRL 规则引擎（仅供规则热更新链路使用）。
+     *
+     * <p>规则缓存装载与下发同步需要同一个实例：另起一个引擎只会让「下载成功」和「实际在用」
+     * 变成两份状态，排查时最难解释的就是这种。</p>
+     */
+    public PrlDetectionEngine ruleEngine() {
+        return rules;
     }
 
     /**
@@ -245,7 +258,7 @@ public final class BruteForceDetector {
         // ---- 5. 作弊类型规则（文档 §3.2） ----
         CheatFinding top = null;
         if (analyzersOn) {
-            List<CheatFinding> hits = registry.evaluate(fv, ctx);
+            List<CheatFinding> hits = rules.evaluate(fv, ctx);
             if (!hits.isEmpty()) {
                 top = hits.get(0);
                 risk += top.score() / 2;
