@@ -80,7 +80,7 @@ if (Test-Path (Join-Path $exeOut 'Mapping.txt')) { throw "Mapping.txt 混入了�
 Write-Host "`n[2/4] 构建 Java 探针 jar ..." -ForegroundColor Green
 # 探针依赖仓库内的协议运行时（PBP）与更新核心（PCU），两者都没发到中央仓库。
 # 不先 install 进本地仓库，mvn package 会以「无法解析 com.potatotv:pacc-binary-protocol /
-# com.potatotv.pacc:pacc-cross-platform-updater」失败，而不是给出可读的原因。
+# com.potatotv:pacc-cross-platform-updater」失败，而不是给出可读的原因。
 foreach ($m in @('pacc-binary-protocol/runtime-java', 'pacc-cross-platform-updater')) {
   $mDir = Join-Path $root $m
   if (-not (Test-Path $mDir)) { throw "缺少模块目录 $m，无法构建探针 jar" }
