@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.DetectionEvent;
-import com.potatotv.pacc.rule.LuaRuleEngine;
+import com.potatotv.pacc.rule.PrlRuleEngine;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,17 +21,17 @@ import org.junit.jupiter.api.Test;
 class RiskScoringServiceTest {
 
     private AiInferenceClient ai;
-    private LuaRuleEngine lua;
+    private PrlRuleEngine rules;
     private RiskScoringService service;
 
     @BeforeEach
     void setUp() {
         ai = mock(AiInferenceClient.class);
-        lua = mock(LuaRuleEngine.class);
+        rules = mock(PrlRuleEngine.class);
         // AI 默认不启用（返回空）；规则默认无加分
         when(ai.score(any(), any())).thenReturn(Optional.empty());
-        when(lua.evaluate(anyMap())).thenReturn(new LuaRuleEngine.Evaluation(List.of(), 0.0, 0));
-        service = new RiskScoringService(ai, lua);
+        when(rules.evaluate(anyMap())).thenReturn(new PrlRuleEngine.Evaluation(List.of(), 0.0, 0));
+        service = new RiskScoringService(ai, rules);
     }
 
     private DetectionEvent event(String type, String severity, int risk) {
@@ -68,9 +68,9 @@ class RiskScoringServiceTest {
 
     @Test
     void ruleBonusAdded() {
-        when(lua.evaluate(anyMap()))
-                .thenReturn(new LuaRuleEngine.Evaluation(
-                        List.of(new LuaRuleEngine.RuleHit("mem", "内存", 5, "")), 5.0, 1));
+        when(rules.evaluate(anyMap()))
+                .thenReturn(new PrlRuleEngine.Evaluation(
+                        List.of(new PrlRuleEngine.RuleHit("mem", "内存", 5, "")), 5.0, 1));
         assertEquals(85, service.score(event("killaura", "medium", 100), account(100)));
     }
 

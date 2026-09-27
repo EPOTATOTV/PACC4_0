@@ -1,0 +1,39 @@
+# process_injection：进程注入
+# 迁移自 rules/process_injection.lua。检测到可疑 DLL / 代码注入进程时触发。
+
+rule "process_injection" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: critical
+    category: "memory"
+    description: "进程注入检测"
+    enabled: true
+
+    input {
+        event_type: string
+        process_name: string
+    }
+
+    let process_lower = to_lower(process_name)
+    # 高危注入进程名（常见作弊注入器）
+    let injectors = {
+        "injector.exe", "cheatloader.exe", "x64dbg.exe",
+        "extremeinjector.exe", "processhacker.exe"
+    }
+    let known_injector = process_lower in injectors
+    let score = 10.0 + (if known_injector: 5.0 else: 0.0 end)
+    let confidence = if known_injector: 0.95 else: 0.85 end
+
+    when:
+        event_type == "process_injection"
+
+    then:
+        emit_alert(
+            type = "process_injection",
+            confidence = confidence,
+            evidence = {
+                "score": score,
+                "reason": f"检测到进程注入: {process_name}"
+            }
+        )
+}

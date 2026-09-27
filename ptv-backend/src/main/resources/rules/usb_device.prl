@@ -1,0 +1,34 @@
+# usb_device：USB 外设 / 宏设备
+# 迁移自 rules/usb_device.lua。高回报低风险的外设宏（键鼠宏）通常走 USB 上报。
+
+rule "usb_device" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "device"
+    description: "外设宏设备检测"
+    enabled: true
+
+    input {
+        event_type: string
+        detail: string
+    }
+
+    let detail_lower = to_lower(detail)
+    let macro_mark = contains(detail_lower, "macro") or contains(detail_lower, "script")
+    let score = if macro_mark: 11.0 else: 5.0 end
+    let confidence = if macro_mark: 0.9 else: 0.6 end
+
+    when:
+        event_type == "usb_device"
+
+    then:
+        emit_alert(
+            type = "usb_device",
+            confidence = confidence,
+            evidence = {
+                "score": score,
+                "reason": "检测到可疑 USB 外设"
+            }
+        )
+}

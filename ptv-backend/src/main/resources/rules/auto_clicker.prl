@@ -1,0 +1,33 @@
+# auto_clicker：自动点击（连点器）
+# 迁移自 rules/auto_clicker.lua。端侧行为检测上报 autoclicker 时，结合端侧评分加权。
+
+rule "auto_clicker" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "behavior"
+    description: "自动点击检测"
+    enabled: true
+
+    input {
+        event_type: string
+        client_risk: float
+    }
+
+    let very_high_risk = client_risk >= 80.0
+    let score = 6.0 + client_risk * 0.05 + (if very_high_risk: 4.0 else: 0.0 end)
+    let confidence = if very_high_risk: 0.95 else: 0.8 end
+
+    when:
+        event_type == "autoclicker"
+
+    then:
+        emit_alert(
+            type = "auto_clicker",
+            confidence = confidence,
+            evidence = {
+                "score": score,
+                "reason": "连点频率异常"
+            }
+        )
+}

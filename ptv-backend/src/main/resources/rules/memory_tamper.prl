@@ -1,0 +1,36 @@
+# memory_tamper：内存篡改
+# 迁移自 rules/memory_tamper.lua。端侧底层检测上报 memory_tamper 时，依据严重度与端侧评分加权。
+
+rule "memory_tamper" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "memory"
+    description: "内存篡改检测"
+    enabled: true
+
+    input {
+        event_type: string
+        severity_level: string
+        client_risk: float
+        memory_region: string
+    }
+
+    # 严重度基线分；表里没有的严重度回落到 6 分
+    let severity_score = {"low": 4.0, "medium": 8.0, "high": 12.0, "critical": 15.0}
+    let base = severity_score[severity_level] ?? 6.0
+    let score = base + client_risk * 0.05
+
+    when:
+        event_type == "memory_tamper"
+
+    then:
+        emit_alert(
+            type = "memory_tamper",
+            confidence = 0.9,
+            evidence = {
+                "score": score,
+                "reason": f"内存区域被篡改: {memory_region}"
+            }
+        )
+}

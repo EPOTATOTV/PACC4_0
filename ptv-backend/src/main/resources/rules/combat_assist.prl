@@ -1,0 +1,35 @@
+# combat_assist：自瞄 / 杀戮光环（战斗辅助）
+# 迁移自 rules/combat_assist.lua。端侧行为检测上报 killaura / aimbot / reach / scaffold 时触发。
+
+rule "combat_assist" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: critical
+    category: "combat"
+    description: "战斗辅助检测"
+    enabled: true
+
+    input {
+        event_type: string
+        severity_level: string
+        client_risk: float
+    }
+
+    # 严重度基线分；表里没有的严重度回落到 7 分
+    let severity_score = {"low": 5.0, "medium": 9.0, "high": 13.0, "critical": 16.0}
+    let base = severity_score[severity_level] ?? 7.0
+    let score = base + client_risk * 0.04
+
+    when:
+        event_type in {"killaura", "aimbot", "reach", "scaffold"}
+
+    then:
+        emit_alert(
+            type = "combat_assist",
+            confidence = 0.9,
+            evidence = {
+                "score": score,
+                "reason": f"战斗辅助特征: {event_type}"
+            }
+        )
+}

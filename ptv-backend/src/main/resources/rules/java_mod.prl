@@ -1,0 +1,40 @@
+# java_mod：Java 版 Mod / 注入
+# 迁移自 rules/java_mod.lua。玩家端上报 java_mod / injection 时触发（基岩版无此事件）。
+
+rule "java_mod" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "mod"
+    description: "Java 版 Mod 篡改检测"
+    enabled: true
+
+    input {
+        event_type: string
+        edition: string
+        signature_hit: string
+    }
+
+    let has_signature = signature_hit != ""
+    let is_java = edition == "JAVA"
+    # 命中已知作弊 Mod 特征 +4，Java 版再加 +2（基岩版没有 Mod 通道，同分会让两版口径混掉）
+    let score = 9.0
+        + (if has_signature: 4.0 else: 0.0 end)
+        + (if is_java: 2.0 else: 0.0 end)
+    let confidence = if has_signature: 0.95 else: 0.8 end
+
+    when:
+        event_type == "java_mod" OR event_type == "injection"
+
+    then:
+        emit_alert(
+            type = "java_mod",
+            confidence = confidence,
+            evidence = {
+                "score": score,
+                # 无命中特征时拼接结果就是空串（旧 Lua 规则里 ctx.signature_hit 是 "" 而不是 nil，
+                # `or "unknown"` 那个兜底其实从来没生效过）。保持一致，别改文案。
+                "reason": f"Java 版 Mod 篡改: {signature_hit}"
+            }
+        )
+}
