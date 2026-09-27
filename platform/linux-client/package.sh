@@ -13,6 +13,9 @@
 #
 # 缺 dpkg-deb / rpmbuild 时打印原因并跳过对应格式，**不算失败**：
 # 这两个工具在纯 CI runner 上常常没有，不该因此卡住整条发布流水线。
+# 同上，工具在但构建失败也只是跳过并打印日志——GitHub 的 ubuntu runner 装了 rpm
+# 却没有 systemd-rpm-macros，RPM 段会以莫名其妙的理由失败；这里不该让可选格式
+# 把已经产出 tar.gz 的流水线整条拖红。
 # 真正的失败（构建失败、二进制缺失）一律非零退出，让 build-all.sh 的 set -e 拦住。
 set -euo pipefail
 
@@ -202,8 +205,24 @@ exit 0
 EOF
   chmod 0755 "$DEB_ROOT/DEBIAN/prerm"
 
-  dpkg-deb --root-owner-group --build "$DEB_ROOT" "${DIST_DIR}/${PKG_NAME}.deb" >/dev/null
-  ok "${DIST_DIR}/${PKG_NAME}.deb"
+  # --root-owner-group 是 dpkg 1.19 起才有的选项，旧发行版上会直接报错。
+  # 不支持时退回手动 chown（脚本本身要有 root，CI 与本地打包都有）。
+  DEB_BUILD_LOG="${DIST_DIR}/deb-build.log"
+  DEB_OUT="${DIST_DIR}/${PKG_NAME}.deb"
+  rm -f "$DEB_OUT"
+  if dpkg-deb --help 2>&1 | grep -q -- '--root-owner-group'; then
+    DEB_OWNER_OPT="--root-owner-group"
+  else
+    DEB_OWNER_OPT=""
+    chown -R root:root "$DEB_ROOT" 2>/dev/null || true
+  fi
+  if dpkg-deb $DEB_OWNER_OPT --build "$DEB_ROOT" "$DEB_OUT" >"$DEB_BUILD_LOG" 2>&1; then
+    ok "$DEB_OUT"
+  else
+    skip "Debian 包" "dpkg-deb 执行失败，日志见 ${DEB_BUILD_LOG}"
+    sed 's/^/    /' "$DEB_BUILD_LOG" >&2 || true
+    rm -f "$DEB_OUT"
+  fi
 else
   skip "Debian 包" "未找到 dpkg-deb（Debian/Ubuntu 上 apt install dpkg 即可）"
 fi
@@ -228,6 +247,9 @@ Requires:       glibc
 # 二进制已 strip，关掉 debuginfo 生成，免得 brp-strip 在空 debug 上啰嗦。
 %global debug_package %{nil}
 %global _missing_build_ids_terminate_build 0
+# %{_unitdir} 由 systemd-rpm-macros 提供，Fedora/RHEL 上有，Debian/Ubuntu 上没有。
+# 不兜底的话 %files 里会出现字面的 %{_unitdir}，rpmbuild 找不到文件直接失败。
+%{!?_unitdir:%global _unitdir /usr/lib/systemd/system}
 
 %description
 Detect events on the Linux player host and report them to the PACC backend.
@@ -270,13 +292,22 @@ fi
 - Automated build via package.sh
 EOF
 
-  rpmbuild --define "_topdir ${RPM_TOPDIR}" -bb "$SPEC" >/dev/null 2>&1
-  RPM_BUILT="$(find "${RPM_TOPDIR}/RPMS" -name '*.rpm' -print -quit)"
-  if [ -n "$RPM_BUILT" ]; then
-    cp "$RPM_BUILT" "${DIST_DIR}/${PKG_NAME}.rpm"
-    ok "${DIST_DIR}/${PKG_NAME}.rpm"
+  # 输出落日志文件而不是 /dev/null：这里一旦静默失败，配合 set -e 会让整个
+  # 打包脚本「无缘无故」退出 1，是 CI 上最难查的一类红。
+  RPM_BUILD_LOG="${DIST_DIR}/rpmbuild.log"
+  RPM_OUT="${DIST_DIR}/${PKG_NAME}.rpm"
+  rm -f "$RPM_OUT"
+  if rpmbuild --define "_topdir ${RPM_TOPDIR}" -bb "$SPEC" >"$RPM_BUILD_LOG" 2>&1; then
+    RPM_BUILT="$(find "${RPM_TOPDIR}/RPMS" -name '*.rpm' -print -quit)"
+    if [ -n "$RPM_BUILT" ]; then
+      cp "$RPM_BUILT" "$RPM_OUT"
+      ok "$RPM_OUT"
+    else
+      skip "RPM 包" "rpmbuild 执行未产出文件（看 ${RPM_BUILD_LOG} 排查）"
+    fi
   else
-    skip "RPM 包" "rpmbuild 执行未产出文件（看 ${RPM_TOPDIR} 排查）"
+    skip "RPM 包" "rpmbuild 执行失败，日志见 ${RPM_BUILD_LOG}"
+    sed 's/^/    /' "$RPM_BUILD_LOG" >&2 || true
   fi
 else
   skip "RPM 包" "未找到 rpmbuild（RHEL/CentOS 上 yum install rpm-build 即可）"

@@ -265,7 +265,7 @@ target/dist/pacc-linux-5.4.0.rpm        有 rpmbuild 时产出
 
 tar.gz 里是 `bin/pacc-linux-client`、`pacc-client.service`、`pacc-client.properties.example`、`install.sh`、`README.md`、`BUILD-INFO`。解压后 `cd pacc-linux-5.4.0 && sudo ./install.sh --binary ./bin/pacc-linux-client`。
 
-缺 `dpkg-deb` / `rpmbuild` 只打印原因并跳过，不算失败——纯 CI runner 上这俩经常没有，不该卡住发布流水线。真正的失败（构建挂了、二进制没生成）一律非零退出，让 build-all.sh 的 `set -e` 拦住。
+缺 `dpkg-deb` / `rpmbuild` 只打印原因并跳过，不算失败——纯 CI runner 上这俩经常没有，不该卡住发布流水线。工具在、但构建本身失败（比如 Ubuntu 上装了 rpm 却没有 `systemd-rpm-macros`）同样只是跳过并把日志打到 `${DIST_DIR}/deb-build.log`、`rpmbuild.log`：这两种格式都是可选的，不该让已经产出的 tar.gz 陪葬。真正的失败（构建挂了、二进制没生成）一律非零退出，让 build-all.sh 的 `set -e` 拦住。
 
 `.deb` 的 postinst 会建账号、放配置模板、`daemon-reload`，但不自动 enable；装包和玩家授权常驻是两件事。`.rpm` 同理。
 
