@@ -6,13 +6,52 @@
 
     <!-- PCU 是 PACC 主项目内的模块（不是像 PRL/PBP 那样的独立仓库），随产品版本走，
          所以这里的 <version> 由 scripts/bump-version.sh 统一替换；消费方 ptv-client
-         用 ${project.version} 引用它，不额外开一个版本字段，避免多一处会漂移的地方。 -->
-    <groupId>com.potatotv.pacc</groupId>
+         用 ${project.version} 引用它，不额外开一个版本字段，避免多一处会漂移的地方。
+         groupId 取 com.potatotv（与 PRL/PBP 一致），因为要作为独立库发布到中央仓库，
+         设计文档 §4.2 规定的发布坐标是 com.potatotv:pacc-cross-platform-updater；
+         bump-version.sh 只按 artifactId 锚定版本号，改 groupId 不影响它。 -->
+    <groupId>com.potatotv</groupId>
     <artifactId>pacc-cross-platform-updater</artifactId>
     <version>5.4.0</version>
     <name>PACC Cross-Platform Updater</name>
     <description>PCU 跨平台更新核心：检查更新、断点续传下载、SHA-256/RSA 校验、bsdiff 差分、
         备份与原子替换、失败回滚、强制/静默更新，以及各平台薄适配层。</description>
+
+    <url>https://github.com/EPOTATOTV/pacc-cross-platform-updater</url>
+
+    <!-- Sonatype 中央仓库的 staging 规则强制校验 licenses / developers / scm 三项，缺一会被拒收 -->
+    <licenses>
+        <license>
+            <name>GNU Affero General Public License v3.0</name>
+            <url>https://www.gnu.org/licenses/agpl-3.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>potatotv</id>
+            <name>PotatoTV</name>
+            <organization>PotatoTV</organization>
+            <organizationUrl>https://github.com/EPOTATOTV</organizationUrl>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:https://github.com/EPOTATOTV/pacc-cross-platform-updater.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/EPOTATOTV/pacc-cross-platform-updater.git</developerConnection>
+        <url>https://github.com/EPOTATOTV/pacc-cross-platform-updater</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>ossrh</id>
+            <url>https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/</url>
+        </repository>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <properties>
         <java.version>21</java.version>
@@ -72,4 +111,76 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- 只在发布到中央仓库时启用：mvn -B deploy -P release。
+             插件放在 release profile（不在默认构建链）里，普通构建不受影响；
+             插件不是 dependency，所以也绕得开上面那条 bannedDependencies 门禁。 -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.11.2</version>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <!-- 源码里是中文注释，个别 doc 标签不闭合会让 doclint 直接失败；
+                                 中央仓库只校验 javadoc 存在，不校验其严格合法，故关掉 doclint -->
+                            <doclint>none</doclint>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <!-- passphrase 从环境变量 MAVEN_GPG_PASSPHRASE 读（maven-gpg-plugin 原生支持），不落盘到 pom -->
+                    </plugin>
+                    <!-- 用 legacy OSSRH staging API：与 workflow 里的 server-id: ossrh 及
+                         distributionManagement 指向的 staging 地址配套，deploy 后自动 close+release -->
+                    <plugin>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nexus-staging-maven-plugin</artifactId>
+                        <version>1.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <serverId>ossrh</serverId>
+                            <nexusUrl>https://ossrh-staging-api.central.sonatype.com/</nexusUrl>
+                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

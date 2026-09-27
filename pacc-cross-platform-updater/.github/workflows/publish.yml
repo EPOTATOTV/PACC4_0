@@ -1,0 +1,38 @@
+name: Publish
+
+# 打 v* tag 时把 PCU 发布到 Maven Central。
+# 凭据全部从 secrets 注入，pom 里不落盘任何密钥。
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: read
+
+jobs:
+  publish-java:
+    name: 发布到 Maven Central
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          server-id: ossrh
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          # setup-java 这里要的是「存放 passphrase 的环境变量名」，下面的 deploy 步骤再把它填上
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      # -P release 才会启用签名 / source / javadoc / nexus-staging 插件
+      - name: 部署到 OSSRH staging 并自动 release
+        run: mvn -B -ntp deploy -P release
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
