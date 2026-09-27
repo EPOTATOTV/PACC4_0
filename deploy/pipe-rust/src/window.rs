@@ -5,6 +5,7 @@
 //!   - 按威胁级别计数（low / medium / high / critical）
 //!   - 按 PTEID 去重活跃玩家数
 //!   - 风险分均值 / 峰值
+//!
 //! 窗口到期后 flush 输出 JSON 摘要并开启新窗口。
 
 use std::collections::HashMap;
@@ -36,14 +37,24 @@ impl Event {
             client_risk: 0,
         };
         // 极简 JSON 对象解析：仅提取所需字符串/数字字段
-        for field in ["ts", "ts_millis", "pteid", "event_type", "severity", "client_risk", "client_risk_score"] {
+        for field in [
+            "ts",
+            "ts_millis",
+            "pteid",
+            "event_type",
+            "severity",
+            "client_risk",
+            "client_risk_score",
+        ] {
             let key = format!("\"{}\"", field);
             let Some(rel) = s.find(&key) else { continue };
             let after = &s[rel + key.len()..];
-            let Some(colon) = after.find(':') else { continue };
+            let Some(colon) = after.find(':') else {
+                continue;
+            };
             let val = after[colon + 1..].trim_start();
-            let val = val.trim_start_matches(|c| c == '"' || c == ' ' || c == '\t');
-            let val = val.trim_end_matches(|c| c == '"' || c == ',' || c == '}' || c == ' ' || c == '\t');
+            let val = val.trim_start_matches(['"', ' ', '\t']);
+            let val = val.trim_end_matches(['"', ',', '}', ' ', '\t']);
             if val.is_empty() {
                 continue;
             }
