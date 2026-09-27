@@ -1,0 +1,134 @@
+name: Publish
+
+# 打 v* tag 时把 PBP 发布到公共仓库：Java 走 Maven Central，TS 运行时走 npm，Rust 运行时走 crates.io，
+# C# 运行时走 NuGet，Python 运行时走 PyPI。
+# 凭据全部从 secrets 注入，pom / package.json / Cargo.toml / csproj / pyproject.toml 里不落盘任何密钥。
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: read
+
+jobs:
+  publish-java:
+    name: 发布到 Maven Central
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          server-id: ossrh
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          # setup-java 这里要的是「存放 passphrase 的环境变量名」，下面的 deploy 步骤再把它填上
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      # -P release 才会启用签名 / source / javadoc / nexus-staging 插件
+      - name: 部署到 OSSRH staging 并自动 release
+        working-directory: runtime-java
+        run: mvn -B -ntp deploy -P release
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+  publish-npm:
+    name: 发布到 npm
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime-ts
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 安装 Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: runtime-ts/package-lock.json
+
+      - name: 安装依赖并构建
+        run: npm ci && npm run build
+
+      - name: 发布到 npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-rust:
+    name: 发布到 crates.io
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime-rust
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 发布到 crates.io
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  publish-nuget:
+    name: 发布到 NuGet
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime-csharp
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 安装 .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # PackageId / Version 等元数据写在 Pbp.csproj 里，这里只负责打包
+      - name: 打包
+        run: dotnet pack Pbp.csproj -c Release -o nupkg
+
+      - name: 发布到 NuGet
+        run: |
+          dotnet nuget push "nupkg/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+  publish-pypi:
+    name: 发布到 PyPI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime-python
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 构建 sdist 与 wheel
+        run: |
+          python -m pip install --quiet --upgrade build twine
+          python -m build
+
+      - name: 发布到 PyPI
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
