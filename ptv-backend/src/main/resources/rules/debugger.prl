@@ -1,0 +1,33 @@
+# debugger：调试器 / 反调试
+# 迁移自 rules/debugger.lua。环境检测：调试器附加属于高风险环境行为。
+
+rule "debugger" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "environment"
+    description: "调试器检测"
+    enabled: true
+
+    input {
+        event_type: string
+        client_risk: float
+    }
+
+    let high_risk = client_risk >= 70.0
+    let score = 12.0 + (if high_risk: 3.0 else: 0.0 end)
+    let confidence = if high_risk: 0.95 else: 0.85 end
+
+    when:
+        event_type == "debugger"
+
+    then:
+        emit_alert(
+            type = "debugger",
+            confidence = confidence,
+            evidence = {
+                "score": score,
+                "reason": "检测到调试器附加，存在动态分析风险"
+            }
+        )
+}

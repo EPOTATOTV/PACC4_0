@@ -157,6 +157,9 @@ public final class PrlVm {
         final PrlStdlib stdlib;
         final long startNanos = System.nanoTime();
 
+        /** 调试器挂在断点上等指令的累计时长，从 §2.11.1 L2 的墙钟预算里扣掉。 */
+        long suspendedNanos;
+
         int instructionCount;
         int currentDepth;
 
@@ -243,6 +246,15 @@ public final class PrlVm {
                 stack.add(frame.functionName);
             }
             return stack;
+        }
+
+        @Override
+        public void reportSuspendedNanos(long nanos) {
+            // 本方法只会被正在执行这一帧的那条线程调用（调试器就是在自己的执行线程里阻塞的），
+            // 所以这里不需要同步。
+            if (nanos > 0) {
+                owner.suspendedNanos += nanos;
+            }
         }
     }
 
@@ -360,7 +372,7 @@ public final class PrlVm {
                         + " 条（§2.11.1 L2，疑似死循环）");
             }
             if (execution.instructionCount % TIMEOUT_CHECK_INTERVAL == 0
-                    && System.nanoTime() - execution.startNanos > TIMEOUT_NANOS) {
+                    && System.nanoTime() - execution.startNanos - execution.suspendedNanos > TIMEOUT_NANOS) {
                 throw new PrlTimeoutException("规则执行超过 " + (TIMEOUT_NANOS / 1_000_000)
                         + "ms（§2.11.1 L2）");
             }

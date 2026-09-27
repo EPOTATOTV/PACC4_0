@@ -146,7 +146,7 @@ export default function Inspect() {
         <Text type="secondary" style={{ fontSize: 12 }}>待查端实时取证 · 屏幕共享 · 结论判定</Text>
         <div style={{ flex: 1 }} />
         <Button icon={<SyncOutlined />} onClick={load}>刷新</Button>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Card title="待处理队列" style={{ marginBottom: 16 }} styles={{ body: { padding: 0 } }}>

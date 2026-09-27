@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "pacc-binary-protocol"
+name = "pacc-bp"
 version = "1.0.0"

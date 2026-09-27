@@ -225,7 +225,7 @@ export default function ReplayManager() {
         type="info"
         showIcon
         style={{ marginBottom: 14 }}
-        message="录像为 AES-256-GCM 加密的 MJPEG-AVI，公开接口只提供解密下载，不返回密钥"
+        title="录像为 AES-256-GCM 加密的 MJPEG-AVI，公开接口只提供解密下载，不返回密钥"
         description="列表里的「预览」由服务端现场解密并在每帧烧录操作者水印（操作者 · 录像 ID · 时间），浏览器直接看 JPEG 逐帧播放；需要原画质或离线留证时再下载后用本地播放器打开，下载动作会记入服务端日志。"
       />
 
@@ -323,7 +323,7 @@ export default function ReplayManager() {
                 type="warning"
                 showIcon
                 style={{ marginTop: 11 }}
-                message="这一帧取不到"
+                title="这一帧取不到"
                 description="录像可能已过期被清理，或该帧在客户端上传时就已损坏。"
               />
             )}

@@ -21,6 +21,8 @@
         <proguard.core.version>9.4.0</proguard.core.version>
         <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
         <pacc.pbp.version>1.0.0</pacc.pbp.version>
+        <!-- PRL 自研规则语言运行时，版本同样独立于 PACC；bump-version.sh 只做一致性断言，不改它 -->
+        <pacc.prl.version>1.0.0</pacc.prl.version>
     </properties>
 
     <!-- 玩家端运行时依赖：只有自研二进制协议（WSS 查端信令信封，定义见 pacc-binary-protocol/mdl/pacc_wire.mdl），
@@ -31,11 +33,18 @@
             <artifactId>pacc-binary-protocol</artifactId>
             <version>${pacc.pbp.version}</version>
         </dependency>
+        <!-- 自研规则语言（PRL）：24 条端侧检测规则改为 rules/*.prl，在自研 VM 上解释执行。
+             与 PBP 一样零第三方依赖、且只用到 java.base，所以不会给混淆配置带来新的 libraryjars。 -->
+        <dependency>
+            <groupId>com.potatotv</groupId>
+            <artifactId>pacc-rule-language</artifactId>
+            <version>${pacc.prl.version}</version>
+        </dependency>
         <!-- 自研跨平台更新核心（PCU）。它与 PACC 同版本、不做独立协议版本，所以这里直接跟随
              ${project.version}：bump-version.sh 改一次版本号，两边同时对齐，不需要再多一个版本字段。
              它同样零第三方依赖，会被 ProGuard 一并并入发行件（-repackageclasses 后包路径被抹平）。 -->
         <dependency>
-            <groupId>com.potatotv.pacc</groupId>
+            <groupId>com.potatotv</groupId>
             <artifactId>pacc-cross-platform-updater</artifactId>
             <version>${project.version}</version>
         </dependency>

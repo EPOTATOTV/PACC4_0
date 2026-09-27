@@ -23,9 +23,9 @@ export default function Admins() {
         <div style={{ flex: 1 }} />
       </div>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginTop: 16 }} closable />}
       {data?.note && (
-        <Alert type="info" showIcon message={data.note} style={{ marginTop: 16 }} closable />
+        <Alert type="info" showIcon title={data.note} style={{ marginTop: 16 }} closable />
       )}
 
       <Card style={{ marginTop: 20 }} styles={{ body: { padding: 0 } }}>

@@ -238,6 +238,30 @@ if [ "$MODE" = "--check" ]; then
   fi
 fi
 
+if [ "$MODE" = "--check" ]; then
+  echo
+  echo "-- PRL 独立版本一致性（只读断言）--"
+  PRL_POM="pacc-rule-language/pom.xml"
+  if [ ! -f "$PRL_POM" ]; then
+    printf '  [缺失] %s（跳过）\n' "$PRL_POM"
+  else
+    PRL_RUNTIME_VERSION="$(perl -0777 -ne \
+      'print $1 if m{<artifactId>pacc-rule-language</artifactId>\s*<version>([^<]+)}' "$PRL_POM")"
+    PRL_BACKEND_VERSION="$(perl -0777 -ne \
+      'print $1 if m{<pacc\.prl\.version>([^<]+)}' ptv-backend/pom.xml)"
+    PRL_CLIENT_VERSION="$(perl -0777 -ne \
+      'print $1 if m{<pacc\.prl\.version>([^<]+)}' ptv-client/pom.xml)"
+    printf '  runtime=%s backend=%s client=%s\n' \
+      "${PRL_RUNTIME_VERSION:-缺失}" "${PRL_BACKEND_VERSION:-缺失}" "${PRL_CLIENT_VERSION:-缺失}"
+    if [ -z "$PRL_RUNTIME_VERSION" ] \
+      || [ "$PRL_RUNTIME_VERSION" != "$PRL_BACKEND_VERSION" ] \
+      || [ "$PRL_RUNTIME_VERSION" != "$PRL_CLIENT_VERSION" ]; then
+      echo "PRL 版本不一致：规则语言运行时与消费方 pom 里 pin 的版本必须相同。" >&2
+      exit 2
+    fi
+  fi
+fi
+
 if [ "$MODE" = "--check" ] && [ "$CHANGED" -gt 0 ]; then
   echo "存在版本号不一致，未通过校验。" >&2
   exit 2

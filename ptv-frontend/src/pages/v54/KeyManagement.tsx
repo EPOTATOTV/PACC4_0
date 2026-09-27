@@ -299,7 +299,7 @@ export default function KeyManagement() {
           type="warning"
           showIcon
           style={{ marginBottom: 15 }}
-          message="未配置 PACC_SECURITY_KEY_ROOT，当前回退使用 JWT 密钥派生"
+          title="未配置 PACC_SECURITY_KEY_ROOT，当前回退使用 JWT 密钥派生"
           description="生产环境必须独立配置根密钥：回退派生会使所有用途共享同一根，任一用途泄露即危及其余密钥。"
         />
       )}
@@ -359,7 +359,7 @@ export default function KeyManagement() {
         onOk={() => void submitCreate()}
         okText="创建"
         confirmLoading={busy === 'create'}
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', rowGap: 13, alignItems: 'center' }}>
           <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>用途</span>
@@ -388,13 +388,13 @@ export default function KeyManagement() {
         onOk={() => void submitRotate()}
         okText="确认轮换"
         confirmLoading={busy === 'rotate'}
-        destroyOnClose
+        destroyOnHidden
       >
         <Alert
           type="warning"
           showIcon
           style={{ marginBottom: 13 }}
-          message="轮换后旧版本密钥不会删除"
+          title="轮换后旧版本密钥不会删除"
           description="已加密的历史密文仍可通过已轮换密钥解密；新写入统一使用新版本。"
         />
         <Input
@@ -412,13 +412,13 @@ export default function KeyManagement() {
         okText="确认吊销"
         okButtonProps={{ danger: true }}
         confirmLoading={busy === 'revoke'}
-        destroyOnClose
+        destroyOnHidden
       >
         <Alert
           type="error"
           showIcon
           style={{ marginBottom: 13 }}
-          message="吊销不可逆"
+          title="吊销不可逆"
           description="吊销后该密钥立即失效，使用该密钥加密的数据将无法解密，请确认已完成迁移。"
         />
         <Input.TextArea

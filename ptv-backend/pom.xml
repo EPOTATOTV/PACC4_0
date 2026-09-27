@@ -22,6 +22,8 @@
         <jjwt.version>0.13.0</jjwt.version>
         <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
         <pacc.pbp.version>1.0.0</pacc.pbp.version>
+        <!-- PRL 自研规则语言运行时，版本同样独立于 PACC；bump-version.sh 只做一致性断言，不改它 -->
+        <pacc.prl.version>1.0.0</pacc.prl.version>
     </properties>
 
     <dependencies>
@@ -130,11 +132,12 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Lua 动态规则引擎（热更新检测规则） -->
+        <!-- 自研规则语言（PRL）：动态检测规则由 rules/*.prl 提供，替代原先的 LuaJ。
+             PRL 运行时零第三方依赖，规则在自研 VM 上执行，宿主能力经 PrlHostContext 白名单暴露。 -->
         <dependency>
-            <groupId>org.luaj</groupId>
-            <artifactId>luaj-jse</artifactId>
-            <version>3.0.1</version>
+            <groupId>com.potatotv</groupId>
+            <artifactId>pacc-rule-language</artifactId>
+            <version>${pacc.prl.version}</version>
         </dependency>
 
         <!-- 自研二进制协议（PBP）：WSS 信令信封拼装/解析；消息定义见 pacc-binary-protocol/mdl/pacc_wire.mdl，

@@ -1,0 +1,39 @@
+# step：自动上台阶（无跳跃时单次净上升超过原版上限）
+# 对应检测 cheat/rules/StepRule
+
+rule "step" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "cheat"
+    description: "自动上台阶：无跳跃时单次净上升超过原版上限"
+    enabled: true
+
+    input {
+        features: map[string, float]
+    }
+
+    let height_max = features["feature_step_height_max"] ?? 0.0
+    let violations = features["feature_step_violations"] ?? 0.0
+
+    let score = (if height_max >= 1.0: 50.0 else: if height_max > 0.7: 35.0 else: 0.0 end end)
+        + (if violations > 0.0: 25.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if height_max > 0.7: ["feature_step_height_max"] else: no_keys end)
+        + (if violations > 0.0: ["feature_step_violations"] else: no_keys end)
+
+    when:
+        (height_max > 0.6 OR violations > 0.0) AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "step",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

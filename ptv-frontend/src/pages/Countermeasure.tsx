@@ -71,7 +71,7 @@ export default function Countermeasure() {
         玩家端上报硬件与系统环境特征，服务端打分分级并固化。客户端采集，此处只做判定与审计。
       </Text>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 18 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 18 }} closable />}
 
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 20 }}>
         <Card size="small" style={{ minWidth: 180 }}>

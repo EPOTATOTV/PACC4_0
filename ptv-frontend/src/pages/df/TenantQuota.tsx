@@ -58,7 +58,7 @@ function QuotaCell({ metric }: { metric?: TenantQuotaMetric }) {
             percent={Math.round((pct ?? 0) * 10) / 10}
             showInfo={false}
             strokeColor={quotaColor(pct)}
-            trailColor="rgba(255,255,255,.06)"
+            railColor="rgba(255,255,255,.06)"
             size={['100%', 5]}
           />
         </Tooltip>

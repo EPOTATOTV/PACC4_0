@@ -90,7 +90,7 @@ export default function PlayerMapBp() {
   }
 
   if (!state) {
-    return <div style={{ color: 'var(--muted)', padding: 24 }}>加载中…{err && <Alert type="error" showIcon message={err} style={{ marginTop: 12 }} />}</div>
+    return <div style={{ color: 'var(--muted)', padding: 24 }}>加载中…{err && <Alert type="error" showIcon title={err} style={{ marginTop: 12 }} />}</div>
   }
 
   const completed = state.status === 'COMPLETED'
@@ -105,7 +105,7 @@ export default function PlayerMapBp() {
         {state.status === 'ACTIVE' && !myTurn && <Tag bordered={false}>等待对方…</Tag>}
       </div>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable onClose={() => setErr('')} />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable={{ onClose: () => setErr('') }} />}
 
       {/* 对阵条 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -184,8 +184,8 @@ export default function PlayerMapBp() {
         {!myTurn && state.status === 'ACTIVE' && (
           <Text type="secondary" style={{ fontSize: 13 }}>当前为非你的回合，轻点地图无效；等待对方或系统裁决。</Text>
         )}
-        {state.status === 'PAUSED' && <Alert type="warning" showIcon message="BP 已暂停，请等待裁判恢复。" />}
-        {state.status === 'CANCELLED' && <Alert type="error" showIcon message={state.cancel_reason || '本场 BP 已被取消。'} />}
+        {state.status === 'PAUSED' && <Alert type="warning" showIcon title="BP 已暂停，请等待裁判恢复。" />}
+        {state.status === 'CANCELLED' && <Alert type="error" showIcon title={state.cancel_reason || '本场 BP 已被取消。'} />}
       </div>
 
       {/* 操作确认 */}

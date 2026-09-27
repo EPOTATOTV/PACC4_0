@@ -1,6 +1,6 @@
 package com.potatotv.pacc.controller;
 
-import com.potatotv.pacc.rule.LuaRuleEngine;
+import com.potatotv.pacc.rule.PrlRuleEngine;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,17 +21,17 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RuleController {
 
-    private final LuaRuleEngine ruleEngine;
+    private final PrlRuleEngine ruleEngine;
 
     @GetMapping
     public ResponseEntity<?> list() {
         return ResponseEntity.ok(Map.of(
-                "enabled", true,
+                "enabled", ruleEngine.enabled(),
                 "count", ruleEngine.list().size(),
                 "rules", ruleEngine.list()));
     }
 
-    /** 热更新：从 classpath rules/*.lua 重新加载。 */
+    /** 热更新：从 classpath rules/*.prl 重新加载。 */
     @PostMapping("/reload")
     public ResponseEntity<?> reload() {
         int n = ruleEngine.reload();
@@ -41,7 +41,7 @@ public class RuleController {
     /** 试评：对给定事件上下文执行规则引擎，返回命中明细与累计加分。 */
     @PostMapping("/evaluate")
     public ResponseEntity<?> evaluate(@RequestBody Map<String, Object> ctx) {
-        LuaRuleEngine.Evaluation ev = ruleEngine.evaluate(ctx);
+        PrlRuleEngine.Evaluation ev = ruleEngine.evaluate(ctx);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("rule_count", ev.ruleCount());
         out.put("bonus", ev.bonus());

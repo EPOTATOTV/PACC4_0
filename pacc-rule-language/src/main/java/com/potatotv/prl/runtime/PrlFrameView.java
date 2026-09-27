@@ -11,6 +11,9 @@ import java.util.Map;
  * 每条指令都做一份快照会让「挂着调试器跑规则」慢到没法用。</p>
  *
  * <p>{@link #variables()} 与 {@link #callStack()} 返回的是副本，调用方随便改，不影响 VM。</p>
+ *
+ * <p>除了 {@link #reportSuspendedNanos(long)}，本接口只读：它不改执行结果。那一处例外是省不掉的 ——
+ * 挂起时长只有停下来的一方能量到，而它手上只有这一帧。</p>
  */
 public interface PrlFrameView {
 
@@ -28,4 +31,17 @@ public interface PrlFrameView {
 
     /** 调用栈，栈顶在前，元素是函数名。 */
     List<String> callStack();
+
+    /**
+     * 上报一段「挂起」时长，让这段时间从执行预算里扣掉。
+     *
+     * <p>调试器停在断点上等控制指令时，被调试线程是阻塞的，但那段时间仍然落在
+     * {@link com.potatotv.prl.vm.PrlVm} 的墙钟预算里。人在面板上多看几秒不该算成规则跑超时，
+     * 所以挂起前后面各读一次时钟，把差值交给这里。</p>
+     *
+     * <p>默认空实现：不挂起（也就没有调试器）的宿主不必关心。只有真正阻塞过的调用方该上报，
+     * 传非正数会被忽略。</p>
+     */
+    default void reportSuspendedNanos(long nanos) {
+    }
 }

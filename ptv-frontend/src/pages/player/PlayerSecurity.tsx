@@ -145,7 +145,7 @@ export default function PlayerSecurity() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>账号安全</Title>
-        {err && <Alert type="error" showIcon message={err} style={{ marginLeft: 8, flex: 1 }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ marginLeft: 8, flex: 1 }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Row gutter={[14, 14]}>
@@ -245,7 +245,7 @@ export default function PlayerSecurity() {
               </Tag>
             </div>
             {totpEnabled ? (
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 <Button block icon={<KeyOutlined />} onClick={generateRecovery}>
                   {totpRecoveryReady ? '重新生成恢复码' : '生成恢复码'}
                 </Button>
@@ -312,7 +312,7 @@ export default function PlayerSecurity() {
       </Modal>
 
       <Modal title="禁用两步验证" open={totpUnlockOpen} onCancel={() => { setTotpUnlockOpen(false); unlockForm.resetFields() }} onOk={submitDisable} okText="禁用" okButtonProps={{ danger: true }} cancelText="取消">
-        <Alert type="warning" showIcon message="请输入当前动态验证码（或一次性恢复码）以解锁禁用操作。" style={{ marginBottom: 16 }} />
+        <Alert type="warning" showIcon title="请输入当前动态验证码（或一次性恢复码）以解锁禁用操作。" style={{ marginBottom: 16 }} />
         <Form form={unlockForm} layout="vertical">
           <Form.Item name="code" label="验证码" rules={[{ required: true, message: '请输入验证码' }]}>
             <Input maxLength={6} placeholder="6 位动态码 / 恢复码" autoComplete="one-time-code" />
@@ -326,7 +326,7 @@ export default function PlayerSecurity() {
         onCancel={() => setRecoveryModal(null)}
         footer={<Button type="primary" onClick={() => setRecoveryModal(null)}>我已保存</Button>}
       >
-        <Alert type="warning" showIcon message="恢复码仅展示这一次，请立即妥善保存。每个恢复码仅能使用一次。" style={{ marginBottom: 16 }} />
+        <Alert type="warning" showIcon title="恢复码仅展示这一次，请立即妥善保存。每个恢复码仅能使用一次。" style={{ marginBottom: 16 }} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {(recoveryModal ?? []).map((c, i) => (
             <Text key={i} copyable style={{ fontFamily: 'monospace', textAlign: 'center' }}>{c}</Text>

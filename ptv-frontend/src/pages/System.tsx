@@ -35,13 +35,13 @@ export default function System() {
         <div style={{ flex: 1 }} />
       </div>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginTop: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginTop: 16 }} closable />}
 
       <Row gutter={16} style={{ marginTop: 20 }} wrap>
         <Col xs={24} lg={12}>
           <Card title="运行状态" variant="borderless" style={{ marginBottom: 16 }}>
             {info ? (
-              <Descriptions column={1} size="small" labelStyle={{ width: 120 }}>
+              <Descriptions column={1} size="small" styles={{ label: { width: 120 } }}>
                 <Descriptions.Item label="应用">{info.app}</Descriptions.Item>
                 <Descriptions.Item label="版本">
                   <Tag color="blue">{info.version}</Tag>
@@ -68,14 +68,14 @@ export default function System() {
         <Col xs={24} lg={12}>
           <Card title="检测策略" variant="borderless" style={{ marginBottom: 16 }}>
             {config ? (
-              <Descriptions column={1} size="small" labelStyle={{ width: 140 }}>
+              <Descriptions column={1} size="small" styles={{ label: { width: 140 } }}>
                 <Descriptions.Item label="红屏阈值">{config.detection.redscreen_threshold}</Descriptions.Item>
                 <Descriptions.Item label="三级红屏阈值">{config.detection.severe_threshold}</Descriptions.Item>
                 <Descriptions.Item label="可疑下限">{config.detection.suspicious_low}</Descriptions.Item>
                 <Descriptions.Item label="同类型冷却">
                   {config.detection.cooldown_minutes} 分钟
                 </Descriptions.Item>
-                <Descriptions.Item label="Lua 规则引擎">
+                <Descriptions.Item label="PRL 规则引擎">
                   {config.rules.enabled ? <Tag color="green">启用（加分上限 {config.rules.max_bonus}）</Tag> : <Tag>停用</Tag>}
                 </Descriptions.Item>
                 <Descriptions.Item label="AI 推理融合">

@@ -150,9 +150,16 @@ pacc:
     # 模型签名私钥（PKCS#8 Base64，RSA）。未配置时发布不签名并在签名列写空串（绝不伪造签名）
     signing-key: ${PACC_MODEL_SIGNING_KEY:}
   rules:
-    # Lua 动态规则引擎（classpath:rules/*.lua，可热更新）
+    # PRL 动态规则引擎（classpath:rules/*.prl，管理端可触发热更新）
     enabled: true
     max-bonus: 15          # 规则命中加分上限
+  update:
+    # PCU 灰度发布（§5.3）。内部测试 PTEID 逗号分隔，任何灰度比例下都优先放行
+    internal-pteids: ${PACC_UPDATE_INTERNAL_PTEIDS:}
+    # 更新失败率超过该比例即暂停该版本的下发；低于 min-samples 时不做判定
+    failure-rate-limit-pct: 5
+    failure-rate-min-samples: 20
+    failure-rate-window-hours: 24
   ratelimit:
     # 通用令牌桶总开关（按身份 + 请求类别）；仅压测环境可关
     enabled: ${PACC_RATELIMIT_ENABLED:true}

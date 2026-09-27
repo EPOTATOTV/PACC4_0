@@ -34,7 +34,10 @@ class PcuUpdateServiceTest {
     void setUp() {
         releaseRepository = mock(ReleaseRepository.class);
         updateReportRepository = mock(UpdateReportRepository.class);
-        service = new PcuUpdateService(new ReleaseService(releaseRepository), updateReportRepository);
+        // 这个类只测「检查更新 / 差分下发」，灰度比例一律 100（本文件里的发布记录都是全量），
+        // 灰度相关的行为在 PcuUpdateServiceGrayTest 里单独覆盖。
+        service = new PcuUpdateService(new ReleaseService(releaseRepository), updateReportRepository,
+                "", 5, 20, 24);
     }
 
     private static ReleaseInfo release(String version, String fromVersion, String deltaUrl) {

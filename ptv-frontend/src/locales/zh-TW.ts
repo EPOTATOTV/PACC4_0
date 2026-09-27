@@ -40,6 +40,7 @@ const zhTW: Record<string, string> = {
   'nav.detectorConfig': '檢測配置',
   'nav.motionConfig': '動效配置',
   'nav.releases': '版本發布',
+  'nav.prlEditor': 'PRL 規則編輯器',
   'nav.exportCenter': '數據導出',
   // v5.2 智能檢測運營（管理端補齊）
   'nav.group.v52': '智能檢測運營',

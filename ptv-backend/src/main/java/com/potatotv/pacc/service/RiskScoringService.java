@@ -2,7 +2,7 @@ package com.potatotv.pacc.service;
 
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.DetectionEvent;
-import com.potatotv.pacc.rule.LuaRuleEngine;
+import com.potatotv.pacc.rule.PrlRuleEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,7 +27,7 @@ import java.util.Map;
 public class RiskScoringService {
 
     private final AiInferenceClient aiInferenceClient;
-    private final LuaRuleEngine luaRuleEngine;
+    private final PrlRuleEngine ruleEngine;
 
     // 各事件类型到"维度"的简单映射（用于加权）
     private enum Dimension { LOW_LEVEL, BEHAVIOR, ENV }
@@ -54,14 +54,14 @@ public class RiskScoringService {
         var ai = aiInferenceClient.score(event, account);
         double finalScore = ai.map(v -> localScore * 0.85 + v * 0.15).orElse(localScore);
 
-        // Lua 动态规则命中加分（引擎内封顶 max-bonus）
-        double ruleBonus = luaRuleEngine.evaluate(contextOf(event, account, historyFactor)).bonus();
+        // PRL 动态规则命中加分（引擎内封顶 max-bonus）
+        double ruleBonus = ruleEngine.evaluate(contextOf(event, account, historyFactor)).bonus();
         finalScore += ruleBonus;
 
         return (int) Math.max(0, Math.min(100, finalScore));
     }
 
-    /** 构造供 Lua 规则评估的事件上下文。 */
+    /** 构造供 PRL 规则评估的事件上下文。 */
     private Map<String, Object> contextOf(DetectionEvent event, Account account, double historyFactor) {
         Map<String, Object> ctx = new LinkedHashMap<>();
         ctx.put("pteid", event.getPteid());

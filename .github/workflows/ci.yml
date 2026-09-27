@@ -1,9 +1,4 @@
-# PACC CI —— 全模块构建 + 测试 + 安全扫描 + SBOM 制品
-# 加固要点：
-#   - 最小权限（permissions: contents: read）
-#   - 缓存 Maven/npm/Go 加速
-#   - gitleaks 密钥泄露扫描 + Trivy 依赖漏洞扫描
-#   - 每次提交可取消（concurrency），防积压
+# PACC CI：全模块构建 + 测试 + 安全扫描 + SBOM 制品
 name: CI
 
 on:
@@ -14,7 +9,7 @@ on:
     branches: [ master ]
 
 permissions:
-  contents: read   # 最小权限：CI 只读仓库代码
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -24,17 +19,19 @@ env:
   JAVA_VERSION: '21'
   NODE_VERSION: '20'
 
+# 统一固定 ubuntu-24.04：runner 镜像随 latest 漂移会连带改变构建环境，
+# 升级镜像应当是独立的一次改动，而不是某天 CI 自己变红。
 jobs:
   # ---- 密钥泄漏 / 供应链扫描（最前置）----
   secret-scan:
     name: 密钥扫描 (gitleaks)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
       security-events: write   # 上传 SARIF 到 Code Scanning
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0         # 要扫提交历史，必须全量 clone
       # 用官方二进制，不用 gitleaks-action：本仓库属于组织，action 需要 GITLEAKS_LICENSE，
@@ -64,14 +61,13 @@ jobs:
           category: gitleaks
 
   # ---- 版本号一致性（A01 门禁）----
-  # 以 ptv-backend/pom.xml 的 <version> 为唯一基准，反查全仓库其余 40 余处版本字段。
-  # 任何一处没跟上（新增模块漏写、手工改动、合并冲突残留）都会在这里被拦下。
+  # 以 ptv-backend/pom.xml 的 <version> 为基准，反查全仓库其余版本字段。
   version-consistency:
     name: 版本号一致性
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 取出基准版本
         id: ver
         run: |
@@ -101,29 +97,34 @@ jobs:
   # ---- 后端 / 玩家端（Java 21 + Maven）----
   java:
     name: Java 模块构建
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # 提到 job 级是为了让下面的步骤能用 env 上下文判断 token 是否配置
+    # （secrets 上下文在步骤 if 里不可用）。
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 安装 JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
-      # 仓库没有 root 聚合 pom，每个模块都是独立 mvn。协议运行时必须先装进本地仓库，
-      # 否则下面两个模块会以「无法解析 com.potatotv:pacc-binary-protocol」硬失败。
-      # 不加 -DskipTests：协议编解码与加密的测试（含 RFC 官方向量）就是这一层的门禁本身。
+      # 仓库没有 root 聚合 pom，内部依赖必须逐个 install 进本地仓库才能被下游解析。
+      # 这三个模块一律不加 -DskipTests：它们的测试本身就是要守的门禁。
       - name: 构建并安装协议运行时 pacc-binary-protocol
         working-directory: pacc-binary-protocol/runtime-java
         run: mvn -B -q install
-      # 更新核心（PCU）同样只在本仓库里，且 ptv-client 要依赖它，必须先装进本地仓库。
-      # 不加 -DskipTests：差分（bzip2 / bsdiff）的正确性靠这一层的测试挡，编译通过不代表补丁能用。
+      # ptv-client 依赖它
       - name: 构建并安装更新核心 pacc-cross-platform-updater
         working-directory: pacc-cross-platform-updater
         run: mvn -B -q install
-      # 差分金标向量是入库的生成物，和 PBP 的生成物一个道理：改了生成端逻辑没重新生成、
-      # 或者手改了 vectors/ 下的字节，都会在这一步挂掉。
+      # 后端与玩家端都依赖它
+      - name: 构建并安装规则语言 pacc-rule-language
+        working-directory: pacc-rule-language
+        run: mvn -B -q install
+      # 差分金标向量是入库生成物，改了生成端没重新生成、或手改了字节都会在这里挂掉
       - name: 校验 PCU 差分金标向量与生成器一致
         working-directory: pacc-cross-platform-updater/tools/pcu-patchgen
         run: python -m pcu_patchgen --check
@@ -131,12 +132,12 @@ jobs:
       - name: 校验 PBP 生成物与 MDL 定义一致
         working-directory: tools/pbpgen
         run: python -m pbpgen --check
-      # 生成器自测：里面有一条"拿 javac 真编一遍生成物"的用例，能挡住"生成得出来但编不过"的改动
+      # 生成器自测含一条"真用 javac 编一遍生成物"的用例
       - name: 运行 pbpgen 自测
         working-directory: tools/pbpgen
         run: python -m unittest discover -s tests -t .
-      # 自研 zstd 子集必须和参考实现对得上：这一步双向校验（我们的帧交给 libzstd 解、
-      # 参考实现压的帧交给我们的解码器解）。zstandard 只是 CI 工具，不是仓库的运行依赖。
+      # 双向校验：我们的帧交给 libzstd 解，参考实现压的帧交给我们的解码器解。
+      # zstandard 只是 CI 工具，不是仓库运行依赖。
       - name: PBP zstd 子集与参考实现交叉校验
         working-directory: pacc-binary-protocol/tools/zstd-crosscheck
         run: |
@@ -165,9 +166,14 @@ jobs:
           # 必须存在短名混淆类，防止 ProGuard 被误跳过
           unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/[a-z]{1,3}\.class' \
             || { echo "::error::未发现混淆后的短类名，ProGuard 可能未执行"; exit 1; }
-      # 发布件必须自洽：产物里任何 "not found" 都意味着有类引用了没被打进去的东西。
-      # 这条正是为了挡住曾经那类问题——依赖只当 -libraryjars 参与混淆、不进 jar，
-      # 于是引用了它的类在运行时直接 NoClassDefFoundError，而构建期毫无提示。
+          # 端侧检测规则以资源形式随包发布，缺了端侧就是"零规则运行"。这里只清点条目数，
+          # 不验证能否被加载——后者由 PrlDetectionEngineTest 里那条"无目录条目 jar"的用例钉住
+          # （ProGuard 不写 rules/ 目录条目，按目录枚举的写法在发行件上一个都找不到）。
+          RULES=$(unzip -l "$JAR" | grep -cE 'rules/[a-z_]+\.prl$' || true)
+          echo "内置 PRL 规则条目：$RULES"
+          [ "$RULES" -ge 24 ] || { echo "::error::发行件里的 PRL 规则少于 24 条，端侧会缺检测能力"; exit 1; }
+      # 产物里任何 "not found" 都意味着有类引用了没被打进去的东西
+      # （依赖只作 -libraryjars 参与混淆时不进 jar，运行时才 NoClassDefFoundError）。
       - name: 校验 ptv-client 发布件依赖自洽
         working-directory: ptv-client
         run: |
@@ -187,27 +193,27 @@ jobs:
       # 测试失败时报告最需要被看到，所以用 always()：即便上面构建挂了也把报告捞出来
       - name: 上传后端测试报告与覆盖率
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: java-test-reports
           path: |
             ptv-backend/target/surefire-reports/
             pacc-binary-protocol/runtime-java/target/surefire-reports/
             pacc-cross-platform-updater/target/surefire-reports/
+            pacc-rule-language/target/surefire-reports/
             ptv-backend/target/site/jacoco/
           if-no-files-found: ignore
-      # PR 页面覆盖率：需在仓库 Secrets 里配 CODECOV_TOKEN（私有仓库必需）。
-      # 未配置时该步骤会失败但被 continue-on-error 吞掉，不会把 CI 拖红。
+      # 没配 CODECOV_TOKEN 时整步跳过：留一个必然失败的步骤靠 continue-on-error 吞着，
+      # "token 配了但上传真坏了"就看不出来了。
       - name: 上传覆盖率到 Codecov
-        if: always()
+        if: ${{ always() && env.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v4
-        continue-on-error: true
         with:
           files: ptv-backend/target/site/jacoco/jacoco.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
           fail_ci_if_error: false
       - name: 上传制品
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: java-artifacts
           path: |
@@ -216,17 +222,16 @@ jobs:
             ptv-backend/target/bom.xml
 
   # ---- PBP 多语言运行时（TS / Rust / C# / Python）----
-  # 互操作断言的锚点是 pacc-binary-protocol/test-vectors/interop.txt：每种语言都要逐字节
-  # 复现压缩输出与帧字节，不然"多语言运行时行为一致"就只是声称。生成物漂移与 pbpgen 自测
-  # 在 java job 里挡（--check 覆盖五种语言）。
+  # 互操作锚点是 pacc-binary-protocol/test-vectors/interop.txt：每种语言都要逐字节复现
+  # 压缩输出与帧字节；生成物漂移由 java job 的 pbpgen --check 挡。
   pbp-runtimes:
     name: PBP 多语言运行时
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 安装 Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -257,25 +262,40 @@ jobs:
   # ---- 前端（Node 20 + Vite）----
   frontend:
     name: 前端构建
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 安装 Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: ptv-frontend/package-lock.json
+          cache-dependency-path: |
+            ptv-frontend/package-lock.json
+            pacc-rule-language/prl-editor/package-lock.json
+      # 管理端的规则编辑器是 file: 依赖（pacc-rule-language/prl-editor）。本地依赖只做软链，
+      # 不会替它跑构建脚本，dist/index.js 与 dist/style.css 不存在时下面的 npm run build 会直接失败。
+      - name: 构建 PRL 编辑器组件包
+        working-directory: pacc-rule-language/prl-editor
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
       - name: 安装依赖
         working-directory: ptv-frontend
         run: npm ci
+      # 零告警门禁：仓库约定前端 ESLint 零告警零错误，
+      # lint 脚本自带 --max-warnings 0，所以这一步能挡住新增的 any / hooks 违规。
+      - name: ESLint 检查
+        working-directory: ptv-frontend
+        run: npm run lint
       - name: 运行单元测试
         working-directory: ptv-frontend
         run: npm run test:ci
       - name: 上传前端测试报告
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-test-reports
           path: ptv-frontend/reports/
@@ -302,7 +322,7 @@ jobs:
             exit 1
           fi
       - name: 上传制品
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-dist
           path: ptv-frontend/dist
@@ -310,25 +330,24 @@ jobs:
   # ---- Go 边缘网关 ----
   go:
     name: Go 网关构建
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
         working-directory: deploy/gateway-go
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 安装 Go 1.22
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
           cache: true
-          # 该模块零依赖，不存在 go.sum；原先指向 go.sum 会让 setup-go 告警并放弃缓存，
-          # 缓存键退化不成，等于没开缓存。改指 go.mod（内容一变的哈希即可失效重建）。
+          # 该模块零依赖、无 go.sum；指向 go.sum 会让 setup-go 放弃缓存，故指向 go.mod
           cache-dependency-path: deploy/gateway-go/go.mod
       - run: go vet ./...
       - run: go build -trimpath -ldflags="-s -w" -o gateway-go .
       - name: 上传制品
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: gateway-go-bin
           path: deploy/gateway-go/gateway-go
@@ -336,29 +355,38 @@ jobs:
   # ---- Rust 管道 ----
   rust:
     name: Rust 管道构建
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
         working-directory: deploy/pipe-rust
     steps:
-      - uses: actions/checkout@v4
-      - run: cargo build --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v5
+      # 显式装工具链：as_chunks 需要 Rust 1.88+，且 clippy 规则集随版本漂移，
+      # 依赖 runner 预装版本会让本地过、CI 挂。
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      # 该模块此前只 build 不 test，密钥扩展写错也无人发现；纯 std 安全模块的测试即唯一防线。
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+      - run: cargo build --release --locked
+      - uses: actions/upload-artifact@v5
         with:
           name: pipe-rust-bin
           path: deploy/pipe-rust/target/release/*
 
   # ---- DF 平台：Rust 统一检测核心 + Linux 原生客户端 + eBPF（A10/A16/A17/A20）----
-  # 这一组源码在 Linux runner 上才编得动，Windows 开发机只做静态检查。
-  # 各步骤对「目录/文件还不存在」保持容忍：分支裁剪或尚未落地的部分直接跳过而不是报红，
-  # 但只要源码在，就必须真的编过、测过。
+  # 这组源码只在 Linux runner 上编得动（Windows 开发机只做静态检查）。
+  # 目录尚不存在的部分跳过而不报红，但源码在就必须真编真测。
   df-platform:
     name: DF 平台构建 (Rust/eBPF/Linux)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 探测源码是否存在
         id: probe
@@ -395,13 +423,12 @@ jobs:
         working-directory: platform/rust-core
         run: |
           cargo fmt --all -- --check
-          # linker_messages 放进白名单：cdylib 在 Windows 上链接时工具链会打印
-          # 「正在创建库 xxx.dll.lib」，这是链接器噪声不是代码问题，
-          # 否则 -D warnings 会因为跑在哪个平台而红。
+          # 放行 linker_messages：cdylib 链接时工具链会打印「正在创建库 xxx.dll.lib」，
+          # 是链接器噪声而非代码问题，否则 -D warnings 会因为跑在哪个平台而红。
           cargo clippy --workspace --all-targets -- -D warnings -A linker_messages
       - name: 上传 Rust 核心产物
         if: steps.probe.outputs.rust_core == 'yes'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: rust-core-libs
           path: platform/rust-core/target/release/*.so
@@ -415,9 +442,8 @@ jobs:
           set -euo pipefail
           cargo build --release
           cargo test --release
-      # 客户端里 Linux 专有的那部分（procfs 的 status 解析、eBPF 能力位检查）在
-      # Windows 开发机上被 cfg 整个摘掉，本机 clippy 恒过；不加这一步，只有
-      # Linux 编译路径才存在的问题会一路漂到 CI 之外。
+      # Linux 专有部分（procfs 解析、eBPF 能力位检查）在 Windows 上被 cfg 摘掉，
+      # 本机 clippy 恒过，只有这一步能挡住 Linux 编译路径才有的问题。
       - name: Linux 客户端格式与 lint
         if: steps.probe.outputs.linux_client == 'yes'
         working-directory: platform/linux-client
@@ -430,11 +456,15 @@ jobs:
         working-directory: platform/linux-client
         run: |
           set -euo pipefail
-          # 判断用 -f 而不是 -x：仓库在 Windows 上开发，git 里 core.fileMode=false，
-          # .sh 的执行位曾经全部丢失，-x 恒为假，这一步一直在「静默跳过」而不报错，
-          # 于是 job 是绿的、产物却没有。打包脚本一律用 bash 显式调用，不依赖执行位。
+          # 用 -f 而不是 -x：仓库在 Windows 上开发，git 里 core.fileMode=false，
+          # .sh 的执行位不可靠，一律用 bash 显式调用。
           if [ -f ./package.sh ]; then
-            bash ./package.sh
+            # --no-build：上一步已 build/test 过；日志落文件便于排查 deb/rpm 打包问题
+            if ! bash ./package.sh --no-build 2>&1 | tee /tmp/package.log; then
+              echo "::error::Linux 客户端打包失败，完整日志如下"
+              cat /tmp/package.log
+              exit 1
+            fi
             ls -l target/dist/
           else
             echo "::error::platform/linux-client/package.sh 缺失，无法产出 Linux 安装包"
@@ -442,7 +472,7 @@ jobs:
           fi
       - name: 上传 Linux 客户端安装包
         if: steps.probe.outputs.linux_client == 'yes'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: linux-client-packages
           path: platform/linux-client/target/dist/*
@@ -468,7 +498,7 @@ jobs:
           make
       - name: 上传 eBPF 目标文件
         if: steps.probe.outputs.ebpf == 'yes'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ebpf-objects
           path: platform/kernel-linux/*.o
@@ -477,13 +507,13 @@ jobs:
   # ---- Python AI 服务 ----
   python:
     name: AI 服务校验
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:
         working-directory: deploy/ai
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 安装 Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -493,13 +523,13 @@ jobs:
   # ---- 依赖漏洞扫描（聚合已构建产物源码）----
   vuln-scan:
     name: 依赖漏洞扫描 (Trivy)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # 上传 SARIF 到 Code Scanning 需该权限
     permissions:
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Trivy 文件系统扫描
         # v0.36.0；注意标签带 v 前缀，写 0.36.0 会解析不到，job 会死在 Set up job
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25

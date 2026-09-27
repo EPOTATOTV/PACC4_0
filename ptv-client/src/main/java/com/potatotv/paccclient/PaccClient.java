@@ -19,6 +19,7 @@ import com.potatotv.paccclient.inspect.InspectAgent;
 import com.potatotv.paccclient.redscreen.FullScreenRed;
 import com.potatotv.paccclient.redscreen.RedscreenReceiver;
 import com.potatotv.paccclient.redscreen.SessionRecorder;
+import com.potatotv.paccclient.rules.RuleSync;
 import com.potatotv.paccclient.security.CodeIntegrityService;
 import com.potatotv.paccclient.security.ProcessProtector;
 import com.potatotv.paccclient.security.SecurityReporter;
@@ -294,6 +295,28 @@ public final class PaccClient {
                 System.err.println("[PTV-Client] 模型同步异常（保留现有模型）: " + e.getMessage());
             }
         }, 45, 6 * 3600, TimeUnit.SECONDS);
+
+        // ---- §3.2.4 规则下发同步：先装载本地缓存，再启动 75 秒后首次拉取、之后每 6 小时一次 ----
+        // 缓存必须赶在同步之前装载：上一轮同步成功、这一轮离线的设备不该悄悄退回随包内置的旧规则。
+        RuleSync ruleSync = new RuleSync(cfg.serverUri, token, engine.ruleEngine());
+        try {
+            int cached = ruleSync.loadCache();
+            if (cached > 0) {
+                System.out.println("[PTV-Client] 已装载本地缓存规则 " + cached + " 条");
+            }
+        } catch (RuntimeException e) {
+            System.err.println("[PTV-Client] 规则缓存装载异常（保留内置规则）: " + e.getMessage());
+        }
+        opsScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                int updated = ruleSync.syncOnce();
+                if (updated > 0) {
+                    System.out.println("[PTV-Client] 端侧规则已更新 " + updated + " 条");
+                }
+            } catch (Exception e) {
+                System.err.println("[PTV-Client] 规则同步异常（保留现有规则）: " + e.getMessage());
+            }
+        }, 75, 6 * 3600, TimeUnit.SECONDS);
 
         // ---- DF §4.1.2 端侧联邦学习：本地取样 → 本地训练 → 队列上报；全局模型周期下发 ----
         // 出网的只有梯度（模型增量）与聚合权重，原始特征与事件数据不出设备。

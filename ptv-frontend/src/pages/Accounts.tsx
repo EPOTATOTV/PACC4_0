@@ -45,7 +45,7 @@ export default function Accounts() {
     <div>
       <Title level={3} style={{ marginTop: 0 }}>PTEID 账号管理</Title>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Input
@@ -83,7 +83,7 @@ export default function Accounts() {
         width={420}
       >
         {detail && (
-          <Descriptions column={1} size="small" labelStyle={{ width: 110 }}>
+          <Descriptions column={1} size="small" styles={{ label: { width: 110 } }}>
             <Descriptions.Item label="PTEID"><span style={{ fontFamily: 'monospace' }}>{detail.pteid}</span></Descriptions.Item>
             <Descriptions.Item label="邮箱">{detail.email}</Descriptions.Item>
             <Descriptions.Item label="手机号">{detail.phone ?? '—'}</Descriptions.Item>

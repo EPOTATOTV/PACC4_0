@@ -100,7 +100,7 @@ export default function PlayerRecords() {
   return (
     <div>
       <Title level={3} style={{ marginTop: 0 }}>我的作弊记录</Title>
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       <Row gutter={[14, 14]} style={{ marginBottom: 14 }}>
         <Col xs={12} sm={6}><Metric label="记录总数" value={records.length} /></Col>

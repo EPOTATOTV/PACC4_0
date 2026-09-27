@@ -43,7 +43,7 @@ export default function PlayerOverview() {
     <div>
       <Title level={3} style={{ marginTop: 0 }}>我的概览</Title>
 
-      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 16 }} closable />}
+      {err && <Alert type="error" showIcon title={err} style={{ marginBottom: 16 }} closable />}
 
       <PlayerDetectionPanel />
 

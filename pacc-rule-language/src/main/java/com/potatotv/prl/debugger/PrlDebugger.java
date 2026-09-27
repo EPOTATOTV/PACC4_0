@@ -386,7 +386,11 @@ public final class PrlDebugger implements PrlExecutionObserver {
         state = DebugState.snapshot(frame);
         paused = true;
         events.offer(new Paused(state));
+        long suspendedFrom = System.nanoTime();
         Command command = take();
+        // 挂在这里的墙钟时间不是规则在跑：不上报的话，人在面板上多停几秒就会把 §2.11.1 L2 的
+        // 100ms 预算耗光，放行时误报超时。
+        frame.reportSuspendedNanos(System.nanoTime() - suspendedFrom);
         paused = false;
         apply(command, frame);
     }

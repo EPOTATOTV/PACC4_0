@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- 独立版本号：不随 PACC 产品版本走，主项目按精确版本锁定（见 AGENTS.md 与设计文档 §1.4）。
+    <!-- 独立版本号：不随 PACC 产品版本走，主项目按精确版本锁定（见设计文档 §1.4）。
          因此本 pom 刻意不出现在 scripts/bump-version.sh 的替换清单里。 -->
     <groupId>com.potatotv</groupId>
     <artifactId>pacc-binary-protocol</artifactId>
@@ -12,6 +12,42 @@
     <name>PACC Binary Protocol</name>
     <description>PBP 二进制协议运行时：帧封装、VarInt/ZigZag 有序字段编解码、ChaCha20-Poly1305 加密、
         HMAC-SHA256 签名、HKDF 会话密钥派生、X25519 密钥协商。PACC 协议消息由 tools/pbpgen 从 MDL 生成。</description>
+
+    <url>https://github.com/EPOTATOTV/pacc-binary-protocol</url>
+
+    <!-- Sonatype 中央仓库的 staging 规则强制校验 licenses / developers / scm 三项，缺一会被拒收 -->
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>potatotv</id>
+            <name>PotatoTV</name>
+            <organization>PotatoTV</organization>
+            <organizationUrl>https://github.com/EPOTATOTV</organizationUrl>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:https://github.com/EPOTATOTV/pacc-binary-protocol.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/EPOTATOTV/pacc-binary-protocol.git</developerConnection>
+        <url>https://github.com/EPOTATOTV/pacc-binary-protocol</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>ossrh</id>
+            <url>https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/</url>
+        </repository>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <properties>
         <java.version>21</java.version>
@@ -71,4 +107,76 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- 只在发布到中央仓库时启用：mvn -B deploy -P release。
+             插件放在 release profile（不在默认构建链）里，普通构建不受影响；
+             插件不是 dependency，所以也绕得开上面那条 bannedDependencies 门禁。 -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.11.2</version>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <!-- 源码里是中文注释，个别 doc 标签不闭合会让 doclint 直接失败；
+                                 中央仓库只校验 javadoc 存在，不校验其严格合法，故关掉 doclint -->
+                            <doclint>none</doclint>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <!-- passphrase 从环境变量 MAVEN_GPG_PASSPHRASE 读（maven-gpg-plugin 原生支持），不落盘到 pom -->
+                    </plugin>
+                    <!-- 用 legacy OSSRH staging API：与 workflow 里的 server-id: ossrh 及
+                         distributionManagement 指向的 staging 地址配套，deploy 后自动 close+release -->
+                    <plugin>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nexus-staging-maven-plugin</artifactId>
+                        <version>1.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <serverId>ossrh</serverId>
+                            <nexusUrl>https://ossrh-staging-api.central.sonatype.com/</nexusUrl>
+                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

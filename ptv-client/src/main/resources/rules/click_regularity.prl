@@ -1,0 +1,44 @@
+# click_regularity：点击节拍机械化（点击间隔方差过小，像节拍器）
+# 文档 §6.1 行为异常类
+
+rule "click_regularity" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "behavior"
+    description: "点击节拍机械化：点击间隔变异系数过小"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let cv = features["feature_click_interval_cv"] ?? 0.0
+    let kurt = features["feature_click_interval_kurt"] ?? 0.0
+    let mean = features["feature_click_interval_mean"] ?? 0.0
+
+    let score = 40.0
+        + (if cv > 0.0 AND cv < 0.05: 25.0 else: 0.0 end)
+        + (if kurt > 0.0: 15.0 else: 0.0 end)
+        + (if mean > 0.0 AND mean < 50.0: 10.0 else: 0.0 end)
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if cv > 0.0 AND cv < 0.05: ["feature_click_interval_cv"] else: no_keys end)
+        + (if kurt > 0.0: ["feature_click_interval_kurt"] else: no_keys end)
+        + (if mean > 0.0 AND mean < 50.0: ["feature_click_interval_mean"] else: no_keys end)
+
+    when:
+        cv > 0.0 AND cv < 0.05
+
+    then:
+        emit_alert(
+            type = "click_regularity",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

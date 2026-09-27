@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pacc-bp"
+version = "1.0.0"
+description = "PBP 二进制协议运行时（Python）：帧封装、VarInt/ZigZag 有序字段编解码、HMAC-SHA256 签名，零第三方依赖。"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "PotatoTV" }]
+keywords = ["minecraft", "anticheat", "protocol", "binary", "pbp"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/EPOTATOTV/pacc-binary-protocol"
+Repository = "https://github.com/EPOTATOTV/pacc-binary-protocol"
+
+# pbp_gen 是 tools/pbpgen 生成的包（生成物入库），只打包它，不带 tests
+[tool.setuptools]
+packages = ["pbp_gen"]

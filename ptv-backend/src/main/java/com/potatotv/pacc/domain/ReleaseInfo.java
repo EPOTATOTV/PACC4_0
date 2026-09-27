@@ -92,6 +92,11 @@ public class ReleaseInfo {
     @Column(name = "crash_rate_pct", nullable = false)
     private BigDecimal crashRatePct = BigDecimal.ZERO;
 
+    /** 灰度比例 0-100（设计文档 §5.3）；100 表示全量。默认 100，既有版本行为不变。 */
+    @Builder.Default
+    @Column(name = "rollout_percent", nullable = false)
+    private int rolloutPercent = 100;
+
     /** DRAFT / PUBLISHED / ARCHIVED。 */
     @Builder.Default
     @Column(nullable = false, length = 16)

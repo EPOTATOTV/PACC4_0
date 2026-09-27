@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -282,14 +283,18 @@ public class BiReportService {
 
     // ---------- 工具 ----------
 
+    /** 把起点对齐到「ZONE 的自然日 0 点」。分桶与窗口起点必须用同一个时区，
+     *  否则 UTC+8 下每天 00:00-08:00 窗口会比实际多出一天。 */
     private Instant window(Instant t) {
-        return t.truncatedTo(ChronoUnit.DAYS);
+        return t.atZone(ZONE).toLocalDate().atStartOfDay(ZONE).toInstant();
     }
 
     private Instant reduceDays(int days, String startDate) {
         if (startDate != null && !startDate.isBlank()) return Instant.parse(startDate);
-        // 窗口含今天共有 days 个自然日：从 (days-1) 天前的 0 点开始
-        return Instant.now().minus(days - 1L, ChronoUnit.DAYS).truncatedTo(ChronoUnit.DAYS);
+        // 窗口含今天共有 days 个自然日：从 (days-1) 天前的 0 点开始。
+        // 这个 0 点必须是本地 0 点：下面按 ZONE 取自然日做分桶，若这里按 UTC 截断，
+        // 在 UTC+8 的 00:00-08:00 之间窗口会比本地日期多出一天，今天的计数会被落到窗口外的日期上。
+        return LocalDate.now(ZONE).minusDays(days - 1L).atStartOfDay(ZONE).toInstant();
     }
 
     private Instant endOf(String endDate) {

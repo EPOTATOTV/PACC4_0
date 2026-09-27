@@ -3,16 +3,16 @@
 //! 读 `pacc-binary-protocol/test-vectors/interop.txt`（由 Java 参考实现导出），逐字节比对：
 //! 能复现参考实现的压缩输出、能解开参考帧，才算互操作成立。
 
-use pacc_binary_protocol::codec::PbpCodec;
-use pacc_binary_protocol::crypto;
-use pacc_binary_protocol::delta::{PbpDeltaChain, PbpDeltaMessage};
-use pacc_binary_protocol::decoder::PbpDecoder;
-use pacc_binary_protocol::encoder::PbpEncoder;
-use pacc_binary_protocol::error::PbpError;
-use pacc_binary_protocol::frame::PbpFrame;
-use pacc_binary_protocol::gen::{ApmSnapshot, DetectionEvent, DetectionReport, PaccEnvelope};
-use pacc_binary_protocol::message::PbpMessage;
-use pacc_binary_protocol::zstd::PbpZstd;
+use pacc_bp::codec::PbpCodec;
+use pacc_bp::crypto;
+use pacc_bp::delta::{PbpDeltaChain, PbpDeltaMessage};
+use pacc_bp::decoder::PbpDecoder;
+use pacc_bp::encoder::PbpEncoder;
+use pacc_bp::error::PbpError;
+use pacc_bp::frame::PbpFrame;
+use pacc_bp::gen::{ApmSnapshot, DetectionEvent, DetectionReport, PaccEnvelope};
+use pacc_bp::message::PbpMessage;
+use pacc_bp::zstd::PbpZstd;
 
 const VECTORS: &str = include_str!("../../test-vectors/interop.txt");
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024;

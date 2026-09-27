@@ -17,7 +17,31 @@ public interface PrlHostContext {
 }
 ```
 
-`getAvailableFunctions()` 返回的名字会与标准库签名表取并集，交给类型检查器。白名单为空时视为「宿主没接管任何函数」，此时不设限，全部走标准库与运行期兜底。
+`getAvailableFunctions()` 返回的是**允许被调用的函数全集**，不是「宿主额外提供的那些」。类型检查器只认这个集合：集合非空时，规则里出现的每个函数名（**标准库函数也算**）都必须在这个集合里，否则编译期报「宿主未提供函数」并拒绝加载。集合为空（或 `null`）才视为「宿主没接管任何函数」，此时不设限。
+
+运行期的解析顺序是「本程序函数表 → 宿主白名单 → 标准库」：**只要函数名进了白名单，这个调用就会先落到 `callFunction`**，标准库不会被执行。
+
+因此宿主一旦声明了自己的函数，必须连带做两件事，少一件都会在「编译期通过、运行期被拒」或者反过来的地方断掉：
+
+```java
+public Set<String> getAvailableFunctions() {
+    Set<String> names = new LinkedHashSet<>(PrlStdlib.functionNames());  // 标准库必须一起声明
+    names.addAll(myFunctions.keySet());
+    return names;
+}
+
+public Object callFunction(String name, Object[] args) {
+    if (myFunctions.containsKey(name)) {
+        return myFunctions.get(name).apply(args);
+    }
+    if (PrlStdlib.supports(name)) {
+        return stdlib.call(name, args);   // 声明过的标准库名字要自己转交回去
+    }
+    throw new PrlSecurityException("宿主没有注册函数 '" + name + "'");
+}
+```
+
+另外 `to_float` / `to_int` / `to_string` 只登记在签名表里（供类型检查用），标准库没有实现，也没在 IR 阶段降级成指令。规则里要用它们，宿主得自己接管，否则运行期抛 `PrlSecurityException`。
 
 不想接管任何函数，直接用 `PrlHostContext.EMPTY`：所有调用抛 `PrlSecurityException`，标准库照常工作，副作用（告警、证据、日志）不会回到宿主。
 
@@ -53,12 +77,13 @@ HostTypeRegistry registry = HostTypeRegistry.standard()
 PrlHostContext host = new PrlHostContext() {
     @Override
     public Object callFunction(String name, Object[] args) {
+        // 完整写法见上一节：标准库名字要转交给 PrlStdlib，这里只演示类型注册
         return myFunctions.get(name).apply(args);
     }
 
     @Override
     public Set<String> getAvailableFunctions() {
-        return myFunctions.keySet();
+        return myAvailable;   // 标准库 + 宿主函数，见上一节
     }
 
     @Override

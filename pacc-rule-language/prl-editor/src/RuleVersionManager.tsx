@@ -345,17 +345,21 @@ export function RuleVersionManager({
           title="没有版本记录"
           hint={
             endpointReady
-              ? '后端没返回这条规则的版本；确认规则名，或先去编辑器提交一份草稿。'
+              ? '后端没返回这条规则的版本；确认规则名，或先在编辑器里提交第一份草稿。'
               : '未接入后端（未提供 baseUrl / fetcher），也没有通过 props 注入 versions。'
           }
           action={
-            <button
-              type="button"
-              className="prl-btn prl-btn--ghost prl-btn--sm"
-              onClick={() => setDemo(createDemoVersions(ruleName))}
-            >
-              载入演示数据
-            </button>
+            // 演示数据只在「压根没接后端」时提供。接了后端却拿到空列表，说明这条规则
+            // 确实还没有版本，此时塞一份假版本进来，下一步的「提交草稿」会把假数据写进真库。
+            endpointReady ? undefined : (
+              <button
+                type="button"
+                className="prl-btn prl-btn--ghost prl-btn--sm"
+                onClick={() => setDemo(createDemoVersions(ruleName))}
+              >
+                载入演示数据
+              </button>
+            )
           }
         />
       )}

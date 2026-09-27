@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Breadcrumb, Layout, Menu } from 'antd'
 import Brand from './Brand'
@@ -48,10 +48,16 @@ export default function AdminLayout({ children, role }: { children: ReactNode; r
   // 当前路由所属分组：路由切换时自动展开该分组（仅统计可见分组）
   const selectedGroup = visibleGroups.find((g) => g.items.some((i) => i.key === selected))?.groupKey
   const [openKeys, setOpenKeys] = useState<string[]>([])
-  useEffect(() => {
-    if (!selectedGroup) return
-    setOpenKeys((prev) => (prev.includes(selectedGroup) ? prev : [...prev, selectedGroup]))
-  }, [selectedGroup])
+  // 路由换到别的分组时把新分组并进展开列表。这类「随 prop 变化调整自身状态」的写法，
+  // 官方给的方案就是在渲染期比对上一次的分组再决定是否更新；放进 effect 里同步 setState
+  // 会多一轮级联渲染，也过不了 react-hooks/set-state-in-effect。
+  const [lastGroup, setLastGroup] = useState(selectedGroup)
+  if (selectedGroup !== lastGroup) {
+    setLastGroup(selectedGroup)
+    if (selectedGroup && !openKeys.includes(selectedGroup)) {
+      setOpenKeys([...openKeys, selectedGroup])
+    }
+  }
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh' }}>

@@ -54,7 +54,7 @@ d:\pacc\
 
 **先装仓库内模块，再编后端/玩家端**：仓库没有 root 聚合 pom。`ptv-backend` 依赖
 `com.potatotv:pacc-binary-protocol`（PBP 协议运行时），`ptv-client` 除此之外还依赖
-`com.potatotv.pacc:pacc-cross-platform-updater`（PCU 更新核心）。这两个模块都只在这个仓库里，
+`com.potatotv:pacc-cross-platform-updater`（PCU 更新核心）。这两个模块都只在这个仓库里，
 没发到中央仓库，所以第一次构建前要装进本地 Maven 仓库，否则会以「无法解析依赖」失败：
 
 ```bash

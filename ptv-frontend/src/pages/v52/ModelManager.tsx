@@ -279,7 +279,7 @@ export default function ModelManager() {
         onOk={() => void submitGray()}
         okText="确认放量"
         confirmLoading={busy === 'gray'}
-        destroyOnClose
+        destroyOnHidden
       >
         <p style={{ color: 'var(--muted)', fontSize: 12.5, marginBottom: 14 }}>
           灰度命中按 PTEID 确定性分桶，同一玩家结果稳定；灰度期间原生效版本不撤下，可随时激活或回退。
@@ -301,7 +301,7 @@ export default function ModelManager() {
         okText={trainResult ? '重新训练' : '开始训练'}
         confirmLoading={trainLoading}
         width={640}
-        destroyOnClose
+        destroyOnHidden
       >
         <p style={{ color: 'var(--muted)', fontSize: 12.5 }}>
           训练窗口与发布门禁由后端常量决定（近 7 天样本、准确率 ≥90%、误报率 ≤3%）；样本不足或未过门禁时不发布新版本。
@@ -312,7 +312,7 @@ export default function ModelManager() {
               style={{ marginTop: 12 }}
               type={trainResult.trained ? 'success' : 'warning'}
               showIcon
-              message={trainResult.trained ? '训练完成并已登记版本' : '本轮未产出新版本'}
+              title={trainResult.trained ? '训练完成并已登记版本' : '本轮未产出新版本'}
               description={trainResult.trained
                 ? `样本 ${trainResult.samples ?? '-'} · 特征维 ${trainResult.feature_dim ?? '-'} · 正/负 ${trainResult.positives ?? '-'}/${trainResult.negatives ?? '-'} · 切分 ${trainResult.split ?? '-'}（训练 ${trainResult.train_samples ?? '-'} / 评估 ${trainResult.eval_samples ?? '-'}）`
                 : trainResult.reason}

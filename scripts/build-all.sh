@@ -125,6 +125,14 @@ if want java; then
       skip "pacc-cross-platform-updater" "目录不存在（模块尚未入库）"
     fi
 
+    # 规则语言（PRL）同样只在本仓库里，且后端与玩家端都要依赖它
+    if [ -d pacc-rule-language ]; then
+      ( cd pacc-rule-language && mvn $MVN_FLAGS -q install )
+      ok "pacc-rule-language（已装入本地仓库）"
+    else
+      skip "pacc-rule-language" "目录不存在（模块尚未入库）"
+    fi
+
     ( cd ptv-backend && mvn $MVN_FLAGS -q clean package )
     cp "ptv-backend/target/ptv-backend-${VERSION}.jar" "${BUILD_DIR}/pacc-backend-${VERSION}.jar"
     ok "pacc-backend-${VERSION}.jar"

@@ -53,7 +53,7 @@ export default function PlayerReputation() {
     <div>
       <div style={{ marginBottom: 16 }}>
         <h3 style={{ margin: 0, fontSize: 20 }}>我的信誉分</h3>
-        {err && <Alert type="error" showIcon message={err} style={{ marginTop: 8 }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ marginTop: 8 }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Row gutter={[16, 16]}>

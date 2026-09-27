@@ -111,7 +111,7 @@ export default function PlayerMonitor() {
           <Switch checkedChildren="实时" unCheckedChildren="暂停" checked={!paused} onChange={(v) => setPaused(!v)} />
           <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
         </Space>
-        {err && <Alert type="error" showIcon message={err} style={{ flexBasis: '100%' }} closable onClose={() => setErr('')} />}
+        {err && <Alert type="error" showIcon title={err} style={{ flexBasis: '100%' }} closable={{ onClose: () => setErr('') }} />}
       </div>
 
       <Row gutter={[14, 14]}>
