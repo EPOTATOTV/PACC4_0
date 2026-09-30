@@ -6,6 +6,8 @@ out/
 *.class
 *.jar
 *.war
+# Inno Setup 安装包产物（ISCC 输出，不入库）
+/tools/installer/Output/
 # .NET 编译产物
 bin/
 obj/
@@ -16,6 +18,7 @@ __pycache__/
 *.pyc
 # 下载站发布二进制（由脚本构建产出，不入库）
 deploy/dl-web/files/*.zip
+deploy/dl-web/files/*.exe
 deploy/dl-web/files/*.apk
 deploy/dl-web/files/*.tar.gz
 # 下载站品牌/logo 归档（企业品牌资产，仅本机留档，不入库、不上传）
@@ -66,6 +69,8 @@ application-local.yml
 # --- Local dev toolchain (downloaded Maven/Node) ---
 /.tools/
 /tools-local/
+# 混淆器缓存（Obfuscar 等第三方二进制，脚本按需下载，不入库）
+/tools/obfuscar-cache/
 
 # --- TLS 证书（含私钥，禁止入库）---
 deploy/gateway/certs/*.crt
