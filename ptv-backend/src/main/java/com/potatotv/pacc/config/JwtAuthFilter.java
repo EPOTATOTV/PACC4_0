@@ -1,10 +1,8 @@
 package com.potatotv.pacc.config;
 
 import com.potatotv.pacc.service.TokenService;
+import com.potatotv.pto.PtoToken;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -14,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -25,10 +22,10 @@ import java.util.Arrays;
  */
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private final SecretKey key;
+    private final PtoToken pto;
 
     public JwtAuthFilter(@Value("${pacc.security.jwt-secret}") String secret) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.pto = new PtoToken(secret.getBytes(StandardCharsets.UTF_8), TokenService.ISSUER);
     }
 
     @Override
@@ -43,9 +40,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
         if (bearer != null && !bearer.isBlank()) {
             try {
-                Claims claims = Jwts.parser().requireIssuer(TokenService.ISSUER).verifyWith(key).build()
-                        .parseSignedClaims(bearer).getPayload();
-                pteid = claims.getSubject();
+                pteid = pto.verify(bearer).subject();
             } catch (Exception ignored) {
                 // 未通过认证则视为匿名
             }

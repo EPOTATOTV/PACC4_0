@@ -43,7 +43,6 @@ PACC 是反作弊客户端，被逆向、被绕过的价值很高；管理后台
 - `PACC_SEED`（演示数据）在生产必须关掉
 - 邮件改密与飞书登录必须接真实 SMTP / OAuth，桩实现不得在生产启用
 - 生产 profile 下 `ddl-auto` 为 `validate`，表结构变更走 Flyway 迁移
-- Swagger / springdoc 默认关闭，只在 `PACC_SPRINGDOC_ENABLED=true` 时打开
 - H2 控制台默认关闭，只在 `dev` profile 下打开
 - 网关需要按四个子域分流（管理后台 / API 与 WSS / 玩家连接 / 下载站），并保留按 IP 的限流
 - 若启用证书固定，`PACC_TLS_PIN_SHA256` 需同时满足系统信任链校验与叶证书 SPKI 指纹匹配

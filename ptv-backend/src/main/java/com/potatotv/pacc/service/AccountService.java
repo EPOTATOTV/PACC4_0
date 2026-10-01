@@ -1,5 +1,6 @@
 package com.potatotv.pacc.service;
 
+import com.potatotv.pa2.Argon2;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.DeviceRecord;
 import com.potatotv.pacc.domain.DetectionEvent;
@@ -10,8 +11,6 @@ import com.potatotv.pacc.repository.DetectionEventRepository;
 import com.potatotv.pacc.repository.PeripheralRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
-import org.bouncycastle.crypto.params.Argon2Parameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -333,20 +332,19 @@ public class AccountService {
     }
 
     // ---------------- Argon2id ----------------
+
+    /** 生产参数：t=3、m=64MiB、p=1、T=32。salt 与摘要同为 Base64，以 ":" 分隔。 */
+    private static final int ARGON2_ITERATIONS = 3;
+    private static final int ARGON2_MEMORY_KIB = 65536;
+    private static final int ARGON2_PARALLELISM = 1;
+    private static final int ARGON2_HASH_BYTES = 32;
+    private static final int SALT_BYTES = 16;
+
     private String hashPassword(String password) {
-        byte[] salt = new byte[16];
+        byte[] salt = new byte[SALT_BYTES];
         new java.security.SecureRandom().nextBytes(salt);
-        byte[] out = new byte[32];
-        Argon2Parameters params = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
-                .withVersion(Argon2Parameters.ARGON2_VERSION_13)
-                .withIterations(3)
-                .withMemoryAsKB(65536)
-                .withParallelism(1)
-                .withSalt(salt)
-                .build();
-        var gen = new Argon2BytesGenerator();
-        gen.init(params);
-        gen.generateBytes(password.getBytes(StandardCharsets.UTF_8), out);
+        byte[] out = argon2(ARGON2_HASH_BYTES)
+                .hash(password.getBytes(StandardCharsets.UTF_8), salt);
         return java.util.Base64.getEncoder().encodeToString(salt) + ":" + java.util.Base64.getEncoder().encodeToString(out);
     }
 
@@ -355,17 +353,12 @@ public class AccountService {
         if (parts.length != 2) return false;
         byte[] salt = java.util.Base64.getDecoder().decode(parts[0]);
         byte[] expected = java.util.Base64.getDecoder().decode(parts[1]);
-        byte[] out = new byte[expected.length];
-        Argon2Parameters params = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
-                .withVersion(Argon2Parameters.ARGON2_VERSION_13)
-                .withIterations(3)
-                .withMemoryAsKB(65536)
-                .withParallelism(1)
-                .withSalt(salt)
-                .build();
-        var gen = new Argon2BytesGenerator();
-        gen.init(params);
-        gen.generateBytes(password.getBytes(StandardCharsets.UTF_8), out);
-        return org.bouncycastle.util.Arrays.constantTimeAreEqual(expected, out);
+        byte[] out = argon2(expected.length)
+                .hash(password.getBytes(StandardCharsets.UTF_8), salt);
+        return java.security.MessageDigest.isEqual(expected, out);
+    }
+
+    private static Argon2 argon2(int hashBytes) {
+        return new Argon2(ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM, hashBytes);
     }
 }
