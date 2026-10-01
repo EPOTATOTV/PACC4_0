@@ -8,7 +8,7 @@ namespace PaccManager.Services;
 
 /// <summary>
 /// 与 Java 侧 LocalSecureStore 字节级兼容的本地配置加解密（AES-256-GCM）。
-/// <para>容器格式：{magic "PACC"(4)}{version:1}{saltLen:int BE}{salt(16)}{ivLen:int BE}{iv(12)}{AES-GCM 密文+128bit tag}；
+/// <para>容器格式：{magic "PACC"(4)}{version:1}{saltLen:int BE}{ivLen:int BE}{salt(16)}{iv(12)}{AES-GCM 密文+128bit tag}；
 /// 密钥 = PBKDF2-HmacSHA256(password=salt, 120_000 次, 32B)。值为 "enc:" + Base64(container)。</para>
 /// <para>密码只用设备指纹（不绑 pteid）：wss/sig/token 为设备全局，避免加密时 pteid 尚未知的失配。
 /// 仅作本机可读加密，防配置被随手拷贝后明文泄漏，非 KMS 级防护。</para>
@@ -74,9 +74,9 @@ public static class ConfigCrypt
         Span<byte> h = stackalloc byte[4];
         BinaryPrimitives.WriteInt32BigEndian(h, salt.Length);
         ms.Write(h);
-        ms.Write(salt);
         BinaryPrimitives.WriteInt32BigEndian(h, nonce.Length);
         ms.Write(h);
+        ms.Write(salt);
         ms.Write(nonce);
         ms.Write(ct);
         ms.Write(tag);

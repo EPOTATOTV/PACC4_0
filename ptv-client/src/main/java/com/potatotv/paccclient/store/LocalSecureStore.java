@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * 本地加密存储（纯 JDK，零第三方运行时依赖）。
- * <p>文件格式：{magic:"PACC"}{version:1}{saltLen:4}{salt}{ivLen:4}{iv(12)}
+ * <p>文件格式：{magic:"PACC"}{version:1}{saltLen:4}{ivLen:4}{salt}{iv(12)}
  * {ciphertext + GCM tag}。AES-256-GCM，密钥由 PBKDF2（口令=设备指纹+PTEID，每文件随机盐）派生。</p>
  * <p>威胁模型：本机可读加密——防止存储文件被随手拷贝后明文/改值泄漏，并非 KMS 级密钥保护。
  * 解密或认证任一失败即视为数据被篡改。</p>
