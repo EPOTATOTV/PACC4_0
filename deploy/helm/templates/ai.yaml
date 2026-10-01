@@ -1,0 +1,76 @@
+{{- if .Values.ai.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pacc.fullname" . }}-ai
+  labels:
+    app: pacc-ai
+    {{- include "pacc.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: pacc-ai }
+  template:
+    metadata:
+      labels: { app: pacc-ai }
+    spec:
+      containers:
+        - name: ai
+          image: {{ include "pacc.image" (dict "image" .Values.images.ai "ctx" .) }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: PACC_AI_MODEL_PATH
+              value: {{ .Values.ai.modelPath | quote }}
+          volumeMounts:
+            - name: model
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.resources.ai | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: {{ include "pacc.fullname" . }}-ai-model
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "pacc.fullname" . }}-ai-model
+  labels:
+    app: pacc-ai
+    {{- include "pacc.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.ai.storageClass }}
+  storageClassName: {{ .Values.ai.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.ai.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # 固定名 ai：后端 application.yml 默认 pacc.ai.inference-url=http://ai:8000
+  name: ai
+  labels:
+    app: pacc-ai
+    {{- include "pacc.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.ai.service.type }}
+  selector: { app: pacc-ai }
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+{{- end }}

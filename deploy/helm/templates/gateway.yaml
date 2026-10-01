@@ -1,0 +1,68 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pacc.fullname" . }}-gateway
+  labels:
+    app: pacc-gateway
+    {{- include "pacc.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.gateway }}
+  selector:
+    matchLabels: { app: pacc-gateway }
+  template:
+    metadata:
+      labels: { app: pacc-gateway }
+    spec:
+      containers:
+        - name: gateway
+          image: {{ include "pacc.image" (dict "image" .Values.images.gateway "ctx" .) }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+          {{- if .Values.gateway.tlsSecret }}
+          volumeMounts:
+            - name: certs
+              mountPath: /etc/nginx/certs
+              readOnly: true
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources.gateway | nindent 12 }}
+          # nginx 站点按 Host 分流，无统一健康路径，改用 TCP 探活。
+          readinessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      {{- if .Values.gateway.tlsSecret }}
+      volumes:
+        - name: certs
+          secret:
+            # 证书需以 potatotv.asia.crt / potatotv.asia.key 为键放入该 Secret（入口脚本据此启用 HTTPS）。
+            secretName: {{ .Values.gateway.tlsSecret | quote }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pacc.fullname" . }}-gateway
+  labels:
+    app: pacc-gateway
+    {{- include "pacc.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.gateway.service.type }}
+  selector: { app: pacc-gateway }
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+    - name: https
+      port: 443
+      targetPort: https
+{{- end }}

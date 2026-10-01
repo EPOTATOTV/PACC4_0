@@ -1,0 +1,125 @@
+# PACC v5.4 Helm values
+#   helm install pacc ./deploy/helm -f my-values.yaml
+
+# 命名覆盖（留空时 fullname = Release.Name，release 名 pacc 即得 pacc-backend）。
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  imageRegistry: ""
+  imageTag: "5.4.0"
+
+# 组件镜像名（裸名，与 cd.yml 构建矩阵一致）。最终地址 = global.imageRegistry + "/" + 该值。
+# CI 会把 global.imageRegistry 设为 ghcr.io/<owner>/<repo>，并用 --set-string 覆盖 backend/frontend。
+images:
+  backend: "ptv-backend"
+  frontend: "ptv-frontend"
+  gateway: "gateway"
+  gatewayGo: "gateway-go"
+  ai: "ai"
+  mysql: "mysql:8.0"
+
+# 密钥一律不留默认值：缺失时安装阶段直接失败（fail-closed），绝不内置演示凭据。
+# CI 只经 GitHub Secrets 注入 adminApiKey / jwtSecret / mysqlRootPassword 三项。
+secrets:
+  adminApiKey: ""
+  superAdminKey: ""
+  jwtSecret: ""
+  wssSignSecret: ""
+  # 内置 MySQL 应用账号密码；留空时回退使用 mysqlRootPassword（见 _helpers.tpl 的 pacc.mysqlAppPassword）。
+  mysqlPassword: ""
+  mysqlRootPassword: ""
+  smtpPassword: ""
+  feishuAppSecret: ""
+
+# 非敏感配置，渲染为 ConfigMap 后由后端 envFrom 注入（对应 docker-compose 的明文环境变量）。
+config:
+  timezone: "Asia/Shanghai"
+  seed: "false"
+  redscreenThreshold: "85"
+  mailStubEnabled: "false"
+  mailResetBaseUrl: "https://pacc.potatotv.asia"
+  smtpHost: ""
+  smtpPort: "587"
+  smtpFrom: ""
+  feishuEnabled: "false"
+  feishuAppId: ""
+
+replicaCount:
+  backend: 2
+  frontend: 2
+  gateway: 2
+
+resources:
+  backend:
+    requests: { cpu: "500m", memory: "512Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }
+  frontend:
+    requests: { cpu: "50m",  memory: "64Mi" }
+    limits:   { cpu: "200m", memory: "256Mi" }
+  gateway:
+    requests: { cpu: "50m",  memory: "64Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  gatewayGo:
+    requests: { cpu: "50m",  memory: "64Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  ai:
+    requests: { cpu: "200m", memory: "256Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }
+  mysql:
+    requests: { cpu: "500m", memory: "1Gi" }
+    limits:   { cpu: "2",    memory: "2Gi" }
+
+# 后端 HPA：依赖 backend.resources.requests.cpu 已设置。
+autoscaling:
+  backend:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    # 统一入口：TLS 由 Cert-Manager / 外部负载均衡终结
+    admin: "admin.potatotv.asia"
+    api: "api.potatotv.asia"
+    pacc: "pacc.potatotv.asia"
+    dl: "dl.potatotv.asia"
+  tlsSecret: "potatotv-tls"
+
+# 统一入口 nginx 网关（按 Host 分发到 admin / api / pacc / dl）。
+gateway:
+  enabled: true
+  service:
+    type: ClusterIP
+  # 挂载 TLS 证书 Secret（需含 potatotv.asia.crt / potatotv.asia.key）；留空则仅 HTTP。
+  tlsSecret: ""
+
+# Go 边缘网关：可替换 nginx 的 /api 路由，提供限流 + 管理鉴权 + Prometheus 指标。
+gatewayGo:
+  enabled: false
+  rateRps: "20"
+  rateBurst: "50"
+  service:
+    type: ClusterIP
+
+# AI 推理服务（FastAPI）。后端 pacc.ai.enabled 需另行开启才会调用，故默认关闭。
+ai:
+  enabled: false
+  modelPath: "/data/model.json"
+  storageClass: ""
+  size: 1Gi
+  service:
+    type: ClusterIP
+
+mysql:
+  # 内置 MySQL（生产建议改用托管版并置 enabled=false、自行提供 mysqlPassword）。
+  enabled: true
+  storageClass: ""
+  size: 10Gi
+
+# 默认拒绝入站 + 按组件放行；假定 gateway 作为边缘入口（见 networkpolicy.yaml）。
+networkPolicy:
+  enabled: false

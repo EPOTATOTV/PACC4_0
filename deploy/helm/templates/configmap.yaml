@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pacc.fullname" . }}-config
+  labels:
+    {{- include "pacc.labels" . | nindent 4 }}
+data:
+  TZ: {{ .Values.config.timezone | quote }}
+  PACC_SEED: {{ .Values.config.seed | quote }}
+  PACC_DETECTION_REDSCREEN_THRESHOLD: {{ .Values.config.redscreenThreshold | quote }}
+  PACC_MAIL_STUB_ENABLED: {{ .Values.config.mailStubEnabled | quote }}
+  PACC_MAIL_RESET_BASE_URL: {{ .Values.config.mailResetBaseUrl | quote }}
+  SMTP_HOST: {{ .Values.config.smtpHost | quote }}
+  SMTP_PORT: {{ .Values.config.smtpPort | quote }}
+  SMTP_FROM: {{ .Values.config.smtpFrom | quote }}
+  PACC_FEISHU_ENABLED: {{ .Values.config.feishuEnabled | quote }}
+  PACC_FEISHU_APP_ID: {{ .Values.config.feishuAppId | quote }}

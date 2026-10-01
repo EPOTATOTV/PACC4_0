@@ -1,0 +1,65 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "pacc.fullname" . }}-ingress
+  labels:
+    {{- include "pacc.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/websocket-services: {{ include "pacc.fullname" . }}-backend
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- end }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.hosts.admin }}
+        - {{ .Values.ingress.hosts.api }}
+        - {{ .Values.ingress.hosts.pacc }}
+        - {{ .Values.ingress.hosts.dl }}
+      secretName: {{ .Values.ingress.tlsSecret }}
+  rules:
+    {{- if .Values.gateway.enabled }}
+    {{- /* 四域名统一交给 nginx 网关，由其按 Host 内部分发到前端 / 后端 / 下载站 */}}
+    {{- range $name, $host := .Values.ingress.hosts }}
+    - host: {{ $host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "pacc.fullname" $ }}-gateway, port: { number: 80 } }
+    {{- end }}
+    {{- else }}
+    - host: {{ .Values.ingress.hosts.admin }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "pacc.fullname" . }}-frontend, port: { number: 80 } }
+    - host: {{ .Values.ingress.hosts.api }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "pacc.fullname" . }}-backend, port: { number: 8080 } }
+    - host: {{ .Values.ingress.hosts.pacc }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "pacc.fullname" . }}-backend, port: { number: 8080 } }
+    - host: {{ .Values.ingress.hosts.dl }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "pacc.fullname" . }}-frontend, port: { number: 80 } }
+    {{- end }}
+{{- end }}

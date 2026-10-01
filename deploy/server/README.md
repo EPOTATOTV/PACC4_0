@@ -78,3 +78,51 @@ docker compose down                       # 停止（数据保留）
 - **启动失败**：多半是 `.env` 里还是占位符或密钥缺失。看 `docker compose logs ptv-backend`。
 - **改了 `.env` 不生效**：改完要重新 `docker compose up -d --build` 重建才生效。
 - **数据会丢吗**：MySQL 数据存在 volume `pacc-mysql-data`，`down` 不丢；只有 `down -v` 才会清空。
+
+## 七、更新下载站制品
+
+下载站的静态资源（含 `files/` 下的安装包）是烧进 `gateway` 镜像的，所以换版本要重建网关。
+打完 tag、`release.yml` 跑完并生成 Release 之后：
+
+```bash
+./scripts/sync-download-site.sh 5.4.0 --rebuild
+```
+
+脚本会从 Release 取件放进 `deploy/dl-web/files/`、核对 `version.json` 里的 sha256 与实际文件一致
+（不一致直接失败）、重算产物清单到 `dist/`，最后重建并重启网关。不带 `--rebuild` 则只取件核对，
+不碰 Docker。
+
+## 八、上线检查清单
+
+- [ ] `.env` 里所有密钥都是强随机值，没有残留模板占位符
+- [ ] `.env` 权限 600，且未进版本库
+- [ ] MySQL root 密码已修改
+- [ ] 管理员已开启两步验证
+- [ ] HTTPS 证书已签发且浏览器无警告
+- [ ] 防火墙只放行 80/443
+- [ ] 数据库定时备份已配置并能恢复
+- [ ] 监控告警已配置
+- [ ] 客户端安装包已签名，`version.json` 与产物 sha256 一致
+
+## 九、冒烟测试
+
+服务端：
+
+| 编号 | 操作 | 预期 |
+|---|---|---|
+| S01 | `curl http://localhost:8080/actuator/health` | `{"status":"UP"}` |
+| S02 | `curl -I http://localhost:8081` | HTTP 200 |
+| S03 | 浏览器打开 admin 子域 | 登录页正常显示 |
+| S04 | 用超级管理员密钥登录 | 进入仪表盘 |
+| S05 | 后端日志无数据库报错 | Flyway 迁移成功 |
+| S06 | 浏览器打开 dl 子域 | 下载页正常 |
+| S07 | `curl -I https://admin.你的域名` | HTTP 200，证书有效 |
+
+客户端：
+
+| 编号 | 操作 | 预期 |
+|---|---|---|
+| C01 | 运行 `PACCClientSetup-*.exe` | 安装成功并创建快捷方式 |
+| C02 | 双击 `PaccManager.exe` | GUI 正常显示，java 进程拉起 |
+| C03 | 查看客户端日志 | WSS 连接成功，无报错 |
+| C04 | 控制面板卸载 | 卸载干净，无残留 |

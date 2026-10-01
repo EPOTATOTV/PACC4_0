@@ -1,0 +1,14 @@
+apiVersion: v2
+name: pacc
+description: PACC v5.4 PTV 管控系统 Helm Chart（后端 / 前端 / MySQL / 网关 / AI / 网络策略）
+type: application
+version: 5.4.0
+appVersion: "5.4.0"
+keywords:
+  - anti-cheat
+  - pacc
+  - potatotv
+maintainers:
+  - name: PACC Team
+sources:
+  - https://github.com

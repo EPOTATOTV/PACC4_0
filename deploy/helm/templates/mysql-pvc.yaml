@@ -1,0 +1,17 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "pacc.fullname" . }}-mysql
+  labels:
+    app: pacc-mysql
+    {{- include "pacc.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.mysql.storageClass }}
+  storageClassName: {{ .Values.mysql.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.mysql.size }}
+{{- end }}
