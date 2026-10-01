@@ -118,21 +118,11 @@ jobs:
       - name: 部署 Helm Chart
         run: |
           # 敏感值仅从 Secrets 注入，绝不落写入者明文字段
-          # 密钥清单必须与后端 StartupSecretGuard 对齐：四个安全密钥缺任何一个，
-          # Pod 起来后都会 fail-closed 退出并刷 CrashLoopBackOff，所以这里一次给全。
           cat > /tmp/values-secret.yaml <<'EOF'
           secrets:
             adminApiKey: "${{ secrets.ADMIN_API_KEY }}"
-            superAdminKey: "${{ secrets.SUPER_ADMIN_KEY }}"
             jwtSecret: "${{ secrets.JWT_SECRET }}"
-            wssSignSecret: "${{ secrets.WSS_SIGN_SECRET }}"
             mysqlRootPassword: "${{ secrets.MYSQL_ROOT_PASSWORD }}"
-            smtpPassword: "${{ secrets.SMTP_PASSWORD }}"
-          config:
-            # 未走 stub 时后端强制要求 SMTP_HOST；只做冒烟可把变量置 true，代价是密码找回不可用。
-            mailStubEnabled: "${{ vars.PACC_MAIL_STUB_ENABLED || 'false' }}"
-            smtpHost: "${{ vars.SMTP_HOST }}"
-            smtpFrom: "${{ vars.SMTP_FROM }}"
           EOF
           helm upgrade -i pacc ./deploy/helm \
             --namespace pacc --create-namespace \

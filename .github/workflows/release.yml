@@ -1,8 +1,7 @@
 # PACC Release —— 打 tag 后产出对外可下载的发布制品
 #
 # 与 cd.yml 的分工：cd.yml 管「镜像推到 ghcr 再部署到生产」，这里管「给人下载的东西」。
-# 四件事：校验 tag 与代码内版本一致 → 构建（Ubuntu 后端/探针/前端 + Windows 客户端）
-#        → 来源证明 → 建 GitHub Release。
+# 三件事：校验 tag 与代码内版本一致 → 构建并做来源证明 → 建 GitHub Release。
 # 下载站 deploy/dl-web/files/ 里放什么，以这里产出的制品为准。
 name: Release
 
@@ -161,96 +160,9 @@ jobs:
           name: release-artifacts
           path: release/
 
-  # Windows 客户端只能在 windows-latest 上出：WPF 单文件发布依赖 .NET 桌面运行时，
-  # 混淆用的是仓库自研的 PCO（tools/pco，纯托管，只需 .NET SDK，不需要 NuGet），
-  # Inno Setup 也只有 Windows 版。这里复用仓库已有的
-  # tools/windows-gui/build-client.ps1，不另起一套打包逻辑。
-  build-windows-client:
-    name: 构建 Windows 客户端
-    needs: verify
-    runs-on: windows-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.verify.outputs.tag }}
-
-      - name: 安装 .NET 8 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: 安装 JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-
-      # build-client.ps1 从根目录 .env 读两个密钥，缺任一项直接抛错。
-      # 必须写成无 BOM 的 UTF-8：脚本用 Select-String 按 ^PACC_...= 匹配，
-      # 带 BOM 时首行匹配不到（PowerShell 5.1 的 Set-Content -Encoding utf8 会加 BOM）。
-      - name: 写入打包所需密钥
-        shell: pwsh
-        env:
-          WSS_SIGN_SECRET: ${{ secrets.PACC_WSS_SIGN_SECRET }}
-          SIG_SECRET: ${{ secrets.PACC_SIG_SECRET }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:WSS_SIGN_SECRET) -or [string]::IsNullOrWhiteSpace($env:SIG_SECRET)) {
-            throw "缺少 PACC_WSS_SIGN_SECRET / PACC_SIG_SECRET，无法构建客户端"
-          }
-          $content = "PACC_SECURITY_WSS_SIGN_SECRET=$env:WSS_SIGN_SECRET`nPACC_SIG_SECRET=$env:SIG_SECRET`n"
-          [System.IO.File]::WriteAllText("$PWD/.env", $content, (New-Object System.Text.UTF8Encoding($false)))
-
-      - name: 执行客户端打包脚本
-        shell: pwsh
-        run: powershell -ExecutionPolicy Bypass -File tools/windows-gui/build-client.ps1
-
-      # PCO 的弱点是「改了等于没改」而不是「改坏」：产物照常能跑，符号表却还在。
-      # 映射表是元数据改写直接产出的，用它反查比在二进制里搜字符串可靠
-      # （字符串字面量与特性 blob 里的类型名不受混淆影响，搜到不代表失败）。
-      - name: 校验混淆产物
-        shell: pwsh
-        run: |
-          $map = Get-ChildItem dist/pco-map/PaccManager-*-mapping.txt -ErrorAction SilentlyContinue |
-                 Select-Object -First 1
-          if (-not $map) { throw "没有找到 PCO 映射表，第 1b 步可能没执行" }
-          $lines = Get-Content $map.FullName
-          if ($lines.Count -lt 20) { throw "映射表只有 $($lines.Count) 行，PCO 基本没改名" }
-          foreach ($keep in @('PaccManager.App', 'PaccManager.MainWindow')) {
-            if ($lines | Select-String -SimpleMatch $keep) {
-              throw "$keep 出现在映射表里，说明承载 BAML 的类型被改名，客户端会启动即崩"
-            }
-          }
-          foreach ($must in @('PaccManager.Services.ConfigCrypt -> ',
-                              'PaccManager.Services.HookDetector -> ',
-                              'PaccManager.Services.ProcessProtector -> ')) {
-            if (-not ($lines | Select-String -SimpleMatch $must)) { throw "关键类型没有被改名：$must" }
-          }
-          Write-Host "PCO 映射表 $($lines.Count) 行，keep 与关键类型都符合预期"
-
-      # Inno Setup 官方并不预装在 windows-latest 上，装不上就只出绿色版 ZIP，
-      # 不让安装包拖垮整条发布流水线。
-      - name: 生成 Inno Setup 安装包
-        shell: pwsh
-        run: |
-          choco install innosetup --no-progress -y
-          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          if (Test-Path $iscc) { & $iscc tools/installer/pacc-client-installer.iss }
-          else { Write-Host "未找到 ISCC，跳过安装包（绿色版 ZIP 不受影响）" }
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-windows
-          path: |
-            deploy/dl-web/files/pacc-client-windows-x64-*.zip
-            deploy/dl-web/files/ptv-agent-*.jar
-            deploy/dl-web/files/version.json
-            tools/installer/Output/*.exe
-
   publish:
     name: 建 Release 并做来源证明
-    needs: [ verify, build, build-windows-client ]
+    needs: [ verify, build ]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -262,22 +174,6 @@ jobs:
         with:
           name: release-artifacts
           path: release
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-windows
-          path: release-windows
-
-      # 客户端制品归并进同一个 release/ 目录：下载站是按 `gh release download` 取件的，
-      # 制品停在旁路 artifact 里等于没发布。校验和也必须归并后重算，否则覆盖不到客户端文件。
-      # 多个上传路径的公共祖先是仓库根，下载回来会带目录层级，所以用 find 摊平。
-      - name: 归并客户端制品并重算校验和
-        run: |
-          set -euo pipefail
-          find release-windows -type f -exec cp -f {} release/ \;
-          rm -rf release-windows
-          rm -f release/SHA256SUMS.txt
-          ( cd release && sha256sum ./* > SHA256SUMS.txt && cat SHA256SUMS.txt )
 
       - name: 生成构建来源证明
         # v4.2.2；任何人都能用 gh attestation verify 校验这些产物确实出自本仓库的这次构建

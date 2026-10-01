@@ -193,8 +193,7 @@ class PrlDetectionEngineTest {
 
     @Test
     void 发行版jar没有目录条目时仍能枚举到规则() throws IOException {
-        // 这是真实踩过的坑：发行加固（POB，与先前的 ProGuard 一样）不写 rules/ 目录条目，
-        // 靠 getResources("rules") 枚举的写法
+        // 这是真实踩过的坑：ProGuard 不写 rules/ 目录条目，靠 getResources("rules") 枚举的写法
         // 在发行件上一条规则都找不到（开发期跑 target/classes 完全正常，所以单测发现不了）。
         // 这里造一个「只有条目、没有目录节点」的 jar，钉住「不依赖目录条目」这个前提。
         Path jarPath = Files.createTempFile("prl-rules-", ".jar");

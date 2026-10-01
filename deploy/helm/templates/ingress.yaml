@@ -21,18 +21,6 @@ spec:
         - {{ .Values.ingress.hosts.dl }}
       secretName: {{ .Values.ingress.tlsSecret }}
   rules:
-    {{- if .Values.gateway.enabled }}
-    {{- /* 四域名统一交给 nginx 网关，由其按 Host 内部分发到前端 / 后端 / 下载站 */}}
-    {{- range $name, $host := .Values.ingress.hosts }}
-    - host: {{ $host }}
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service: { name: {{ include "pacc.fullname" $ }}-gateway, port: { number: 80 } }
-    {{- end }}
-    {{- else }}
     - host: {{ .Values.ingress.hosts.admin }}
       http:
         paths:
@@ -61,5 +49,4 @@ spec:
             pathType: Prefix
             backend:
               service: { name: {{ include "pacc.fullname" . }}-frontend, port: { number: 80 } }
-    {{- end }}
 {{- end }}

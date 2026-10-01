@@ -14,10 +14,11 @@
         <java.version>21</java.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <!-- 发行产物加固：默认开启。本地需要可读产物调试时用 -Dpacc.pob.skip=true 跳过。 -->
-        <pacc.pob.skip>false</pacc.pob.skip>
-        <!-- POB 自研字节码混淆器，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
-        <pacc.pob.version>1.0.0</pacc.pob.version>
+        <!-- 发行产物加固：默认开启。本地需要可读产物调试时用 -Dpacc.proguard.skip=true 跳过。 -->
+        <pacc.proguard.skip>false</pacc.proguard.skip>
+        <proguard.version>7.10.0</proguard.version>
+        <!-- 必须与 proguard-base 的传递依赖一致：7.6.1 -> proguard-core 9.1.7 -->
+        <proguard.core.version>9.4.0</proguard.core.version>
         <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
         <pacc.pbp.version>1.0.0</pacc.pbp.version>
         <!-- PRL 自研规则语言运行时，版本同样独立于 PACC；bump-version.sh 只做一致性断言，不改它 -->
@@ -41,7 +42,7 @@
         </dependency>
         <!-- 自研跨平台更新核心（PCU）。它与 PACC 同版本、不做独立协议版本，所以这里直接跟随
              ${project.version}：bump-version.sh 改一次版本号，两边同时对齐，不需要再多一个版本字段。
-             它同样零第三方依赖，会被 POB 一并并入发行件并被拍平重命名。 -->
+             它同样零第三方依赖，会被 ProGuard 一并并入发行件（-repackageclasses 后包路径被抹平）。 -->
         <dependency>
             <groupId>com.potatotv</groupId>
             <artifactId>pacc-cross-platform-updater</artifactId>
@@ -51,16 +52,6 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.14.4</version>
-            <scope>test</scope>
-        </dependency>
-        <!-- 构建期工具（自研字节码混淆器），不参与运行：用 test scope 是为了让它只出现在
-             exec:java 的 test classpath 上，同时被 copy-dependencies(includeScope=compile) 排除，
-             不会跟着 PBP/PRL/PCU 一起被并进发行 jar。
-             与 PBP/PRL/PCU 一样，需要先在 tools/pob 执行 mvn install。 -->
-        <dependency>
-            <groupId>com.potatotv</groupId>
-            <artifactId>pacc-obfuscator</artifactId>
-            <version>${pacc.pob.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -83,9 +74,9 @@
                 <version>3.5.1</version>
                 <configuration>
                     <!-- 强制每次 package 都从 classes 重建 jar：
-                         POB 是「原地」加固（injar == outjar），若 jar 插件因时间戳判定跳过重建，
-                         下一轮 package 就会把上一轮已混淆的 jar 再喂给 POB，造成二次混淆
-                         （短名被再改一次、映射表错乱）。开发机上跑不带 clean 的
+                         ProGuard 是「原地」混淆（injar == outjar），若 jar 插件因时间戳判定跳过重建，
+                         下一轮 package 就会把上一轮已混淆的 jar 再喂给 ProGuard，造成二次混淆
+                         （映射表出现 a -> a、混淆计数异常偏低）。开发机上跑不带 clean 的
                          mvn package 时尤其容易踩到。 -->
                     <forceCreation>true</forceCreation>
                     <archive>
@@ -95,66 +86,60 @@
                     </archive>
                 </configuration>
             </plugin>
-            <!-- 发行产物加固（P0）：打包后立即用自研 POB 混淆器对自有字节码 + 并入依赖做重命名与包拍平。
-                 必须声明在 maven-jar-plugin 之后，保证以已生成的 jar 作为输入。
-
-                 两步分工：
-                   1) copy-dependencies 把编译期依赖拷到 target/pob-merge，作为 POB 的合并输入；
-                   2) exec:java 跑 pacc-obfuscator，原地改写 target/&lt;finalName&gt;.jar。
-
-                 为什么依赖必须并进产物：发布件是单 jar（installer.iss 只装一个文件），而依赖默认
-                 只参与编译、不进 jar。此前 protobuf 依赖就是这样漏掉的——PaccWire 进了产物、
-                 它依赖的 GeneratedMessageV3 没进，二进制信封路径运行时直接 NoClassDefFoundError，
-                 CI 的 jdeps 门禁也会报一堆 not found。依赖只剩零依赖、无反射的 PBP/PRL/PCU 运行时，
-                 并进来后随拍平一起被重命名。 -->
+            <!-- 发行产物加固（P0）：打包后立即对自有字节码做混淆 / 收缩 / 优化。
+                 必须声明在 maven-jar-plugin 之后，保证以已生成的 jar 作为输入。 -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.8.1</version>
-                <executions>
-                    <execution>
-                        <id>collect-dependencies-for-pob</id>
-                        <phase>prepare-package</phase>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${pacc.pob.skip}</skip>
-                            <includeScope>compile</includeScope>
-                            <outputDirectory>${project.build.directory}/pob-merge</outputDirectory>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.6.4</version>
+                <groupId>com.github.wvengen</groupId>
+                <artifactId>proguard-maven-plugin</artifactId>
+                <version>2.7.0</version>
                 <executions>
                     <execution>
                         <id>obfuscate-release-jar</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>java</goal>
+                            <goal>proguard</goal>
                         </goals>
-                        <configuration>
-                            <skip>${pacc.pob.skip}</skip>
-                            <mainClass>com.potatotv.pob.PobMain</mainClass>
-                            <!-- 混淆器是 test scope 的项目依赖；exec:java 默认只看 runtime classpath -->
-                            <classpathScope>test</classpathScope>
-                            <arguments>
-                                <argument>--in</argument>
-                                <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
-                                <argument>--merge</argument>
-                                <argument>${project.build.directory}/pob-merge</argument>
-                                <argument>--rules</argument>
-                                <argument>${project.basedir}/pob-rules.pob</argument>
-                                <argument>--mapping</argument>
-                                <argument>${project.build.directory}/pob-mapping.txt</argument>
-                            </arguments>
-                        </configuration>
                     </execution>
                 </executions>
+                <configuration>
+                    <skip>${pacc.proguard.skip}</skip>
+                    <proguardVersion>${proguard.version}</proguardVersion>
+                    <obfuscate>true</obfuscate>
+                    <injar>${project.build.finalName}.jar</injar>
+                    <outjar>${project.build.finalName}.jar</outjar>
+                    <!-- 依赖必须一并并入产物：发布件是单 jar（installer.iss 只装一个文件），
+                         而依赖默认只当 -libraryjars 参与混淆、不进 jar。此前 protobuf 依赖就是这样
+                         漏掉的——PaccWire 进了产物、它依赖的 GeneratedMessageV3 没进，
+                         二进制信封路径运行时直接 NoClassDefFoundError。
+                         注意两个参数不是一回事：includeDependency 只是把依赖登记成 -libraryjars
+                         （供混淆期解析引用），依赖本身仍不进 jar；真正把依赖写进产物的是
+                         includeDependencyInjar。只写前者会让 CI 的 jdeps 门禁报一堆 not found——
+                         PCU/PBP 的类被引用却不在产物里。两个都要开。
+                         依赖只剩零依赖、无反射的 PBP 运行时与 PCU 更新核心，并进来后随
+                         -repackageclasses 一起被拍平混淆（两者均无 Class.forName/ServiceLoader）。 -->
+                    <includeDependency>true</includeDependency>
+                    <includeDependencyInjar>true</includeDependencyInjar>
+                    <!-- 输入 jar 缺失说明生命周期顺序异常，直接失败而不是静默产出未加固产物 -->
+                    <injarNotExistsSkip>false</injarNotExistsSkip>
+                    <options>
+                        <option>-include</option>
+                        <option>${project.basedir}/proguard-rules.pro</option>
+                    </options>
+                </configuration>
+                <!-- 插件自身固定 proguard-base 7.2.2 / proguard-core 9.0.1（不支持 Java 21 字节码），
+                     此处显式升级为一对匹配版本；两者必须同时覆盖，否则 ClassReader 签名不匹配。 -->
+                <dependencies>
+                    <dependency>
+                        <groupId>com.guardsquare</groupId>
+                        <artifactId>proguard-base</artifactId>
+                        <version>${proguard.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.guardsquare</groupId>
+                        <artifactId>proguard-core</artifactId>
+                        <version>${proguard.core.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>
@@ -171,7 +156,7 @@
            1) mvn -B -f platform/string-protect/pom.xml install
            2) cd ptv-client && mvn -B -Dpacc.stringprotect.enabled=true package
          步骤 2 会生成 com.potatotv.paccclient.protect.PaccSecretStrings（密文端点/密钥键），
-         它由 pob-rules.pob 末尾的 keep 规则固定名字。
+         它由 proguard-rules.pro 末尾的 -keep 规则保住、不被收缩删除。
          ====================================================================== -->
     <profiles>
         <profile>

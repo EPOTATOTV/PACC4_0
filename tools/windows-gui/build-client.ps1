@@ -1,8 +1,7 @@
-# PACC v5.0 Windows 客户端一键打包脚本
+﻿# PACC v5.0 Windows 客户端一键打包脚本
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/build-client.ps1
-# 职责：构建 WPF 单文件 EXE（并用仓库自研的 PCO 混淆 PaccManager.dll）-> 构建 Java 探针 jar
-#      -> 写入客户端配置（自动读取根目录 .env 的 WSS 密钥）
+# 职责：构建 WPF 单文件 EXE -> 构建 Java 探针 jar -> 写入客户端配置（自动读取根目录 .env 的 WSS 密钥）
 #      -> 组装 zip 到 download 发布目录 deploy/dl-web/files/pacc-client-windows-x64-v5.4.0.zip
 #      -> 生成 version.json（客户端自动更新清单，含 sha256 防篡改）
 # 前置依赖：.NET 8 SDK（dotnet）、JDK 21 + Maven（mvn）
@@ -26,47 +25,56 @@ foreach ($c in @('dotnet','mvn','java')) {
 Write-Host "`n[1/4] 构建 WPF 单文件 EXE ..." -ForegroundColor Green
 # 清理旧输出，保证产物干净（EXE 可能被残留进程/杀软锁定，失败只告警不中止）
 Remove-Item $exeOut -Recurse -Force -ErrorAction SilentlyContinue
-# 多文件自包含发布：托管 PaccManager.dll 独立成文件，便于后续 PCO 混淆
+# 多文件自包含发布：托管 PaccManager.dll 独立成文件，便于后续 Obfuscar 混淆
 dotnet publish "$root/tools/windows-gui/PaccManager.csproj" -c Release -r win-x64 `
   --self-contained true -p:PublishSingleFile=false -o $exeOut
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish 失败 (exit=$LASTEXITCODE)" }
 if (-not (Test-Path $exeOut)) { throw "publish 未产出目录 $exeOut" }
 
-# ---------- 1b. PCO 混淆 PaccManager.dll ----------
-Write-Host "`n[1b] PCO 混淆 ..." -ForegroundColor Green
-# PCO 是仓库自研的 .NET 混淆器（tools/pco，零第三方依赖，只用 .NET 自带的元数据读写 API）。
-# 手法是就地改写元数据 #Strings 堆里的名字字节，不动任何下标——IL、BAML、资源全部原样。
-$pcoProj = Join-Path $root "tools/pco/Pco.csproj"
-dotnet build $pcoProj -c Release -v q --nologo
-if ($LASTEXITCODE -ne 0) { throw "PCO 编译失败 (exit=$LASTEXITCODE)" }
-$pcoDll = Join-Path $root "tools/pco/bin/Release/net8.0/pco.dll"
-if (-not (Test-Path $pcoDll)) { throw "找不到 PCO 产物 $pcoDll" }
-
-$targetDll = Join-Path $exeOut 'PaccManager.dll'
-$hashBefore = (Get-FileHash -Algorithm SHA256 $targetDll).Hash
-
-# 映射表是反混淆对照表：留着能还原崩溃栈，一旦随包发布等于把符号表送给逆向者。
-# 因此留档到 dist 下（已在 .gitignore，不进 zip、不上下载站）。
-$mapDir  = Join-Path $root "dist/pco-map"
-$mapFile = Join-Path $mapDir "PaccManager-$version-mapping.txt"
-New-Item -ItemType Directory -Force -Path $mapDir | Out-Null
-$obfDll = Join-Path $exeOut 'PaccManager.obf.dll'
-$pcoOut = & dotnet $pcoDll -i $targetDll -o $obfDll `
-  --rules (Join-Path $root "tools/windows-gui/pco-rules.json") --mapping $mapFile 2>&1
-if ($LASTEXITCODE -ne 0) { throw "PCO 混淆失败 (exit=$LASTEXITCODE)：$($pcoOut -join ' ')" }
-if (-not (Test-Path $obfDll)) { throw "PCO 未产出 $obfDll" }
-# 就地覆盖回发布目录：PCO 只产出这一个 dll，apphost 与 200 多个运行时文件不能动。
-Move-Item $obfDll $targetDll -Force
-$pcoOut | Write-Host
-
-# 混淆没生效比混淆失败更隐蔽：产物照常能跑，等于白做。这里用哈希兜住。
-$hashAfter = (Get-FileHash -Algorithm SHA256 $targetDll).Hash
-if ($hashAfter -eq $hashBefore) { throw "PCO 未改动 PaccManager.dll，混淆没生效" }
-Write-Host ("  已混淆: {0}" -f $targetDll)
-Write-Host ("  映射表: {0}（留档，不随产物发布）" -f $mapFile)
-foreach ($leak in @('Mapping.txt', 'PaccManager.obf.dll')) {
-  if (Test-Path (Join-Path $exeOut $leak)) { throw "$leak 混入了发布目录，会随 zip 外泄" }
+# ---------- 1b. Obfuscar 混淆 PaccManager.dll ----------
+Write-Host "`n[1b] Obfuscar 混淆 ..." -ForegroundColor Green
+$cacheDir = "$root/tools/obfuscar-cache"
+$haveObfuscator = $false
+if (Test-Path $cacheDir) {
+  $haveObfuscator = [bool](Get-ChildItem "$cacheDir/Obfuscar*/tools/Obfuscar.Console.exe" -ErrorAction SilentlyContinue | Select-Object -First 1)
 }
+if (-not $haveObfuscator) {
+  if (-not (Get-Command nuget -ErrorAction SilentlyContinue)) {
+    throw "缺少 nuget 命令，请先安装 NuGet CLI 以安装 Obfuscar"
+  }
+  nuget install Obfuscar -Version 2.2.14 -OutputDirectory $cacheDir | Out-Null
+}
+$obfuscator = (Get-ChildItem "$cacheDir/Obfuscar*/tools/Obfuscar.Console.exe" |
+               Sort-Object FullName -Descending | Select-Object -First 1).FullName
+if (-not $obfuscator) { throw "找不到 Obfuscar.Console.exe" }
+$obfConfig = Join-Path $env:TEMP ("obfuscar-" + [guid]::NewGuid() + ".xml")
+(Get-Content "$root/tools/windows-gui/obfuscar.xml" -Raw).Replace('PATH_FILLED_BY_SCRIPT', $exeOut) |
+  Set-Content $obfConfig -Encoding utf8
+# -s：关闭 Obfuscar 默认开启的 Rollbar 崩溃上报，构建数据不外发
+& $obfuscator -s $obfConfig 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Obfuscar 混淆失败 (exit=$LASTEXITCODE)" }
+
+# Obfuscar 的 OutPath 里只有被混淆的模块与 Mapping.txt，它不复制 apphost 与运行时 dll。
+# 所以只能把混淆后的 dll 覆盖回发布目录——整目录替换会把 243 个运行时文件全部删掉，
+# 产物变成一个无法启动的空壳（zip 里只剩 PaccManager.dll 与映射表）。
+$obfOut = "$exeOut-obf"
+$obfDll = Join-Path $obfOut 'PaccManager.dll'
+if (-not (Test-Path $obfDll)) { throw "混淆未产出 PaccManager.dll" }
+Copy-Item $obfDll (Join-Path $exeOut 'PaccManager.dll') -Force
+
+# Mapping.txt 是反混淆对照表：留着能还原崩溃栈，但一旦随包发布，等于把符号表送给逆向者。
+# 因此留档到 dist 下（已在 .gitignore，不进 zip、不上下载站），发布目录里必须清掉。
+$mapSrc = Join-Path $obfOut 'Mapping.txt'
+$mapDir = Join-Path $root "dist/obfuscar-map"
+if (Test-Path $mapSrc) {
+  New-Item -ItemType Directory -Force -Path $mapDir | Out-Null
+  Copy-Item $mapSrc (Join-Path $mapDir "PaccManager-$version-mapping.txt") -Force
+}
+Remove-Item $obfOut -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item $obfConfig -Force -ErrorAction SilentlyContinue
+Write-Host ("  已混淆: {0}" -f (Join-Path $exeOut 'PaccManager.dll'))
+Write-Host ("  映射表: {0}（留档，不随产物发布）" -f $mapDir)
+if (Test-Path (Join-Path $exeOut 'Mapping.txt')) { throw "Mapping.txt 混入了发布目录，会随 zip 外泄" }
 
 # ---------- 2. 构建 Java 探针 jar ----------
 Write-Host "`n[2/4] 构建 Java 探针 jar ..." -ForegroundColor Green

@@ -5,9 +5,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.domain.SecurityTotp;
 import com.potatotv.pacc.repository.SecurityTotpRepository;
-import com.potatotv.pto.PtoClaims;
-import com.potatotv.pto.PtoException;
-import com.potatotv.pto.PtoToken;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
@@ -23,6 +25,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -49,7 +52,7 @@ public class TotpService {
 
     private final SecurityTotpRepository totpRepository;
     private final ObjectMapper objectMapper;
-    private final PtoToken pendingPto;
+    private final SecretKey pendingKey;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public TotpService(SecurityTotpRepository totpRepository,
@@ -58,7 +61,7 @@ public class TotpService {
         this.objectMapper = new ObjectMapper();
         // 独立派生 key：与主会话 JWT 私钥区分，避免 pending 令牌被当作有效主会话
         byte[] derived = sha256("2fa-pending:" + secret);
-        this.pendingPto = new PtoToken(derived);
+        this.pendingKey = Keys.hmacShaKeyFor(derived);
     }
 
     /** 查询某 PTEID 的 2FA 启用状态（未注册返回 false）。 */
@@ -132,7 +135,7 @@ public class TotpService {
 
     /** 校验 pending 令牌并返回 PTEID；非法/越期抛出 SecurityException。 */
     public String parsePending(String pending) {
-        return parsePending(pending, PENDING_ISSUER).subject();
+        return parsePending(pending, PENDING_ISSUER).getSubject();
     }
 
     // -------------------------------- 管理员 2FA --------------------------------
@@ -153,27 +156,28 @@ public class TotpService {
 
     /** 校验管理员 pending 令牌；非法/越期抛出 SecurityException。 */
     public AdminPending parseAdminPending(String pending) {
-        PtoClaims c = parsePending(pending, ADMIN_PENDING_ISSUER);
-        return new AdminPending(c.subject(), c.getString("arole"));
+        Claims c = parsePending(pending, ADMIN_PENDING_ISSUER);
+        return new AdminPending(c.getSubject(), c.get("arole", String.class));
     }
 
     private String issuePending(String subject, String issuer, String adminRole) {
         Instant exp = Instant.now().plusSeconds(PENDING_TTL_SECONDS);
-        var builder = pendingPto.builder()
+        var builder = Jwts.builder()
                 .issuer(issuer)
                 .subject(subject)
                 .id(randomId())
-                .expiresAt(exp);
+                .expiration(Date.from(exp));
         if (adminRole != null) {
             builder.claim("arole", adminRole);
         }
-        return builder.sign();
+        return builder.signWith(pendingKey).compact();
     }
 
-    private PtoClaims parsePending(String pending, String issuer) {
+    private Claims parsePending(String pending, String issuer) {
         try {
-            return pendingPto.verify(pending, issuer);
-        } catch (PtoException | IllegalArgumentException e) {
+            return Jwts.parser().requireIssuer(issuer).verifyWith(pendingKey).build()
+                    .parseSignedClaims(pending).getPayload();
+        } catch (JwtException | IllegalArgumentException e) {
             throw new SecurityException("两步验证会话已失效，请重新登录");
         }
     }

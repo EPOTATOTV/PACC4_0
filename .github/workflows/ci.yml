@@ -124,11 +124,6 @@ jobs:
       - name: 构建并安装规则语言 pacc-rule-language
         working-directory: pacc-rule-language
         run: mvn -B -q install
-      # ptv-client 的发行加固走自研混淆器（tools/pob），它以插件依赖的形式被 exec-maven-plugin
-      # 解析，必须先 install 到本地仓库；否则 ptv-client 会因为解析不到 pacc-obfuscator 而失败。
-      - name: 构建并安装字节码混淆器 pacc-obfuscator
-        working-directory: tools/pob
-        run: mvn -B -q install
       # 差分金标向量是入库生成物，改了生成端没重新生成、或手改了字节都会在这里挂掉
       - name: 校验 PCU 差分金标向量与生成器一致
         working-directory: pacc-cross-platform-updater/tools/pcu-patchgen
@@ -164,21 +159,21 @@ jobs:
           # 入口类是唯一对外契约，必须保留
           unzip -l "$JAR" | grep -q 'com/potatotv/paccclient/PaccClient.class' \
             || { echo "::error::产物缺少入口类 PaccClient"; exit 1; }
-          # 原始业务包路径必须已被 POB 的包拍平抹掉
+          # 原始业务包路径必须已被 -repackageclasses 抹平
           if unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/(detection|transport|signature|store|ops|probe)/'; then
             echo "::error::发行 JAR 未混淆：仍存在原始业务包路径"; exit 1
           fi
-          # 必须存在短名混淆类，防止 POB 被误跳过
+          # 必须存在短名混淆类，防止 ProGuard 被误跳过
           unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/[a-z]{1,3}\.class' \
-            || { echo "::error::未发现混淆后的短类名，POB 可能未执行"; exit 1; }
+            || { echo "::error::未发现混淆后的短类名，ProGuard 可能未执行"; exit 1; }
           # 端侧检测规则以资源形式随包发布，缺了端侧就是"零规则运行"。这里只清点条目数，
           # 不验证能否被加载——后者由 PrlDetectionEngineTest 里那条"无目录条目 jar"的用例钉住
-          # （发行加固不写 rules/ 目录条目，按目录枚举的写法在发行件上一个都找不到）。
+          # （ProGuard 不写 rules/ 目录条目，按目录枚举的写法在发行件上一个都找不到）。
           RULES=$(unzip -l "$JAR" | grep -cE 'rules/[a-z_]+\.prl$' || true)
           echo "内置 PRL 规则条目：$RULES"
           [ "$RULES" -ge 24 ] || { echo "::error::发行件里的 PRL 规则少于 24 条，端侧会缺检测能力"; exit 1; }
       # 产物里任何 "not found" 都意味着有类引用了没被打进去的东西
-      # （依赖只参与编译、没被并入发行 jar 时，类引用会指空，运行时才 NoClassDefFoundError）。
+      # （依赖只作 -libraryjars 参与混淆时不进 jar，运行时才 NoClassDefFoundError）。
       - name: 校验 ptv-client 发布件依赖自洽
         working-directory: ptv-client
         run: |
@@ -263,23 +258,6 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -t .
-
-  # ---- 自研混淆器 PCO（Windows 发行链第 1b 步用的就是它）----
-  pco:
-    name: PCO 混淆器自测
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - name: 安装 .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      # 工具本身是纯元数据读写，不碰 WPF，因此在 Linux 上就能跑。
-      # 被测输入是自测程序集自己（真实 Roslyn 产物），断言只动 #Strings 堆、
-      # keep 生效、覆写/枚举/P-Invoke 保名、产物仍可解析。
-      - name: PCO 自测
-        run: dotnet run --project tools/pco/tests/Pco.Tests.csproj -c Release
 
   # ---- 前端（Node 20 + Vite）----
   frontend:

@@ -231,7 +231,7 @@ public final class PrlDetectionEngine {
      * 列出内置规则名。
      *
      * <p><b>为什么不能只靠 {@code getResources("rules")}。</b>那条路要求 jar 里存在一个裸的
-     * {@code rules/} 目录条目，而发行加固（POB，与先前的 ProGuard 一样）刻意不写目录条目，
+     * {@code rules/} 目录条目，而 ProGuard 默认不写目录条目（本仓库刻意不开 {@code -keepdirectories}），
      * 于是同一个目录在开发期（target/classes 真实目录）能枚举到、在发行件里一个都枚举不到 ——
      * 表现是发行版规则全部静默失效，而单测跑在 target/classes 上永远发现不了。所以这里以
      * 「本类所在的代码源」为准：是目录就列目录，是 jar 就遍历 jar 条目，两者都不依赖目录条目。</p>

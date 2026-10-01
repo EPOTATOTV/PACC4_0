@@ -1,4 +1,18 @@
 {{- if .Values.mysql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pacc.fullname" . }}-mysql
+  labels:
+    app: pacc-mysql
+    {{- include "pacc.labels" . | nindent 4 }}
+spec:
+  selector: { app: pacc-mysql }
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -25,25 +39,32 @@ spec:
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
-                secretKeyRef: { name: {{ include "pacc.fullname" . }}-secrets, key: mysql-root }
+                secretKeyRef:
+                  name: {{ include "pacc.fullname" . }}-secrets
+                  key: mysql-root
             - name: MYSQL_DATABASE
               value: "pacc"
             - name: MYSQL_USER
               value: "pacc"
             - name: MYSQL_PASSWORD
               valueFrom:
-                secretKeyRef: { name: {{ include "pacc.fullname" . }}-secrets, key: mysql-password }
+                secretKeyRef:
+                  name: {{ include "pacc.fullname" . }}-secrets
+                  key: mysql-password
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql
           resources:
             {{- toYaml .Values.resources.mysql | nindent 12 }}
-          readinessProbe:
-            tcpSocket: { port: mysql }
-            initialDelaySeconds: 20
-            periodSeconds: 10
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: {{ include "pacc.fullname" . }}-mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.storage.storageClass }}
+        storageClassName: {{ .Values.storage.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.mysql }}
 {{- end }}
