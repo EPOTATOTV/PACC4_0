@@ -35,7 +35,7 @@ public final class HookDetector {
 
     /**
      * 关键类：它们的加载来源必须与客户端自身一致。类名以字符串形式参与 {@code Class.forName}，
-     * 因此发行混淆时必须保留这些类的名字（见 proguard-rules.pro）。
+     * 因此发行混淆时必须保留这些类的名字（见 pob-rules.pob）。
      */
     private static final String[] CRITICAL_CLASSES = {
             "com.potatotv.paccclient.Json",

@@ -36,11 +36,14 @@ GUI 的「安装」页会调用 `deploy/installer.ps1` 完成真实部署（管�
 
 `PaccManager.dll` 交付前做一次混淆，抬高逆向与改包成本。仓库里有两套互不干扰的机制，**默认只跑第一套**。
 
-### 一、Obfuscar（发行默认档）
+### 一、PCO（发行默认档，仓库自研）
 
-- 配置：`obfuscar.xml`，靠 `build-client.ps1` 第 1b 步自动执行，不需要手动介入。
-- 做什么：重命名私有类型/成员（跳过承载 BAML 的 `PaccManager.App` / `PaccManager.MainWindow`），关闭属性/事件重命名以保住 JSON 反序列化，开启字符串加密。
-- 为什么默认用它：行为可预测、幂等、对 WPF 友好，历史上没出过运行时事故；`Mapping.txt` 留档到 `dist/obfuscar-map/`，绝不进 zip。
+- 位置：`tools/pco/`（C# / .NET 8，零第三方依赖，只用 .NET 自带的 `System.Reflection.Metadata`）；规则 `pco-rules.json`，靠 `build-client.ps1` 第 1b 步自动执行，不需要手动介入。
+- 做什么：重命名类型名与成员名——就地改写元数据 `#Strings` 堆里的名字字节，不动任何下标，IL / BAML / 资源因此全部原样。`PaccManager.App` / `PaccManager.MainWindow` 与它们的全部成员整体保留（这两个类型承载 BAML：`x:Class`、事件处理器、`x:Name` 都是以**名字**写在里面的）。
+- 无条件跳过：`.ctor` / `.cctor`、属性名、事件名、`get_` / `set_` / `add_` / `remove_` / `op_` 访问器、虚方法与接口实现、枚举成员（Literal）、P/Invoke 方法名与入口名、泛型参数名、编译器生成的怪名字（`<>c`、`<Foo>k__BackingField`）。
+- 自测：`dotnet run --project tools/pco/tests`。CI 的 `pco` job 会跑同一套。
+- 能力边界（有意为之，不是漏做）：不做字符串加密、不做控制流平坦化——这两项要往程序集里新增类型与方法，必须重写整张元数据表。另外 Roslyn 写元数据时会做**后缀共享**（`UniqueProcessId` 复用成 `InheritedFromUniqueProcessId` 的尾巴），这类名字改了会连带改坏别人，一律跳过，实测约两成名字因此改不动。所以**别按「能挡住 strings 搜索」预期 PCO**：字符串字面量仍是明文。
+- 映射表留档到 `dist/pco-map/PaccManager-<version>-mapping.txt`（已在 `.gitignore`），绝不进 zip。
 - Release 配置不产 PDB（`PaccManager.csproj`），堆栈里也不会有源码行号。
 
 ### 二、ConfuserEx（可选加强档）
@@ -59,6 +62,6 @@ GUI 的「安装」页会调用 `deploy/installer.ps1` 完成真实部署（管�
 
 ### 两套的关系与取舍
 
-- 二选一优先：两套都做重命名，串起来跑（先 ConfuserEx 再 Obfuscar）属于二次处理，收益有限、出问题的面更大。要更强就用 ConfuserEx 替代 Obfuscar，而不是叠加。
-- 无论走哪套，`Mapping.txt` / `symbols.map` 都只留档不发布——映射表随包外泄等于把符号表直接送给逆向者。
-- 混淆只提高成本，不提供保密：字符串加密/常量还原都能被有决心的分析者脱壳还原，别把它当机密性保证。
+- 二选一优先：两套都做重命名，串起来跑（先 ConfuserEx 再 PCO）属于二次处理，收益有限、出问题的面更大。要更强就用 ConfuserEx 替代 PCO，而不是叠加。
+- 无论走哪套，映射表（`Mapping.txt` / `symbols.map` / PCO 的 `pco-map`）都只留档不发布——随包外泄等于把符号表直接送给逆向者。
+- 混淆只提高成本，不提供保密：默认档 PCO 连字符串都还是明文，ConfuserEx 的字符串加密与常量还原也只是提高门槛，能被有决心的分析者还原，别把它当机密性保证。

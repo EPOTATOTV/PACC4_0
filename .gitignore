@@ -69,7 +69,7 @@ application-local.yml
 # --- Local dev toolchain (downloaded Maven/Node) ---
 /.tools/
 /tools-local/
-# 混淆器缓存（Obfuscar 等第三方二进制，脚本按需下载，不入库）
+# Obfuscar 时代的第三方混淆器缓存目录（已改用自研 PCO，留一行防历史工作区里的残留被提交）
 /tools/obfuscar-cache/
 
 # --- TLS 证书（含私钥，禁止入库）---
@@ -95,7 +95,6 @@ deploy/gateway/certs/*.pem
 /_start*.txt
 /_tail*.txt
 /_*.out
-/.env.example
 # --- 本地实施规划（本机保留，不入库）---
 /.trae/documents/
 /.trae/work/
@@ -104,7 +103,8 @@ deploy/gateway/certs/*.pem
 /部署教程-零基础手把手版.md
 /部署说明-零基础版.md
 # --- 部署基础设施清单（含部署拓扑/域名/端口，本机保留，不入库）---
-/deploy/helm/
+# Helm Chart 例外：cd.yml 在 CI 里执行 `helm upgrade -i pacc ./deploy/helm`，
+# chart 不入库则部署 job 必然找不到目录。chart 本身已参数化，不在模板里写死域名。
 /deploy/k8s/
 # --- 通用密钥/证书/凭据安全网（含未来可能新增）---
 *.pem
