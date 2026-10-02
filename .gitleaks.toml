@@ -48,3 +48,41 @@ regexes = [
   '''String\s+hexKey\s*=\s*"00112233445566778899aabbccddeeff"''',
 ]
 targetRules = ["generic-api-key"]
+
+[[allowlists]]
+description = """PtoToken 私钥解析方法的 Javadoc 被 private-key 误判。
+parsePrivateKeyPem 的文档注释里说明了「接受的 PEM 头形态」，private-key 规则按 PEM 头
+匹配，于是把注释里的字面量 -----BEGIN PRIVATE KEY----- 当成了真实私钥。
+这是 {@code ...} 包裹的说明文字，不含任何密钥材料。豁免要求同一行先出现 @code，
+所以将来在该文件里真贴一段私钥（PEM 头不带 @code 前缀）仍然会被扫出来。
+只作用于 private-key 规则、只作用于该文件。"""
+paths = ['''ptv-backend/src/main/java/com/potatotv/pto/PtoToken\.java$''']
+regexTarget = "line"
+regexes = [
+  '''@code -----BEGIN PRIVATE KEY-----''',
+]
+targetRules = ["private-key"]
+
+[[allowlists]]
+description = """PtoTokenTest 的占位 HMAC 密钥被 generic-api-key 误判。
+用例做「签发 → 校验」往返，密钥取 0123456789abcdef0123456789abcdef 这种一眼可辨的
+假值；换成任何真实密钥同一条断言照样成立，因此不携带凭据语义。
+generic-api-key 的判定是「字段名含 KEY + 赋值 + 高熵串」，于是把假值当成了密钥。
+只豁免这一行赋值、只作用于 generic-api-key，不整文件放行。"""
+paths = ['''ptv-backend/src/test/java/com/potatotv/pto/PtoTokenTest\.java$''']
+regexTarget = "line"
+regexes = [
+  '''byte\[\]\s+KEY\s*=\s*"0123456789abcdef0123456789abcdef"''',
+]
+targetRules = ["generic-api-key"]
+
+[[allowlists]]
+description = """PtoAuthControllerTest 的占位密钥被 generic-api-key 误判。
+与 PtoTokenTest 同源的假值，变量名叫 SECRET，只用于驱动 JWKS 分发与刷新换发用例。
+只豁免这一行赋值、只作用于 generic-api-key，不整文件放行。"""
+paths = ['''ptv-backend/src/test/java/com/potatotv/pacc/controller/PtoAuthControllerTest\.java$''']
+regexTarget = "line"
+regexes = [
+  '''String\s+SECRET\s*=\s*"0123456789abcdef0123456789abcdef"''',
+]
+targetRules = ["generic-api-key"]
