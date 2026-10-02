@@ -1,0 +1,46 @@
+// PACC PaccManager 混淆规则（PCO 自研混淆器，由 build-client.ps1 第 1b 步调用）
+//
+// WPF 的 x:Class、事件处理器、x:Name 字段都以「名字」写在 BAML 里，改了就启动即崩。
+// PaccManager.App / MainWindow 因此连同它们的全部成员整体保留，嵌套类跟着外层一起保留。
+// App 还必须整体保留：反调试与完整性校验的注入点是按方法名找的 OnStartup（见 hook_method）。
+//
+// 不需要在这里写的东西：属性名、事件名、泛型参数名、P/Invoke 方法名、.ctor/.cctor、
+// 虚方法与接口实现、编译器生成的怪名字（<>c、<Foo>k__BackingField 之类）——
+// 这些由混淆器无条件跳过。反射、数据绑定、JSON 反序列化、DllImport 的默认入口名
+// 都按名字找它们。
+{
+  "rules": {
+    "keep": [
+      "PaccManager.App",
+      "PaccManager.MainWindow"
+    ]
+  },
+
+  // rename_namespaces 等价于 Java 侧的包拍平：命名空间一并换成短名。
+  // 本程序集只被自己的 exe 加载，没有任何外部代码按名字找它，拍平是安全的。
+  //
+  // 下面五个 IL 变换开关即设计文档 §8.1 的 6/6 能力（重命名 + 这五项）。每一项都是独立的，
+  // 出问题时把它改成 false 重新打包即可回退，不必动代码；全关则退回「只重命名」的老行为。
+  "options": {
+    "rename_namespaces": true,
+
+    // 字符串加密：ldstr 的字面量不再以明文进 #US 堆，反编译看不到 API 地址与提示文案。
+    // 密钥不写死在这里，每次构建随机取一个非零字节（写 string_key 可固定下来，便于复现构建）。
+    "string_encrypt": true,
+
+    // 反调试：入口注入 __AntiDebug.Start()，附着调试器时只降级不退出（见设计文档风险表）。
+    "anti_debug": true,
+
+    // 完整性校验：产物尾部附 SHA-256，入口校验；不匹配只置位告警，不自毁。
+    "integrity": true,
+
+    // 控制流平坦化：带异常区间、含 switch/calli/栈上动态寻址的方法一律跳过，保守优先。
+    "control_flow": true,
+
+    // 引用代理：把直接调用换成经 __Proxy 的静态转发，调用图被抹平。
+    "proxy": true,
+
+    // 反调试与完整性校验挂到哪个方法上。WPF 是 App.OnStartup，靠上面的 keep 保住方法名。
+    "hook_method": "OnStartup"
+  }
+}

@@ -19,6 +19,32 @@ internal sealed class PcoRules
     /// <summary>重命名命名空间（拍平）。关掉的话只改类名与成员名，命名空间原样保留。</summary>
     public bool RenameNamespaces { get; private set; } = true;
 
+    // ---- IL 变换开关。默认全关：不写进规则文件就只做重命名，出问题逐个关掉即可回退。 ----
+
+    /// <summary>字符串加密。</summary>
+    public bool StringEncrypt { get; private set; }
+
+    /// <summary>字符串加密密钥；规则文件里没写就取每次运行随机的非零字节。</summary>
+    public byte StringKey { get; private set; } = (byte)Random.Shared.Next(1, 256);
+
+    /// <summary>反调试注入。</summary>
+    public bool AntiDebug { get; private set; }
+
+    /// <summary>完整性校验（产物尾部 SHA-256 + 入口校验调用）。</summary>
+    public bool Integrity { get; private set; }
+
+    /// <summary>控制流平坦化。</summary>
+    public bool ControlFlow { get; private set; }
+
+    /// <summary>引用代理（把直接调用换成经 __Proxy 间接调用）。</summary>
+    public bool Proxy { get; private set; }
+
+    /// <summary>反调试/完整性校验要挂的入口方法名，默认 WPF 的 <c>App.OnStartup</c>。</summary>
+    public string HookMethod { get; private set; } = "OnStartup";
+
+    /// <summary>是否有任何一个 IL 变换开关打开。全关时只走重命名，产物保持原地改写的老行为。</summary>
+    public bool NeedsRewrite => StringEncrypt || AntiDebug || Integrity || ControlFlow || Proxy;
+
     public static PcoRules Load(string path)
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions
@@ -50,9 +76,26 @@ internal sealed class PcoRules
             {
                 rules.RenameNamespaces = rn.GetBoolean();
             }
+            rules.StringEncrypt = Flag(options, "string_encrypt");
+            rules.AntiDebug = Flag(options, "anti_debug");
+            rules.Integrity = Flag(options, "integrity");
+            rules.ControlFlow = Flag(options, "control_flow");
+            rules.Proxy = Flag(options, "proxy");
+            if (options.TryGetProperty("string_key", out var sk))
+            {
+                rules.StringKey = unchecked((byte)sk.GetInt32());
+            }
+            if (options.TryGetProperty("hook_method", out var hm) && hm.GetString() is { Length: > 0 } hook)
+            {
+                rules.HookMethod = hook;
+            }
         }
         return rules;
     }
+
+    /// <summary>读一个布尔开关。缺省与写成 false 都按关处理，只有显式 true 才开。</summary>
+    private static bool Flag(JsonElement options, string name) =>
+        options.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.True;
 
     private void AddKeep(string pattern)
     {

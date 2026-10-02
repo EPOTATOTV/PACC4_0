@@ -62,6 +62,41 @@ final class JarObfuscator {
         renamer = Renamer.compute(classes, rules, targetPackage);
         nameRewriter = new NameRewriter(renamer.classMap());
 
+        List<Named> ordered = new ArrayList<>();
+        for (ClassFile cf : classes) {
+            String original = cf.thisName(); // rewriteUtf8 之后 thisName() 已经是新名，必须先取
+            if (renamer.covers(original)) {
+                cf.widenAccess();
+            }
+            rename(cf);
+            ordered.add(new Named(cf, original));
+        }
+
+        byte[] vault = rules.encryptStrings()
+                ? new StringEncryptor(targetPackage, rules, renamer).encrypt(classes) : null;
+
+        if (rules.bogusCode()) {
+            for (Named n : ordered) {
+                if (rules.enhancesClass(n.original)) {
+                    BogusInsert.apply(n.cf);
+                }
+            }
+        }
+        if (rules.flatten()) {
+            System.err.println("POB：控制流平坦化需要生成 StackMapTable frame，当前未实现，已忽略 flatten");
+        }
+
+        byte[] guard = null;
+        if (rules.integrity()) {
+            List<ClassFile> marked = new ArrayList<>();
+            for (Named n : ordered) {
+                if (rules.enhancesClass(n.original)) {
+                    marked.add(n.cf);
+                }
+            }
+            guard = new IntegrityGuardInjector(targetPackage).inject(marked);
+        }
+
         Map<String, byte[]> output = new LinkedHashMap<>();
         byte[] manifest = resources.get("META-INF/MANIFEST.MF");
         if (manifest != null) {
@@ -72,18 +107,29 @@ final class JarObfuscator {
                 output.put(e.getKey(), e.getValue());
             }
         }
-        for (ClassFile cf : classes) {
-            String original = cf.thisName(); // rewriteUtf8 之后 thisName() 已经是新名，必须先取
-            if (renamer.covers(original)) {
-                cf.widenAccess();
-            }
-            rename(cf);
-            String renamed = renamer.classMap().getOrDefault(original, original);
-            output.put(renamed + ".class", cf.write());
+        for (Named n : ordered) {
+            output.put(n.cf.thisName() + ".class", n.cf.write());
+        }
+        if (vault != null) {
+            output.put(targetPackage + '/' + VaultNames.STRING_VAULT_SIMPLE + ".class", vault);
+        }
+        if (guard != null) {
+            output.put(targetPackage + '/' + VaultNames.INTEGRITY_GUARD_SIMPLE + ".class", guard);
         }
 
         writeJar(inputJar, output);
         writeMapping();
+    }
+
+    /** 记住重命名前的原名，供 enhance / keep 之类的规则在改名后仍能命中。 */
+    private static final class Named {
+        final ClassFile cf;
+        final String original;
+
+        Named(ClassFile cf, String original) {
+            this.cf = cf;
+            this.original = original;
+        }
     }
 
     // ------------------------------------------------------------------

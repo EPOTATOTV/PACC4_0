@@ -1,5 +1,6 @@
 package com.potatotv.pacc.service;
 
+import com.potatotv.pa2.Argon2;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.domain.DeviceRecord;
 import com.potatotv.pacc.domain.DetectionEvent;
@@ -10,8 +11,6 @@ import com.potatotv.pacc.repository.DetectionEventRepository;
 import com.potatotv.pacc.repository.PeripheralRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
-import org.bouncycastle.crypto.params.Argon2Parameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -188,7 +187,7 @@ public class AccountService {
     }
 
     @Transactional
-    public TokenService.Token login(String identity, String rawPassword, String deviceFingerprint, boolean remember) {
+    public TokenService.TokenPair login(String identity, String rawPassword, String deviceFingerprint, boolean remember) {
         Account account = findByIdentity(identity)
                 .orElseThrow(() -> new IllegalArgumentException("账号不存在或密码错误"));
 
@@ -212,6 +211,11 @@ public class AccountService {
             accountRepository.save(account);
             throw new IllegalArgumentException("账号不存在或密码错误");
         }
+        // 存量哈希惰性迁移：登录校验通过后升级为 PHC 标准格式，数据库无需批量迁移
+        String upgraded = upgradeLegacyEncoding(account.getPasswordHash(), rawPassword);
+        if (upgraded != null) {
+            account.setPasswordHash(upgraded);
+        }
         account.setFailedLogins(0);
         account.setLockedUntil(null);
         accountRepository.save(account);
@@ -221,16 +225,17 @@ public class AccountService {
             accountRepository.save(account);
             touchDevice(account.getPteid(), hashed);
         }
-        return tokenService.createToken(account.getPteid(), remember);
+        // 令牌绑定本次登录的设备指纹：令牌被复制到其它设备后，携带指纹的请求会被拒绝
+        return tokenService.createTokenPair(account.getPteid(), deviceFingerprint, remember);
     }
 
-    /** 2FA 第二步通过后直接签发主会话令牌（密码已在前一步校验，不再复核）。 */
-    public TokenService.Token issueToken(String pteid, boolean remember) {
+    /** 2FA 第二步通过后直接签发主会话令牌对（密码已在前一步校验，不再复核）。 */
+    public TokenService.TokenPair issueToken(String pteid, String deviceFingerprint, boolean remember) {
         Account account = accountRepository.findById(pteid).orElse(null);
         if (account == null) {
             throw new IllegalArgumentException("账号不存在或密码错误");
         }
-        return tokenService.createToken(pteid, remember);
+        return tokenService.createTokenPair(pteid, deviceFingerprint, remember);
     }
 
     private String hashDevice(String s) {
@@ -332,40 +337,62 @@ public class AccountService {
         return hashedFp.substring(0, 8).toUpperCase();
     }
 
-    // ---------------- Argon2id ----------------
-    private String hashPassword(String password) {
-        byte[] salt = new byte[16];
-        new java.security.SecureRandom().nextBytes(salt);
-        byte[] out = new byte[32];
-        Argon2Parameters params = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
-                .withVersion(Argon2Parameters.ARGON2_VERSION_13)
-                .withIterations(3)
-                .withMemoryAsKB(65536)
-                .withParallelism(1)
-                .withSalt(salt)
-                .build();
-        var gen = new Argon2BytesGenerator();
-        gen.init(params);
-        gen.generateBytes(password.getBytes(StandardCharsets.UTF_8), out);
-        return java.util.Base64.getEncoder().encodeToString(salt) + ":" + java.util.Base64.getEncoder().encodeToString(out);
+    // ---------------- 密码哈希（PA2 自研 Argon2id） ----------------
+
+    /** 生产参数：t=3、m=64MiB、p=1、T=32；新存储为 PHC 标准格式 {@code $argon2id$...}。 */
+    private static final int ARGON2_ITERATIONS = 3;
+    private static final int ARGON2_MEMORY_KIB = 65536;
+    private static final int ARGON2_PARALLELISM = 1;
+    private static final int ARGON2_HASH_BYTES = 32;
+    private static final int SALT_BYTES = 16;
+
+    /** 存量存储格式：{@code Base64(salt):Base64(hash)}，无 PHC 前缀。 */
+    private record LegacyHash(byte[] salt, byte[] hash) {
     }
 
+    private static Argon2 argon2(int hashBytes) {
+        return new Argon2(ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM, hashBytes);
+    }
+
+    private String hashPassword(String password) {
+        byte[] salt = new byte[SALT_BYTES];
+        new java.security.SecureRandom().nextBytes(salt);
+        return argon2(ARGON2_HASH_BYTES).encode(password.getBytes(StandardCharsets.UTF_8), salt);
+    }
+
+    /** 校验密码：兼容存量 {@code salt:hash} 与 PHC 标准格式两种存储。 */
     private boolean verify(String stored, String password) {
+        if (stored == null || stored.isEmpty()) return false;
+        byte[] pwd = (password == null ? "" : password).getBytes(StandardCharsets.UTF_8);
+        if (stored.startsWith(Argon2.PHC_PREFIX)) {
+            return argon2(ARGON2_HASH_BYTES).verify(stored, pwd);
+        }
+        LegacyHash legacy = parseLegacy(stored);
+        if (legacy == null) return false;
+        byte[] out = argon2(legacy.hash().length).hash(pwd, legacy.salt());
+        return java.security.MessageDigest.isEqual(legacy.hash(), out);
+    }
+
+    /**
+     * 存量 {@code salt:hash} 存储登录通过后升级为 PHC 标准格式，供写回数据库；
+     * 已是标准格式或无法解析时返回 null。迁移仅发生一次，之后走标准格式分支。
+     */
+    private String upgradeLegacyEncoding(String stored, String password) {
+        if (stored == null || stored.startsWith(Argon2.PHC_PREFIX)) return null;
+        LegacyHash legacy = parseLegacy(stored);
+        if (legacy == null) return null;
+        byte[] pwd = (password == null ? "" : password).getBytes(StandardCharsets.UTF_8);
+        return argon2(legacy.hash().length).encode(pwd, legacy.salt());
+    }
+
+    private static LegacyHash parseLegacy(String stored) {
         String[] parts = stored.split(":");
-        if (parts.length != 2) return false;
-        byte[] salt = java.util.Base64.getDecoder().decode(parts[0]);
-        byte[] expected = java.util.Base64.getDecoder().decode(parts[1]);
-        byte[] out = new byte[expected.length];
-        Argon2Parameters params = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
-                .withVersion(Argon2Parameters.ARGON2_VERSION_13)
-                .withIterations(3)
-                .withMemoryAsKB(65536)
-                .withParallelism(1)
-                .withSalt(salt)
-                .build();
-        var gen = new Argon2BytesGenerator();
-        gen.init(params);
-        gen.generateBytes(password.getBytes(StandardCharsets.UTF_8), out);
-        return org.bouncycastle.util.Arrays.constantTimeAreEqual(expected, out);
+        if (parts.length != 2) return null;
+        try {
+            return new LegacyHash(java.util.Base64.getDecoder().decode(parts[0]),
+                    java.util.Base64.getDecoder().decode(parts[1]));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

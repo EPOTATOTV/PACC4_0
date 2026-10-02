@@ -80,15 +80,17 @@ jobs:
           java-version: '21'
           cache: maven
 
-      # 仓库没有 root 聚合 pom，而协议运行时（PBP）与更新核心（PCU）都只在本仓库里、
-      # 没有发到中央仓库。不先 install 进本地仓库，下面两个模块会以
-      # 「无法解析 com.potatotv:pacc-binary-protocol / com.potatotv:pacc-cross-platform-updater」
-      # 硬失败。发布流程不出制品测试（测试在 CI 的 master 上已经跑过），所以这里 skipTests 一致。
-      - name: 安装协议运行时与更新核心到本地仓库
+      # 仓库没有 root 聚合 pom，而协议运行时（PBP）、更新核心（PCU）、规则语言（PRL）都只在本仓库里、
+      # 没有发到中央仓库；ptv-client 的发行加固还要用自研混淆器 pacc-obfuscator（tools/pob）。
+      # 不先 install 进本地仓库，下游模块会以「无法解析 com.potatotv:...」硬失败。
+      # 发布流程不出制品测试（测试在 CI 的 master 上已经跑过），所以这里 skipTests 一致。
+      - name: 安装内部依赖到本地仓库
         run: |
           set -euo pipefail
           ( cd pacc-binary-protocol/runtime-java && mvn -B -q -DskipTests install )
           ( cd pacc-cross-platform-updater   && mvn -B -q -DskipTests install )
+          ( cd pacc-rule-language            && mvn -B -q -DskipTests install )
+          ( cd tools/pob                     && mvn -B -q -DskipTests install )
 
       - name: 构建后端与玩家端
         run: |

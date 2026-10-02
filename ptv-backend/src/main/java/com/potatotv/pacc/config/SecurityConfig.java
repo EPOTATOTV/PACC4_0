@@ -5,6 +5,7 @@ import com.potatotv.pacc.repository.ApiUsageLogRepository;
 import com.potatotv.pacc.service.AdminTokenService;
 import com.potatotv.pacc.service.ApiKeyService;
 import com.potatotv.pacc.service.RateLimiterService;
+import com.potatotv.pacc.service.TokenService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,9 +29,6 @@ public class SecurityConfig {
     @Value("${pacc.security.admin-api-key}")
     private String adminApiKey;
 
-    @Value("${pacc.security.jwt-secret}")
-    private String jwtSecret;
-
     /** 管理后台允许的跨域来源（Origin 白名单，逗号分隔）。 */
     @Value("${pacc.security.allowed-origins}")
     private String allowedOrigins;
@@ -43,17 +41,20 @@ public class SecurityConfig {
     private boolean admin2faRequired;
 
     private final AdminTokenService adminTokenService;
+    private final TokenService tokenService;
     private final ApiKeyRepository apiKeyRepository;
     private final ApiUsageLogRepository apiUsageLogRepository;
     private final ApiKeyService apiKeyService;
     private final RateLimiterService rateLimiterService;
 
     public SecurityConfig(AdminTokenService adminTokenService,
+                          TokenService tokenService,
                           ApiKeyRepository apiKeyRepository,
                           ApiUsageLogRepository apiUsageLogRepository,
                           ApiKeyService apiKeyService,
                           RateLimiterService rateLimiterService) {
         this.adminTokenService = adminTokenService;
+        this.tokenService = tokenService;
         this.apiKeyRepository = apiKeyRepository;
         this.apiUsageLogRepository = apiUsageLogRepository;
         this.apiKeyService = apiKeyService;
@@ -76,7 +77,7 @@ public class SecurityConfig {
         http.addFilterBefore(new SecurityHeadersFilter(), ChannelProcessingFilter.class);
         http.addFilterBefore(new AccessLogFilter(), ChannelProcessingFilter.class);
         http.addFilterBefore(new AdminKeyFilter(adminApiKey, adminTokenService, allowedOrigins, admin2faRequired), UsernamePasswordAuthenticationFilter.class);
-        http.addFilterBefore(new JwtAuthFilter(jwtSecret), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(new JwtAuthFilter(tokenService), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(new ApiV1AuthFilter(apiKeyRepository, apiUsageLogRepository, apiKeyService, apiMasterSecret), UsernamePasswordAuthenticationFilter.class);
         // 全局限流置于认证过滤器之后（需读取 adminActor / PTEID 身份属性）
         http.addFilterBefore(new RateLimitFilter(rateLimiterService), UsernamePasswordAuthenticationFilter.class);

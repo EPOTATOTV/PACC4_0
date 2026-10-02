@@ -40,6 +40,12 @@ public class StartupSecretGuard {
     private String superAdminKey;
     @Value("${pacc.security.jwt-secret}")
     private String jwtSecret;
+    @Value("${pacc.security.jwt-algorithm:HS256}")
+    private String jwtAlgorithm;
+    @Value("${pacc.security.jwt-private-key:}")
+    private String jwtPrivateKey;
+    @Value("${pacc.security.jwt-public-key:}")
+    private String jwtPublicKey;
     @Value("${pacc.security.wss-sign-secret}")
     private String wssSignSecret;
     @Value("${pacc.mail.stub-enabled}")
@@ -59,6 +65,14 @@ public class StartupSecretGuard {
         problems.put("PACC_SECURITY_SUPER_ADMIN_KEY", checkSecret(superAdminKey, 12));
         problems.put("PACC_SECURITY_JWT_SECRET", checkSecret(jwtSecret, 32));
         problems.put("PACC_SECURITY_WSS_SIGN_SECRET", checkSecret(wssSignSecret, 16));
+
+        // RS256 非对称模式：除密钥派生用的 jwt-secret 外，还必须注入 RSA 密钥对
+        if ("RS256".equalsIgnoreCase(jwtAlgorithm == null ? "" : jwtAlgorithm.trim())) {
+            if (isBlank(jwtPrivateKey) || isBlank(jwtPublicKey)) {
+                problems.put("PACC_SECURITY_JWT_PRIVATE_KEY / PACC_SECURITY_JWT_PUBLIC_KEY",
+                        "RS256 模式必须同时配置 RSA 私钥与公钥 PEM");
+            }
+        }
 
         if (!mailStub && isBlank(smtpHost)) {
             problems.put("SMTP_HOST", "密码找回未走 stub，必须配置真实 SMTP 服务器");

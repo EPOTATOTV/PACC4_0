@@ -38,6 +38,13 @@ pacc:
     admin-api-key: ${PACC_SECURITY_ADMIN_API_KEY:}
     super-admin-key: ${PACC_SECURITY_SUPER_ADMIN_KEY:}
     jwt-secret: ${PACC_SECURITY_JWT_SECRET:}
+    # 令牌签名算法：HS256（对称，默认）或 RS256（非对称，公钥可经 /api/v1/auth/jwks 公开）。
+    jwt-algorithm: ${PACC_SECURITY_JWT_ALGORITHM:HS256}
+    # RS256 模式使用的 RSA 密钥对（PEM：私钥 PKCS#8、公钥 X.509）；HS256 模式留空。
+    jwt-private-key: ${PACC_SECURITY_JWT_PRIVATE_KEY:}
+    jwt-public-key: ${PACC_SECURITY_JWT_PUBLIC_KEY:}
+    # RS256 密钥标识（kid）：写入 JWT header 与 JWKS，便于密钥轮换。
+    jwt-kid: ${PACC_SECURITY_JWT_KID:}
     # 玩家端 WSS 上报签名密钥：非空时对上报消息做 HMAC 校验收紧（防重放/防篡改）。
     wss-sign-secret: ${PACC_SECURITY_WSS_SIGN_SECRET:}
     # 特征库热更新内容签名密钥：非 local 缺失时 SigSigner 启动即抛错（fail-closed）。

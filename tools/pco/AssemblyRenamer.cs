@@ -23,8 +23,8 @@ namespace PaccManager.Pco;
 /// 字符串起点，要么被更长的名字包住，就地改写会连带改坏另一个名字，一律跳过——
 /// 代价是这部分名字改不掉（实测约两成），彻底解决需要重建整个 #Strings 堆与元数据表。</para>
 ///
-/// <para>能力边界：不做字符串加密、不做控制流平坦化。这两项都要往程序集里新增类型与方法，
-/// 那就得真的重写元数据表，与「原地改名」是两套机制，留到下一阶段（设计文档第八节的渐进式）。</para>
+/// <para>能力边界：本类只做「就地改名」。字符串加密、控制流平坦化这些要往程序集里新增类型与方法，
+/// 得真的重写元数据表，由 <see cref="AssemblyRewriter"/> 在改名之后接着做（见 <c>Program</c> 的流水线）。</para>
 /// </summary>
 internal sealed class AssemblyRenamer
 {
@@ -42,7 +42,14 @@ internal sealed class AssemblyRenamer
 
     public void Run(string inputPath, string outputPath, string? mappingPath)
     {
-        byte[] bytes = File.ReadAllBytes(inputPath);
+        byte[] bytes = RunBytes(File.ReadAllBytes(inputPath), mappingPath);
+        File.WriteAllBytes(outputPath, bytes);
+        Verify(outputPath);
+    }
+
+    /// <summary>只做重命名并返回改好的字节（不落盘、不校验），供后续 IL 变换接着在同一份字节上做。</summary>
+    public byte[] RunBytes(byte[] bytes, string? mappingPath)
+    {
         var image = ImmutableCollectionsMarshal.AsImmutableArray(bytes);
 
         List<TypeNode> types;
@@ -98,8 +105,6 @@ internal sealed class AssemblyRenamer
         }
 
         Mapping = BuildMapping(types, memberLines);
-        File.WriteAllBytes(outputPath, bytes);
-        Verify(outputPath);
 
         if (mappingPath is not null)
         {
@@ -107,6 +112,7 @@ internal sealed class AssemblyRenamer
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
             File.WriteAllText(full, Mapping, new UTF8Encoding(false));
         }
+        return bytes;
     }
 
     // ------------------------------------------------------------------
@@ -408,7 +414,7 @@ internal sealed class AssemblyRenamer
         return lines.Count == 0 ? "" : string.Join(Environment.NewLine, lines) + Environment.NewLine;
     }
 
-    private static void Verify(string path)
+    internal static void Verify(string path)
     {
         try
         {

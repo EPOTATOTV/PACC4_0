@@ -19,7 +19,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <jjwt.version>0.13.0</jjwt.version>
+        <jmh.version>1.37</jmh.version>
         <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
         <pacc.pbp.version>1.0.0</pacc.pbp.version>
         <!-- PRL 自研规则语言运行时，版本同样独立于 PACC；bump-version.sh 只做一致性断言，不改它 -->
@@ -99,30 +99,28 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Argon2id 密码哈希 -->
+        <!-- Argon2id 密码哈希：自研 PA2（com.potatotv.pa2，零第三方依赖，仅用 JDK 标准库），
+             源码随本模块提供，运行时不再引入 BouncyCastle bcprov。 -->
+        <!-- 测试作用域保留 BouncyCastle，仅用于生成基准向量，校验 PA2 逐字节一致（验收 V01/V02） -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
             <version>1.86</version>
+            <scope>test</scope>
         </dependency>
 
-        <!-- JWT -->
+        <!-- JMH：PA2 与 BouncyCastle 性能基准（测试作用域，不进运行时依赖） -->
         <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>${jjwt.version}</version>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <!-- Lombok -->

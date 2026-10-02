@@ -2,9 +2,9 @@
 <!--
   PACC PaccManager（C# / .NET 8 WPF）ConfuserEx 加固模板。
 
-  与 obfuscar.xml 的关系：
-    - obfuscar.xml 是**发行构建链默认使用**的混淆器（build-client.ps1 步骤 1b 调用，纯重命名 + 字符串加密，
-      WPF 友好、可重复、无运行时副作用）。
+  与 PCO 的关系：
+    - 发行构建链默认用仓库自研的 PCO（build-client.ps1 步骤 1b 调用，配置见 pco-rules.json：
+      重命名 + 字符串加密 + IL 控制流平坦化 + 反调试 + 完整性校验 + 引用代理）。
     - 本文件是**可选的加强档**，由 tools/windows-gui/confuserex-protect.ps1 手动执行，额外叠加控制流、
       常量、反调试、反 dump、反篡改保护。它**不在** build-client.ps1 / CI 的默认路径里。
 
@@ -13,7 +13,7 @@
       升级 .NET 版本后需重新回归。
     - anti tamper / anti debug / anti dump 会注入运行时自检代码，**与杀软/EDR、见惯的启发式扫描存在真实
       误报代价**：可能被拦截、可能拖慢启动、也可能在个别受管环境里引发假崩溃。发行前必须在真实终端回归。
-    - 因此默认发行走 Obfuscar；只有在明确接受上述代价时才切换到本档。
+    - 因此默认发行走 PCO；只有在明确接受上述代价时才切换到本档。
 
   占位符由脚本填充（与 obfuscar.xml 的 PATH_FILLED_BY_SCRIPT 同一套路）：
     {{BASE_DIR}}   —— dotnet publish 的输出目录（含 PaccManager.dll 与全部运行时依赖）

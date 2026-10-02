@@ -1,4 +1,4 @@
-﻿# PACC PaccManager 加强档加固脚本（可选，非发行默认路径）
+# PACC PaccManager 加强档加固脚本（可选，非发行默认路径）
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/confuserex-protect.ps1
 #   可选参数：
@@ -11,10 +11,10 @@
 #   2) 本脚本会就地覆盖 dist/win-x64/PaccManager.dll 为 ConfuserEx 加固后的版本。
 #
 # 与 build-client.ps1 的关系（务必理解再运行）：
-#   - build-client.ps1 走 Obfuscar（发行默认档），可在一条命令里完成 EXE 打包 + Java 探针 +
+#   - build-client.ps1 走 PCO（发行默认档），可在一条命令里完成 EXE 打包 + Java 探针 +
 #     配置生成 + zip 组装。
 #   - 本脚本只做「把已经 publish 出来的 PaccManager.dll 换成 ConfuserEx 加固版」这一步，
-#     不重建 zip、不生成配置。它用于**替代** Obfuscar 档，而不是在其之上叠加（两套都做重命名，
+#     不重建 zip、不生成配置。它用于**替代** PCO 档，而不是在其之上叠加（两套都做重命名，
 #     串起来属于二次处理，收益有限、出问题的面更大）。
 param(
   [string]$ConfuserPath = "",

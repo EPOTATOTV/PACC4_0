@@ -66,6 +66,9 @@ final class Renamer {
 
     private static final String LETTERS = "abcdefghijklmnopqrstuvwxyz";
 
+    /** Unicode 私有区 U+E000..U+F8FF，共 6400 个码点，用作 1~2 字符短名的字母表。 */
+    private static final String PRIVATE_USE = buildPrivateUse();
+
     static final class MemberInfo {
         final String name;
         final String desc;
@@ -99,9 +102,11 @@ final class Renamer {
     private final Map<String, ClassInfo> infos = new LinkedHashMap<>();
     private final Map<String, Boolean> externalAncestorMemo = new HashMap<>();
     private final Set<String> reservedNames = new HashSet<>();
+    private boolean unicodeNames;
 
     static Renamer compute(List<ClassFile> classes, PobRules rules, String targetPackage) {
         Renamer renamer = new Renamer();
+        renamer.unicodeNames = rules.unicodeNames();
         renamer.index(classes);
         renamer.assignClasses(rules, targetPackage);
         renamer.assignMembers(rules);
@@ -181,6 +186,9 @@ final class Renamer {
             int slash = kept.lastIndexOf('/');
             usedSimpleNames.add(slash < 0 ? kept : kept.substring(slash + 1));
         }
+        // 注入的运行时类（字符串解密库 / 完整性校验）有固定名字，不属于短名池，先占位避免撞名
+        usedSimpleNames.add(VaultNames.STRING_VAULT_SIMPLE);
+        usedSimpleNames.add(VaultNames.INTEGRITY_GUARD_SIMPLE);
         List<String> topLevel = new ArrayList<>();
         List<String> nested = new ArrayList<>();
         for (ClassInfo info : infos.values()) {
@@ -282,9 +290,6 @@ final class Renamer {
     private int assign(Map<String, String> map, String k, int counter) {
         String candidate;
         do {
-            if (counter >= 18278) {
-                throw new IllegalStateException("需要重命名的成员超过短名池容量");
-            }
             candidate = shortName(counter++);
         } while (reservedNames.contains(candidate));
         reservedNames.add(candidate);
@@ -331,8 +336,26 @@ final class Renamer {
         return false;
     }
 
-    /** 短名池：a…z、aa…zz、aaa…（上限 18278，刚好是 [a-z]{1,3} 的全集）。 */
-    static String shortName(int index) {
+    /** 短名池：ASCII 时 a…z、aa…zz、aaa…（上限 18278，对应 CI 的 [a-z]{1,3}）。 */
+    private String shortName(int index) {
+        if (unicodeNames) {
+            int n = PRIVATE_USE.length();
+            if (index < n) {
+                return String.valueOf(PRIVATE_USE.charAt(index));
+            }
+            index -= n;
+            if (index < (long) n * n) {
+                return "" + PRIVATE_USE.charAt(index / n) + PRIVATE_USE.charAt(index % n);
+            }
+            throw new IllegalStateException("Unicode 短名池耗尽（成员过多）");
+        }
+        if (index >= 18278) {
+            throw new IllegalStateException("需要重命名的成员超过短名池容量");
+        }
+        return asciiShortName(index);
+    }
+
+    private static String asciiShortName(int index) {
         int i = index;
         if (i < 26) {
             return String.valueOf(LETTERS.charAt(i));
@@ -346,5 +369,13 @@ final class Renamer {
             return "" + LETTERS.charAt(i / 676) + LETTERS.charAt(i / 26 % 26) + LETTERS.charAt(i % 26);
         }
         throw new IllegalStateException("短名池耗尽");
+    }
+
+    private static String buildPrivateUse() {
+        StringBuilder sb = new StringBuilder(6400);
+        for (char c = '\uE000'; c <= '\uF8FF'; c++) {
+            sb.append(c);
+        }
+        return sb.toString();
     }
 }

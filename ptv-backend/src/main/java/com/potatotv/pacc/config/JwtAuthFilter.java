@@ -1,34 +1,33 @@
 package com.potatotv.pacc.config;
 
 import com.potatotv.pacc.service.TokenService;
-
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.crypto.SecretKey;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
  * JWT 认证过滤器：从 Authorization/accessToken 解析玩家 PTEID 并注入请求属性。
  * 用于玩家端 REST 接口（账号信息、设备绑定、结果查询）。
+ *
+ * <p>客户端若通过 {@link #DEVICE_HEADER} 上报设备指纹，则额外校验令牌绑定的 dfp 一致，
+ * 令牌被复制到其它设备即视为匿名；未上报指纹的请求只做签名校验（兼容旧客户端）。</p>
  */
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private final SecretKey key;
+    /** 玩家端随请求上报设备指纹的可选请求头。 */
+    public static final String DEVICE_HEADER = "X-Device-Fingerprint";
 
-    public JwtAuthFilter(@Value("${pacc.security.jwt-secret}") String secret) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    private final TokenService tokenService;
+
+    public JwtAuthFilter(TokenService tokenService) {
+        this.tokenService = tokenService;
     }
 
     @Override
@@ -43,9 +42,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
         if (bearer != null && !bearer.isBlank()) {
             try {
-                Claims claims = Jwts.parser().requireIssuer(TokenService.ISSUER).verifyWith(key).build()
-                        .parseSignedClaims(bearer).getPayload();
-                pteid = claims.getSubject();
+                String fingerprint = request.getHeader(DEVICE_HEADER);
+                if (fingerprint != null && !fingerprint.isBlank()) {
+                    pteid = tokenService.verifyWithDevice(bearer, fingerprint);
+                } else {
+                    pteid = tokenService.verifyClaims(bearer).subject();
+                }
             } catch (Exception ignored) {
                 // 未通过认证则视为匿名
             }

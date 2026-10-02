@@ -349,6 +349,11 @@ final class ClassFile {
         return c == null ? null : c.utf8;
     }
 
+    /** 供 {@link CodeRewriter} 等按名字识别属性用。 */
+    java.util.function.IntFunction<String> utf8Lookup() {
+        return this::utf8;
+    }
+
     Cp cp(int index) {
         return cp.get(index);
     }
@@ -397,6 +402,109 @@ final class ClassFile {
         c.b = descriptorIndex;
         cp.add(c);
         return cp.size() - 1;
+    }
+
+    /** 追加一个 int 常量（按值去重）。字符串加密用它的值当解密索引。 */
+    int addInteger(int value) {
+        for (int i = 1; i < cp.size(); i++) {
+            Cp c = cp.get(i);
+            if (c != null && c.tag == C_INT && (int) c.bits == value) {
+                return i;
+            }
+        }
+        Cp c = new Cp(C_INT);
+        c.bits = value & 0xFFFFFFFFL;
+        append(c);
+        return cp.size() - 1;
+    }
+
+    /** 追加一个 CONSTANT_Class（按内部名去重）。 */
+    int addClass(String internalName) {
+        int utf8 = utf8Index(internalName);
+        for (int i = 1; i < cp.size(); i++) {
+            Cp c = cp.get(i);
+            if (c != null && c.tag == C_CLASS && c.a == utf8) {
+                return i;
+            }
+        }
+        Cp c = new Cp(C_CLASS);
+        c.a = utf8;
+        append(c);
+        return cp.size() - 1;
+    }
+
+    /** 追加一条普通方法引用（按 owner/name/desc 去重）。 */
+    int addMethodref(String owner, String name, String descriptor) {
+        int cls = addClass(owner);
+        int nat = findNameAndType(utf8Index(name), utf8Index(descriptor));
+        for (int i = 1; i < cp.size(); i++) {
+            Cp c = cp.get(i);
+            if (c != null && c.tag == C_METHODREF && c.a == cls && c.b == nat) {
+                return i;
+            }
+        }
+        Cp c = new Cp(C_METHODREF);
+        c.a = cls;
+        c.b = nat;
+        append(c);
+        return cp.size() - 1;
+    }
+
+    private int findNameAndType(int nameIndex, int descriptorIndex) {
+        for (int i = 1; i < cp.size(); i++) {
+            Cp c = cp.get(i);
+            if (c != null && c.tag == C_NAMEANDTYPE && c.a == nameIndex && c.b == descriptorIndex) {
+                return i;
+            }
+        }
+        return nameAndTypeIndex(nameIndex, descriptorIndex);
+    }
+
+    private void append(Cp c) {
+        if (cp.size() >= 0xFFFF) {
+            throw new IllegalStateException("常量池条目数超过 u2 上限");
+        }
+        cp.add(c);
+    }
+
+    // ------------------------------------------------------------------
+    // 注入注入类时用到的就地修改
+    // ------------------------------------------------------------------
+
+    /** 覆盖某个 UTF-8 条目的内容（注入类替换 BLOB 占位串用；UTF-8 变长不影响 Code 偏移）。 */
+    void setUtf8(int index, String value) {
+        cp.get(index).utf8 = value;
+    }
+
+    /** 把类自身的名字改掉：this_class 与所有指向旧名的 CONSTANT_Class 一起改。 */
+    void renameClass(String newInternalName) {
+        String old = thisName();
+        if (old == null || old.equals(newInternalName)) {
+            return;
+        }
+        int newUtf8 = utf8Index(newInternalName);
+        for (int i = 1; i < cp.size(); i++) {
+            Cp c = cp.get(i);
+            if (c != null && c.tag == C_CLASS && old.equals(utf8(c.a))) {
+                c.a = newUtf8;
+            }
+        }
+    }
+
+    /** 删除指定名字的类级属性（注入类用它去掉 SourceFile 之类的源码痕迹）。 */
+    void dropClassAttribute(String name) {
+        attributes.removeIf(a -> name.equals(utf8(a.nameIndex)));
+    }
+
+    /** 追加一个已构造好的方法（注入 <clinit> 用）。 */
+    void addMethod(Member method) {
+        methods.add(method);
+    }
+
+    static Member newMethod(int access, int nameIndex, int descriptorIndex, List<Attr> attributes) {
+        Member m = new Member(access, nameIndex, descriptorIndex);
+        m.attributes.addAll(attributes);
+        return m;
     }
 
     // ------------------------------------------------------------------

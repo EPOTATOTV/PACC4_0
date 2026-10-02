@@ -1,8 +1,9 @@
 # PACC 玩家端（ptv-client）发行产物加固配置——POB 自研字节码混淆器
 #
 # 本文件是 proguard-rules.pro 的等价替换：POB 只做重命名（类名/成员名/字符串内类名）
-# 与包拍平，不做收缩（shrink）与优化（optimize），也不做控制流平坦化 / 字符串加密
-# （见 tools/pob 与设计文档的能力边界说明）。因此下面只保留「必须原样留下」的 keep 集合。
+# 与包拍平，不做收缩（shrink）与优化（optimize）。字符串加密 / Unicode 命名 / 垃圾代码 /
+# 完整性校验是可选变换，默认全部关闭（见文件末尾的开关段）；控制流平坦化当前未实现。
+# 因此下面只保留「必须原样留下」的 keep 集合。
 #
 # 与 CI 的三条硬约束（.github/workflows/ci.yml）绑定，改动前务必对齐：
 #   a) com/potatotv/paccclient/PaccClient.class 必须存在（唯一对外入口契约）
@@ -57,3 +58,26 @@ keep class com.potatotv.paccclient.protect.PaccSecretStrings public
 # 二进制协议（PBP）/ 规则语言（PRL）/ 更新核心（PCU）运行时与生成类不设任何 keep：
 # 它们零依赖、无反射（无 Class.forName / ServiceLoader），随包拍平一起被重命名。
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# 强化变换开关。默认值即当前发布口径（全部关闭），产物行为与 ProGuard 时期一致，
+# 也与上面三条 CI 硬约束兼容。要启用时逐项改值，并在 CI 上重新验证产物。
+#
+# encrypt_strings：ldc String -> ldc_w int + PobVault.get(I)，需注入解密库类；
+#   会跳过类名/描述符样串、被注解/字段常量引用的串、白名单串与短串。
+# encrypt_strings_keep：白名单，列出的字符串保持明文（逗号或引号分隔）。
+# unicode_names：短名改用 Unicode 私有区字符；开启后 CI 的 [a-z]{1,3} 断言会失败，
+#   只在 CI 相应断言一并调整后使用。
+# bogus_code / integrity：只对 enhance class 标记的类生效。
+# flatten：控制流平坦化当前未实现，开启只会打印告警。
+# ---------------------------------------------------------------------------
+encrypt_strings = false
+encrypt_strings_min_length = 4
+encrypt_strings_keep =
+unicode_names = false
+bogus_code = false
+integrity = false
+flatten = false
+
+# 需要垃圾代码 / 完整性校验时，逐个标记目标类（可多行）：
+# enhance class com.potatotv.paccclient.detection.DetectionEngine
