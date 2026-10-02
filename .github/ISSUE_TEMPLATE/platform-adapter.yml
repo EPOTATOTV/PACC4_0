@@ -1,7 +1,7 @@
 name: 平台适配
 description: 某个平台的适配层缺实现、有差异或需要补测试
 title: "[platform] "
-labels: ["area:platform"]
+labels: ["area:platform", "status: needs-triage"]
 body:
   - type: dropdown
     id: platform

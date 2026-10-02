@@ -1,0 +1,52 @@
+# PR 自动打标签的路径映射（actions/labeler v5 格式）
+#
+# 只映射仓库里已存在的 area:* / ci / security 标签，不在这里新建标签：
+# labels 里写了不存在的标签名，labeler 只会静默跳过，排查起来很费劲。
+# dependencies 不在映射范围内——那个标签由 dependabot 自己带。
+
+area:backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'ptv-backend/**'
+          - 'platform/java-agent/**'
+
+area:frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'ptv-frontend/**'
+          - 'deploy/dl-web/**'
+
+area:client:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'ptv-client/**'
+          - 'ptv-desktop/**'
+          - 'tools/**'
+
+area:platform:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'platform/**'
+
+area:deploy:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'deploy/**'
+
+area:docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '*.md'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - 'scripts/**'
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'SECURITY.md'
+          - '.gitleaks.toml'
