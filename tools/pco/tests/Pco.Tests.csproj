@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- 与 Pco.csproj 一致用 net8.0，两个项目都要能在 Linux CI 上编译。 -->
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>Pco.Tests</AssemblyName>
+    <RootNamespace>PaccManager.Pco.Tests</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Pco.csproj" />
+  </ItemGroup>
+
+</Project>
