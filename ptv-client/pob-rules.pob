@@ -2,7 +2,7 @@
 #
 # 本文件是 proguard-rules.pro 的等价替换：POB 只做重命名（类名/成员名/字符串内类名）
 # 与包拍平，不做收缩（shrink）与优化（optimize）。字符串加密 / Unicode 命名 / 垃圾代码 /
-# 完整性校验是可选变换，默认全部关闭（见文件末尾的开关段）；控制流平坦化当前未实现。
+# 完整性校验 / 控制流平坦化是可选变换，默认全部关闭（见文件末尾的开关段）。
 # 因此下面只保留「必须原样留下」的 keep 集合。
 #
 # 与 CI 的三条硬约束（.github/workflows/ci.yml）绑定，改动前务必对齐：
@@ -69,7 +69,8 @@ keep class com.potatotv.paccclient.protect.PaccSecretStrings public
 # unicode_names：短名改用 Unicode 私有区字符；开启后 CI 的 [a-z]{1,3} 断言会失败，
 #   只在 CI 相应断言一并调整后使用。
 # bogus_code / integrity：只对 enhance class 标记的类生效。
-# flatten：控制流平坦化当前未实现，开启只会打印告警。
+# flatten：控制流平坦化，保守子集——逐方法判定，带异常表 / 原生 switch / 栈非空入口等
+#   无法安全重建 StackMapTable 的方法原样放行（见 tools/pob ControlFlowFlattener）。
 # ---------------------------------------------------------------------------
 encrypt_strings = false
 encrypt_strings_min_length = 4

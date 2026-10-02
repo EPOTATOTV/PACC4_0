@@ -30,9 +30,9 @@ import java.util.Set;
  * encrypt_strings_min_length = N     短于 N 的字符串不加密，默认 4
  * encrypt_strings_keep = "a","b"     白名单，这些字符串不加密，默认空
  * unicode_names = true|false         用 Unicode 私有区字符做短名，默认 false
- * bogus_code = true|false            注入垃圾代码（保守子集），默认 false
+ * bogus_code = true|false            注入垃圾代码（保守子集，仅 enhance 类），默认 false
  * integrity = true|false             enhance 类注入完整性校验，默认 false
- * flatten = true|false               控制流平坦化（当前未实现，见 JarObfuscator），默认 false
+ * flatten = true|false               控制流平坦化（保守子集，逐方法判定，见 ControlFlowFlattener），默认 false
  * </pre>
  */
 final class PobRules {
