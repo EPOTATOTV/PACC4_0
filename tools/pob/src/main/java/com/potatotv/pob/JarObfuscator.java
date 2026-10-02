@@ -75,15 +75,24 @@ final class JarObfuscator {
         byte[] vault = rules.encryptStrings()
                 ? new StringEncryptor(targetPackage, rules, renamer).encrypt(classes) : null;
 
+        // 顺序有讲究：字符串加密先做（它按 ldc 位置重算偏移），平坦化再重塑控制流，
+        // 垃圾代码注入要求 return 还是显式指令，完整性校验最后做（哈希要覆盖前面所有变换）。
+        int flattened = 0;
+        if (rules.flatten()) {
+            for (Named n : ordered) {
+                if (renamer.covers(n.original)) {
+                    flattened += ControlFlowFlattener.apply(n.cf);
+                }
+            }
+            System.err.println("POB：控制流平坦化完成 " + flattened + " 个方法（其余方法不满足保守条件，原样放行）");
+        }
+
         if (rules.bogusCode()) {
             for (Named n : ordered) {
                 if (rules.enhancesClass(n.original)) {
                     BogusInsert.apply(n.cf);
                 }
             }
-        }
-        if (rules.flatten()) {
-            System.err.println("POB：控制流平坦化需要生成 StackMapTable frame，当前未实现，已忽略 flatten");
         }
 
         byte[] guard = null;
