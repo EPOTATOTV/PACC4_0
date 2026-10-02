@@ -13,6 +13,10 @@ on:
 
 permissions: read-all
 
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analysis:
     name: OpenSSF Scorecard
@@ -24,7 +28,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
           persist-credentials: false
 
@@ -36,14 +40,14 @@ jobs:
           results_format: sarif
           publish_results: true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: scorecard-results
           path: results.sarif
           retention-days: 5
 
       - name: 上传到 Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@1190a975f95ce23525efb6a3fc21ea29567c1b52  # v3.38.2
         with:
           sarif_file: results.sarif
           category: scorecard
