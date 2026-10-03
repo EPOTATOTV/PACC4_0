@@ -111,6 +111,11 @@ class Argon2Test {
         assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 1024, 0, 32));
         assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 1024, 1, 3));
         assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 4, 1, 32));
+        // 上限：挡住超大参数导致的巨量分配 / 长时间迭代
+        assertThrows(IllegalArgumentException.class, () -> new Argon2(17, 1024, 1, 32));
+        assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 1024, 17, 32));
+        assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 1024, 1, 65));
+        assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 2097153, 1, 32));
     }
 
     // ---------------- PHC 标准格式（§3.2.1） ----------------
@@ -140,30 +145,38 @@ class Argon2Test {
 
     @Test
     void verifyAcceptsOwnEncodingAndRejectsWrongPassword() {
-        Argon2 argon2 = new Argon2(3, 65536, 1, 32);
-        String encoded = argon2.encode(utf8("Pacc@Test123"), SALT);
-        assertTrue(argon2.verify(encoded, utf8("Pacc@Test123")));
-        assertFalse(argon2.verify(encoded, utf8("Pacc@Test124")));
+        String encoded = new Argon2(3, 65536, 1, 32).encode(utf8("Pacc@Test123"), SALT);
+        assertTrue(Argon2.verify(encoded, utf8("Pacc@Test123")));
+        assertFalse(Argon2.verify(encoded, utf8("Pacc@Test124")));
     }
 
     @Test
     void verifyAcceptsUrlSafeAlphabet() {
         // 编码固定用标准 Base64，但解析要兼容别处生成的 URL 安全字母表
-        Argon2 argon2 = new Argon2(3, 65536, 1, 32);
-        String standard = argon2.encode(utf8("Pacc@Test123"), SALT);
+        String standard = new Argon2(3, 65536, 1, 32).encode(utf8("Pacc@Test123"), SALT);
         String urlSafe = standard.replace('+', '-').replace('/', '_');
-        assertTrue(argon2.verify(urlSafe, utf8("Pacc@Test123")));
+        assertTrue(Argon2.verify(urlSafe, utf8("Pacc@Test123")));
     }
 
     @Test
     void verifyReturnsFalseForMalformedEncoding() {
-        Argon2 argon2 = new Argon2(3, 65536, 1, 32);
-        assertFalse(argon2.verify(null, utf8("Pacc@Test123")));
-        assertFalse(argon2.verify("not-a-phc-string", utf8("Pacc@Test123")));
-        assertFalse(argon2.verify("$argon2id$v=16$m=65536,t=3,p=1$c29tZXNhbHQ$AAAAAAAA", utf8("x")));
-        assertFalse(argon2.verify("$argon2i$v=19$m=65536,t=3,p=1$c29tZXNhbHQ$AAAA", utf8("x")));
-        assertFalse(argon2.verify("$argon2id$v=19$m=65536,t=3$c29tZXNhbHQ$AAAA", utf8("x")));
-        assertFalse(argon2.verify("$argon2id$v=19$m=65536,t=3,p=1$!!!$AAAA", utf8("x")));
+        assertFalse(Argon2.verify(null, utf8("Pacc@Test123")));
+        assertFalse(Argon2.verify("not-a-phc-string", utf8("Pacc@Test123")));
+        assertFalse(Argon2.verify("$argon2id$v=16$m=65536,t=3,p=1$c29tZXNhbHQ$AAAAAAAA", utf8("x")));
+        assertFalse(Argon2.verify("$argon2i$v=19$m=65536,t=3,p=1$c29tZXNhbHQ$AAAA", utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=3$c29tZXNhbHQ$AAAA", utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=3,p=1$!!!$AAAA", utf8("x")));
+    }
+
+    @Test
+    void verifyReturnsFalseForExcessiveParameters() {
+        // 编码里的参数超出支持范围时按不匹配处理，不按超大参数分配内存或迭代
+        String salt = b64(SALT);
+        String hash = b64(new byte[32]);
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=17,p=1$" + salt + "$" + hash, utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=3,p=17$" + salt + "$" + hash, utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=8388608,t=3,p=1$" + salt + "$" + hash, utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=3,p=1$" + salt + "$" + b64(new byte[65]), utf8("x")));
     }
 
     @Test
@@ -183,8 +196,8 @@ class Argon2Test {
 
         String encoded = argon2.encode(password, SALT);
         assertEquals(argon2.encode(utf8("Pacc@Test123"), SALT), encoded);
-        assertTrue(argon2.verify(encoded, password));
-        assertFalse(argon2.verify(encoded, "Pacc@Test124".toCharArray()));
+        assertTrue(Argon2.verify(encoded, password));
+        assertFalse(Argon2.verify(encoded, "Pacc@Test124".toCharArray()));
     }
 
     @Test
@@ -192,7 +205,7 @@ class Argon2Test {
         Argon2 argon2 = new Argon2(2, 256, 1, 32);
         char[] password = "密码Pacc123!".toCharArray();
         assertArrayEquals(argon2.hash(utf8("密码Pacc123!"), SALT), argon2.hash(password, SALT));
-        assertTrue(argon2.verify(argon2.encode(utf8("密码Pacc123!"), SALT), password));
+        assertTrue(Argon2.verify(argon2.encode(utf8("密码Pacc123!"), SALT), password));
     }
 
     @Test

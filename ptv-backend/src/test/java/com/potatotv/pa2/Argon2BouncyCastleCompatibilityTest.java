@@ -72,8 +72,7 @@ class Argon2BouncyCastleCompatibilityTest {
                 + Base64.getEncoder().withoutPadding().encodeToString(salt) + "$"
                 + Base64.getEncoder().withoutPadding().encodeToString(hash);
 
-        Argon2 argon2 = new Argon2(3, 65536, 1, 32);
-        assertTrue(argon2.verify(encoded, password));
-        assertTrue(argon2.verify(encoded, "Pacc@Test123".toCharArray()));
+        assertTrue(Argon2.verify(encoded, password));
+        assertTrue(Argon2.verify(encoded, "Pacc@Test123".toCharArray()));
     }
 }

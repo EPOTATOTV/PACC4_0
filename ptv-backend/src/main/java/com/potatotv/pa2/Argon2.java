@@ -33,16 +33,24 @@ public final class Argon2 {
     private static final int BYTES_PER_BLOCK = WORDS_PER_BLOCK * 8;
     private static final int ADDRESSES_IN_BLOCK = 128;
 
+    /** 参数上限：解析不可信编码时防止按超大参数分配内存或长时间迭代。 */
+    private static final int MAX_ITERATIONS = 16;
+    private static final int MAX_PARALLELISM = 16;
+    /** 内存成本上限：2 GiB（KB 计），可覆盖 RFC 9106 首选参数，同时挡住超大分配。 */
+    private static final int MAX_MEMORY_KIB = 2 * 1024 * 1024;
+    /** 输出长度上限：与 BLAKE2b 原生摘要上限对齐。 */
+    private static final int MAX_HASH_BYTES = 64;
+
     private final int iterations;
     private final int memoryKib;
     private final int parallelism;
     private final int hashLength;
 
     /**
-     * @param iterations  迭代轮数 t
-     * @param memoryKib   内存成本 m（KB）
-     * @param parallelism 并行度 p（lane 数）
-     * @param hashLength  输出长度 T（字节）
+     * @param iterations  迭代轮数 t（1..16）
+     * @param memoryKib   内存成本 m（KB，至少 8 * 并行度，至多 2 GiB）
+     * @param parallelism 并行度 p（lane 数，1..16）
+     * @param hashLength  输出长度 T（4..64 字节）
      */
     public Argon2(int iterations, int memoryKib, int parallelism, int hashLength) {
         if (iterations < 1) {
@@ -57,6 +65,19 @@ public final class Argon2 {
         // 每 lane 至少要分配到 SYNC_POINTS 个块，否则分段长度为 0
         if (memoryKib < 8L * parallelism) {
             throw new IllegalArgumentException("Argon2 内存成本至少为 8 * 并行度（KB）");
+        }
+        // 上限：校验不可信编码时避免按超大参数分配内存或长时间迭代
+        if (iterations > MAX_ITERATIONS) {
+            throw new IllegalArgumentException("Argon2 迭代轮数超出上限 " + MAX_ITERATIONS);
+        }
+        if (parallelism > MAX_PARALLELISM) {
+            throw new IllegalArgumentException("Argon2 并行度超出上限 " + MAX_PARALLELISM);
+        }
+        if (hashLength > MAX_HASH_BYTES) {
+            throw new IllegalArgumentException("Argon2 输出长度超出上限 " + MAX_HASH_BYTES + " 字节");
+        }
+        if (memoryKib > MAX_MEMORY_KIB) {
+            throw new IllegalArgumentException("Argon2 内存成本超出上限 " + MAX_MEMORY_KIB + " KB");
         }
         this.iterations = iterations;
         this.memoryKib = memoryKib;
@@ -117,10 +138,11 @@ public final class Argon2 {
     /**
      * 校验密码是否与 PHC 标准格式编码匹配。
      *
-     * <p>摘要比较用常量时间方法，规避计时侧信道；编码不合法（格式错误、版本或参数
-     * 不支持）时返回 {@code false}，不抛异常。</p>
+     * <p>参数全部取自编码本身，因此是静态方法：编码不合法、参数超出支持范围
+     * （见各上限常量）或摘要不符时一律返回 {@code false}，不抛异常。
+     * 摘要比较用常量时间方法，规避计时侧信道。</p>
      */
-    public boolean verify(String encoded, byte[] password) {
+    public static boolean verify(String encoded, byte[] password) {
         try {
             Argon2Hash parsed = parse(encoded);
             byte[] actual = new Argon2(parsed.iterations(), parsed.memoryKib(),
@@ -132,7 +154,7 @@ public final class Argon2 {
     }
 
     /** {@code char[]} 密码重载：校验后清除密码副本。 */
-    public boolean verify(String encoded, char[] password) {
+    public static boolean verify(String encoded, char[] password) {
         byte[] pwd = utf8(password);
         try {
             return verify(encoded, pwd);
@@ -169,7 +191,11 @@ public final class Argon2 {
                              int parallelism, byte[] salt, byte[] hash) {
     }
 
-    private String format(byte[] salt, byte[] hash) {
+    /**
+     * 将已算出的摘要按 PHC 标准格式编码。
+     * <p>供存量迁移复用校验阶段算出的摘要，避免为了拿编码再跑一遍 Argon2。</p>
+     */
+    public String format(byte[] salt, byte[] hash) {
         return PHC_PREFIX + String.format("v=%d$m=%d,t=%d,p=%d$%s$%s",
                 VERSION, memoryKib, iterations, parallelism,
                 encodeBase64(salt), encodeBase64(hash));
