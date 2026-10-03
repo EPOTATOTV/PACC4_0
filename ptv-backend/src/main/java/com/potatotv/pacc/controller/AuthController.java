@@ -85,7 +85,7 @@ public class AuthController {
                     body.get("mcid"), body.get("ecid"), body.get("qq"),
                     body.get("netease_uuid"), body.get("password"),
                     body.get("device_fingerprint"));
-            TokenService.TokenPair token = accountService.login(a.getPteid(), body.get("password"),
+            TokenService.Token token = accountService.login(a.getPteid(), body.get("password"),
                     body.get("device_fingerprint"), true);
             competitionService.recordLogin(a.getPteid(), a.getDeviceFingerprint(), clientIp(request));
             log.info("玩家注册成功 pteid={}", a.getPteid());
@@ -93,7 +93,7 @@ public class AuthController {
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("ok", true);
             out.put("pteid", a.getPteid());
-            out.put("expires_at", token.accessExpiresAt());
+            out.put("expires_at", token.expiresAt());
             return ResponseEntity.ok(out);
         } catch (IllegalArgumentException e) {
             log.warn("玩家注册失败: {}", e.getMessage());
@@ -251,7 +251,7 @@ public class AuthController {
         try {
             boolean remember = Boolean.parseBoolean(body.getOrDefault("remember", "false"));
             String deviceFp = body.get("device_fingerprint");
-            TokenService.TokenPair token = accountService.login(identity, body.get("password"),
+            TokenService.Token token = accountService.login(identity, body.get("password"),
                     deviceFp, remember);
             throttle.clear(idScope);
             throttle.clear(ipScope);
@@ -268,7 +268,7 @@ public class AuthController {
                     setSessionCookies(response, token);
                     Map<String, Object> out = new LinkedHashMap<>();
                     out.put("pteid", token.pteid());
-                    out.put("expires_at", token.accessExpiresAt());
+                    out.put("expires_at", token.expiresAt());
                     return ResponseEntity.ok(out);
                 }
                 log.info("玩家开启 2FA，要求第二步验证 pteid={}", token.pteid());
@@ -282,11 +282,11 @@ public class AuthController {
             Account acc = accountService.findByPteidOrNull(token.pteid());
             competitionService.recordLogin(token.pteid(),
                     acc == null ? null : acc.getDeviceFingerprint(), ip);
-            // 会话令牌与刷新令牌写入 HttpOnly cookie：JS 不可读，防 XSS 窃取
+            // 会话令牌写入 HttpOnly cookie：JS 不可读，防 XSS 窃取
             setSessionCookies(response, token);
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("pteid", token.pteid());
-            out.put("expires_at", token.accessExpiresAt());
+            out.put("expires_at", token.expiresAt());
             return ResponseEntity.ok(out);
         } catch (IllegalArgumentException e) {
             throttle.hit(idScope);
@@ -353,13 +353,13 @@ public class AuthController {
         if (trust && deviceFp != null && !deviceFp.isBlank() && totpService.isValidTotp(pteid, code)) {
             totpService.trustDevice(pteid, deviceFp, 30L);
         }
-        TokenService.TokenPair token = accountService.issueToken(pteid, deviceFp, remember);
+        TokenService.Token token = accountService.issueToken(pteid, remember);
         competitionService.recordLogin(pteid, accountFingerprint(pteid), ip);
         log.info("2FA 第二步验证成功 pteid={}", pteid);
         setSessionCookies(response, token);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("pteid", pteid);
-        out.put("expires_at", token.accessExpiresAt());
+        out.put("expires_at", token.expiresAt());
         return ResponseEntity.ok(out);
     }
 
@@ -420,23 +420,14 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
-    /** 同时下发会话 cookie 与刷新 cookie。 */
-    private static void setSessionCookies(HttpServletResponse response, TokenService.TokenPair token) {
-        setPlayerCookie(response, token.accessToken(), token.accessExpiresAt());
-        setRefreshCookie(response, token.refreshToken(), token.refreshExpiresAt());
+    /** 下发会话 cookie。 */
+    private static void setSessionCookies(HttpServletResponse response, TokenService.Token token) {
+        setPlayerCookie(response, token.accessToken(), token.expiresAt());
     }
 
     /** 将玩家会话 JWT 写入 HttpOnly 安全 cookie。Only HTTPS 下发时附加 Secure。 */
     private static void setPlayerCookie(HttpServletResponse response, String token, long expiresAtMillis) {
         response.addHeader("Set-Cookie", playerCookieHeader(token, cookieMaxAge(expiresAtMillis)));
-    }
-
-    /**
-     * 刷新令牌单独落到收窄路径的 HttpOnly cookie：只在刷新端点回传，减少外泄面。
-     * 刷新令牌有效期长，不随访问令牌一起过期，故用独立的 Max-Age。
-     */
-    private static void setRefreshCookie(HttpServletResponse response, String token, long expiresAtMillis) {
-        response.addHeader("Set-Cookie", refreshCookieHeader(token, cookieMaxAge(expiresAtMillis)));
     }
 
     private static long cookieMaxAge(long expiresAtMillis) {

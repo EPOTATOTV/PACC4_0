@@ -35,6 +35,9 @@ public class AccountService {
     private final PteidGenerator pteidGenerator;
     private final TokenService tokenService;
 
+    /** 共享随机源：SecureRandom 线程安全，省去每次用量都重新构造与播种。 */
+    private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
+
     /** 按 PTEID 查询账号，不存在返回 null（用于评分组件容错）。 */
     public Account findByPteidOrNull(String pteid) {
         return accountRepository.findById(pteid).orElse(null);
@@ -101,7 +104,7 @@ public class AccountService {
     public void changePassword(String pteid, String currentPassword, String newPassword) {
         Account a = accountRepository.findById(pteid)
                 .orElseThrow(() -> new IllegalArgumentException("账号不存在"));
-        if (!verify(a.getPasswordHash(), currentPassword == null ? "" : currentPassword)) {
+        if (!checkPassword(a.getPasswordHash(), currentPassword == null ? "" : currentPassword).matched()) {
             throw new IllegalArgumentException("当前密码不正确");
         }
         if (!isStrongPassword(newPassword)) {
@@ -121,7 +124,7 @@ public class AccountService {
 
     private String randomToken(int bytes) {
         byte[] b = new byte[bytes];
-        new java.security.SecureRandom().nextBytes(b);
+        SECURE_RANDOM.nextBytes(b);
         return hex(b);
     }
 
@@ -187,7 +190,7 @@ public class AccountService {
     }
 
     @Transactional
-    public TokenService.TokenPair login(String identity, String rawPassword, String deviceFingerprint, boolean remember) {
+    public TokenService.Token login(String identity, String rawPassword, String deviceFingerprint, boolean remember) {
         Account account = findByIdentity(identity)
                 .orElseThrow(() -> new IllegalArgumentException("账号不存在或密码错误"));
 
@@ -203,7 +206,8 @@ public class AccountService {
             account.setFailedLogins(0);
             account.setLockedUntil(null);
         }
-        if (!verify(account.getPasswordHash(), rawPassword)) {
+        PasswordCheck check = checkPassword(account.getPasswordHash(), rawPassword);
+        if (!check.matched()) {
             account.setFailedLogins(account.getFailedLogins() + 1);
             if (account.getFailedLogins() >= 5) {
                 account.setLockedUntil(now.plusSeconds(30 * 60L));
@@ -211,10 +215,9 @@ public class AccountService {
             accountRepository.save(account);
             throw new IllegalArgumentException("账号不存在或密码错误");
         }
-        // 存量哈希惰性迁移：登录校验通过后升级为 PHC 标准格式，数据库无需批量迁移
-        String upgraded = upgradeLegacyEncoding(account.getPasswordHash(), rawPassword);
-        if (upgraded != null) {
-            account.setPasswordHash(upgraded);
+        // 存量哈希惰性迁移：校验阶段已算出摘要，这里直接写回标准格式，不重复哈希
+        if (check.migrated() != null) {
+            account.setPasswordHash(check.migrated());
         }
         account.setFailedLogins(0);
         account.setLockedUntil(null);
@@ -225,17 +228,16 @@ public class AccountService {
             accountRepository.save(account);
             touchDevice(account.getPteid(), hashed);
         }
-        // 令牌绑定本次登录的设备指纹：令牌被复制到其它设备后，携带指纹的请求会被拒绝
-        return tokenService.createTokenPair(account.getPteid(), deviceFingerprint, remember);
+        return tokenService.createToken(account.getPteid(), remember);
     }
 
-    /** 2FA 第二步通过后直接签发主会话令牌对（密码已在前一步校验，不再复核）。 */
-    public TokenService.TokenPair issueToken(String pteid, String deviceFingerprint, boolean remember) {
+    /** 2FA 第二步通过后直接签发主会话令牌（密码已在前一步校验，不再复核）。 */
+    public TokenService.Token issueToken(String pteid, boolean remember) {
         Account account = accountRepository.findById(pteid).orElse(null);
         if (account == null) {
             throw new IllegalArgumentException("账号不存在或密码错误");
         }
-        return tokenService.createTokenPair(pteid, deviceFingerprint, remember);
+        return tokenService.createToken(pteid, remember);
     }
 
     private String hashDevice(String s) {
@@ -350,39 +352,44 @@ public class AccountService {
     private record LegacyHash(byte[] salt, byte[] hash) {
     }
 
+    /** 校验结果：{@code matched} 是否通过；{@code migrated} 为旧格式通过后待写回的标准格式编码（无需迁移则 null）。 */
+    private record PasswordCheck(boolean matched, String migrated) {
+    }
+
     private static Argon2 argon2(int hashBytes) {
         return new Argon2(ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM, hashBytes);
     }
 
     private String hashPassword(String password) {
         byte[] salt = new byte[SALT_BYTES];
-        new java.security.SecureRandom().nextBytes(salt);
+        SECURE_RANDOM.nextBytes(salt);
         return argon2(ARGON2_HASH_BYTES).encode(password.getBytes(StandardCharsets.UTF_8), salt);
     }
 
-    /** 校验密码：兼容存量 {@code salt:hash} 与 PHC 标准格式两种存储。 */
-    private boolean verify(String stored, String password) {
-        if (stored == null || stored.isEmpty()) return false;
+    /**
+     * 校验密码并给出迁移结果：兼容存量 {@code salt:hash} 与 PHC 标准格式两种存储。
+     * <p>旧格式校验通过时顺带返回标准格式编码（复用校验阶段算出的摘要，登录不重复哈希），
+     * 由调用方写回数据库完成惰性迁移。</p>
+     */
+    private PasswordCheck checkPassword(String stored, String password) {
+        if (stored == null || stored.isEmpty()) return new PasswordCheck(false, null);
         byte[] pwd = (password == null ? "" : password).getBytes(StandardCharsets.UTF_8);
         if (stored.startsWith(Argon2.PHC_PREFIX)) {
-            return argon2(ARGON2_HASH_BYTES).verify(stored, pwd);
+            return new PasswordCheck(Argon2.verify(stored, pwd), null);
         }
         LegacyHash legacy = parseLegacy(stored);
-        if (legacy == null) return false;
-        byte[] out = argon2(legacy.hash().length).hash(pwd, legacy.salt());
-        return java.security.MessageDigest.isEqual(legacy.hash(), out);
-    }
-
-    /**
-     * 存量 {@code salt:hash} 存储登录通过后升级为 PHC 标准格式，供写回数据库；
-     * 已是标准格式或无法解析时返回 null。迁移仅发生一次，之后走标准格式分支。
-     */
-    private String upgradeLegacyEncoding(String stored, String password) {
-        if (stored == null || stored.startsWith(Argon2.PHC_PREFIX)) return null;
-        LegacyHash legacy = parseLegacy(stored);
-        if (legacy == null) return null;
-        byte[] pwd = (password == null ? "" : password).getBytes(StandardCharsets.UTF_8);
-        return argon2(legacy.hash().length).encode(pwd, legacy.salt());
+        if (legacy == null) return new PasswordCheck(false, null);
+        try {
+            Argon2 hasher = argon2(legacy.hash().length);
+            byte[] actual = hasher.hash(pwd, legacy.salt());
+            if (!java.security.MessageDigest.isEqual(legacy.hash(), actual)) {
+                return new PasswordCheck(false, null);
+            }
+            return new PasswordCheck(true, hasher.format(legacy.salt(), actual));
+        } catch (IllegalArgumentException e) {
+            // 存量值损坏（摘要长度非法等）：按校验失败处理，不向登录链路抛异常
+            return new PasswordCheck(false, null);
+        }
     }
 
     private static LegacyHash parseLegacy(String stored) {

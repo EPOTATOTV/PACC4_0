@@ -46,8 +46,8 @@ class AccountServiceTest {
         PteidGenerator pteidGenerator = mock(PteidGenerator.class);
         TokenService tokenService = mock(TokenService.class);
         when(pteidGenerator.generate()).thenReturn("PTEID-TEST-0001");
-        when(tokenService.createTokenPair(any(String.class), any(String.class), anyBoolean()))
-                .thenReturn(new TokenService.TokenPair("PTEID-TEST-0001", "jwt", 0, "refresh", 0));
+        when(tokenService.createToken(any(String.class), anyBoolean()))
+                .thenReturn(new TokenService.Token("PTEID-TEST-0001", "jwt", 0));
         when(accountRepository.save(any(Account.class))).thenAnswer(inv -> {
             saved = inv.getArgument(0);
             return saved;
@@ -117,11 +117,11 @@ class AccountServiceTest {
     void loginByEachCredential() {
         registerValid();
         // 邮箱 / 手机号 / MCID / ECID / QQ 任一凭证均能命中并签发令牌
-        TokenService.TokenPair byEmail = service.login(EMAIL, PASSWORD, "fp-1", false);
-        TokenService.TokenPair byPhone = service.login("13800138000", PASSWORD, "fp-1", false);
-        TokenService.TokenPair byMcid = service.login("TesterMC", PASSWORD, "fp-1", false);
-        TokenService.TokenPair byEcid = service.login("ECIDTEST01", PASSWORD, "fp-1", false);
-        TokenService.TokenPair byQq = service.login("100200300", PASSWORD, "fp-1", false);
+        TokenService.Token byEmail = service.login(EMAIL, PASSWORD, "fp-1", false);
+        TokenService.Token byPhone = service.login("13800138000", PASSWORD, "fp-1", false);
+        TokenService.Token byMcid = service.login("TesterMC", PASSWORD, "fp-1", false);
+        TokenService.Token byEcid = service.login("ECIDTEST01", PASSWORD, "fp-1", false);
+        TokenService.Token byQq = service.login("100200300", PASSWORD, "fp-1", false);
         assertTrue(byEmail != null);
         assertTrue(byPhone != null);
         assertTrue(byMcid != null);
