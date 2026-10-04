@@ -1,14 +1,14 @@
 # PACC 玩家端（ptv-client）发行产物加固配置——POB 自研字节码混淆器
 #
-# 本文件是 proguard-rules.pro 的等价替换：POB 只做重命名（类名/成员名/字符串内类名）
-# 与包拍平，不做收缩（shrink）与优化（optimize）。字符串加密 / Unicode 命名 / 垃圾代码 /
-# 完整性校验 / 控制流平坦化是可选变换，默认全部关闭（见文件末尾的开关段）。
+# 本文件是 proguard-rules.pro 的等价替换：POB 做重命名（类名/成员名/字符串内类名）与包拍平，
+# 不做收缩（shrink）与优化（optimize）。字符串加密 / Unicode 命名 / 垃圾代码 / 完整性校验 /
+# 控制流平坦化是可选变换，当前发行口径已全部启用（见文件末尾的开关段）。
 # 因此下面只保留「必须原样留下」的 keep 集合。
 #
 # 与 CI 的三条硬约束（.github/workflows/ci.yml）绑定，改动前务必对齐：
 #   a) com/potatotv/paccclient/PaccClient.class 必须存在（唯一对外入口契约）
 #   b) 产物中不得再出现 com/potatotv/paccclient/{detection,transport,signature,store,ops,probe}/
-#   c) 必须存在 com/potatotv/paccclient/[a-z]{1,3}.class 短名混淆类
+#   c) 必须存在 com/potatotv/paccclient/<1~3 字符>.class 短名混淆类（Unicode 命名后是私有区字符）
 #
 # 语法：keep class <点分类名> [name|public|all] / keep member <点分类名> <成员名>
 #   name   —— 只固定类名，成员名照常混淆（缺省级别）
@@ -60,25 +60,30 @@ keep class com.potatotv.paccclient.protect.PaccSecretStrings public
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# 强化变换开关。默认值即当前发布口径（全部关闭），产物行为与 ProGuard 时期一致，
-# 也与上面三条 CI 硬约束兼容。要启用时逐项改值，并在 CI 上重新验证产物。
+# 强化变换开关。当前发布口径已全部启用；任何一项若在验证门禁上出问题，
+# 改回 false 重新打包即可回退，不必动混淆器代码。逐项含义：
 #
 # encrypt_strings：ldc String -> ldc_w int + PobVault.get(I)，需注入解密库类；
 #   会跳过类名/描述符样串、被注解/字段常量引用的串、白名单串与短串。
 # encrypt_strings_keep：白名单，列出的字符串保持明文（逗号或引号分隔）。
-# unicode_names：短名改用 Unicode 私有区字符；开启后 CI 的 [a-z]{1,3} 断言会失败，
-#   只在 CI 相应断言一并调整后使用。
+#   JVM / 系统属性名与编解码器名不能动，否则 System.getProperty / Charset.forName 会失配。
+# unicode_names：短名改用 Unicode 私有区字符；CI 的短名断言已同步放宽容忍度，
+#   若第三方工具（反编译器 / 性能分析器）无法处理，可单独改回 false 用 ASCII 短名。
 # bogus_code / integrity：只对 enhance class 标记的类生效。
 # flatten：控制流平坦化，保守子集——逐方法判定，带异常表 / 原生 switch / 栈非空入口等
 #   无法安全重建 StackMapTable 的方法原样放行（见 tools/pob ControlFlowFlattener）。
 # ---------------------------------------------------------------------------
-encrypt_strings = false
+encrypt_strings = true
 encrypt_strings_min_length = 4
-encrypt_strings_keep =
-unicode_names = false
-bogus_code = false
-integrity = false
-flatten = false
+encrypt_strings_keep = "java.version","os.name","UTF-8"
+unicode_names = true
+bogus_code = true
+integrity = true
+flatten = true
 
-# 需要垃圾代码 / 完整性校验时，逐个标记目标类（可多行）：
-# enhance class com.potatotv.paccclient.detection.DetectionEngine
+# 垃圾代码 / 完整性校验的目标类：检测与反调试核心。完整性校验在类的 <clinit> 入口比对
+# 自身字节的 SHA-256，不符即抛异常自毁；因此这里只放「随发行件一同更新、不会独立改动」的类，
+# 绝不放会被规则热更新替换的配置/规则载体。
+enhance class com.potatotv.paccclient.detection.DetectionEngine
+enhance class com.potatotv.paccclient.security.HookDetector
+enhance class com.potatotv.paccclient.security.AntiDebugService
