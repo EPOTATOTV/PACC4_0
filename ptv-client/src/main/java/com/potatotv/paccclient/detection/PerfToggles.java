@@ -9,7 +9,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * v5.2 检测性能开关（文档 §10.1：所有检测组件必须有性能开关，可在管理端动态调整）。
  *
  * <p>默认全部开启；可用环境变量 {@code PACC_FEATURE_COLLECTION} / {@code PACC_LOCAL_AI} /
- * {@code PACC_BRUTE_FORCE} / {@code PACC_STEALTH_PROBES} 置为 {@code false}/{@code 0}/{@code off}
+ * {@code PACC_BRUTE_FORCE} / {@code PACC_STEALTH_PROBES} / {@code PACC_SYSTEM_SCANNERS} 置为
+ * {@code false}/{@code 0}/{@code off}
  * 在启动时关闭。管理端 / 远程配置可通过 {@code LocalControlServer} 调用 {@link #set(String, boolean)}
  * 在运行时翻转（沿用现有远程配置下发通道，无需新增协议）。</p>
  */
@@ -23,12 +24,15 @@ public final class PerfToggles {
     public static final String BRUTE_FORCE = "brute_force";
     /** 隐身探针开关（§4，扫描成本较高）。 */
     public static final String STEALTH_PROBES = "stealth_probes";
+    /** 系统专项检测器开关（DF Alpha 1.0.0 §4，进程/模块/驱动等 9 个 Scanner）。 */
+    public static final String SYSTEM_SCANNERS = "system_scanners";
 
     private static final Map<String, String> ENV = Map.of(
             FEATURE_COLLECTION, "PACC_FEATURE_COLLECTION",
             LOCAL_AI, "PACC_LOCAL_AI",
             BRUTE_FORCE, "PACC_BRUTE_FORCE",
-            STEALTH_PROBES, "PACC_STEALTH_PROBES");
+            STEALTH_PROBES, "PACC_STEALTH_PROBES",
+            SYSTEM_SCANNERS, "PACC_SYSTEM_SCANNERS");
 
     private static final ConcurrentHashMap<String, Boolean> STATE = new ConcurrentHashMap<>();
 

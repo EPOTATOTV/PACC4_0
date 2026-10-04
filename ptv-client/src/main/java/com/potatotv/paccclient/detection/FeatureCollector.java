@@ -14,15 +14,21 @@ import com.potatotv.paccclient.detection.telemetry.EnvironmentTelemetry;
 import com.potatotv.paccclient.detection.telemetry.JvmTelemetry;
 import com.potatotv.paccclient.detection.telemetry.NetworkTelemetry;
 import com.potatotv.paccclient.detection.telemetry.TelemetrySnapshot;
+import com.potatotv.paccclient.probe.SystemProbe;
+import com.potatotv.paccclient.spi.FeatureCollectContext;
+import com.potatotv.paccclient.spi.FeatureDim;
+import com.potatotv.paccclient.spi.FeatureProvider;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * v5.2 特征采集器（文档 §2.2.4）：一次 {@link #collect()} 产出完整 178 维 {@link FeatureVector}。
@@ -54,10 +60,26 @@ public final class FeatureCollector {
 
     private final InputSource source;
     private final TrajectoryAnalyzer trajectoryAnalyzer = new TrajectoryAnalyzer();
+    /** 插件扩展特征提供者（文档 §2.4 步骤 7）；默认空表示无插件。 */
+    private final List<FeatureProvider> pluginProviders = new CopyOnWriteArrayList<>();
+    /** 传给插件特征提供者的只读探针；未设置时跳过插件特征采集。 */
+    private volatile SystemProbe systemProbe;
     private int coverage;
 
     public FeatureCollector(InputSource source) {
         this.source = Objects.requireNonNull(source, "source");
+    }
+
+    /** 接入插件特征提供者（在首次 {@link #collect()} 前调用）。 */
+    public void addFeatureProviders(Collection<FeatureProvider> providers) {
+        if (providers != null && !providers.isEmpty()) {
+            pluginProviders.addAll(providers);
+        }
+    }
+
+    /** 设置插件特征采集用的只读探针（通常即宿主的系统探针）。 */
+    public void setSystemProbe(SystemProbe probe) {
+        this.systemProbe = probe;
     }
 
     /** 采集一帧完整特征向量（178 维，schema 顺序）。 */
@@ -83,7 +105,45 @@ public final class FeatureCollector {
             if (backed.contains(dim.key())) covered++;
         }
         coverage = covered;
+        collectPluginFeatures(fv);
         return fv;
+    }
+
+    /**
+     * 采集插件扩展特征，写入 {@link FeatureVector#putExtended}。
+     *
+     * <p>只接受提供者<em>已声明</em>且带 {@code ext_} 前缀的键；单个提供者抛异常只跳过它自己。
+     * 核心 178 维不受影响（扩展维度分开存放）。</p>
+     */
+    private void collectPluginFeatures(FeatureVector fv) {
+        SystemProbe probe = this.systemProbe;
+        if (pluginProviders.isEmpty() || probe == null) {
+            return;
+        }
+        FeatureCollectContext ctx = new FeatureCollectContext(probe);
+        for (FeatureProvider provider : pluginProviders) {
+            try {
+                Set<String> declared = new HashSet<>();
+                for (FeatureDim dim : provider.dimensions()) {
+                    declared.add(dim.key());
+                }
+                Map<String, Double> produced = provider.collect(ctx);
+                if (produced == null) {
+                    continue;
+                }
+                for (Map.Entry<String, Double> e : produced.entrySet()) {
+                    String key = e.getKey();
+                    if (key == null || !key.startsWith(FeatureDim.EXT_PREFIX) || !declared.contains(key)) {
+                        continue;
+                    }
+                    double v = e.getValue() == null ? 0.0 : e.getValue();
+                    fv.putExtended(key, Double.isFinite(v) ? v : 0.0);
+                }
+            } catch (RuntimeException ex) {
+                System.err.println("[PTV-Plugin] 特征提供者采集失败 prefix=" + provider.prefix()
+                        + ": " + ex);
+            }
+        }
     }
 
     /** 上一帧有真实数据支撑的维度数。 */

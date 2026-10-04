@@ -1,0 +1,39 @@
+# cheat_driver：作弊驱动 / 服务（内核驱动或系统服务命中）
+# 文档 §4.6 / §6.1 系统类
+
+rule "cheat_driver" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "system"
+    description: "作弊驱动/服务：已加载驱动或已注册服务命中已知作弊名单"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let drivers = features["ext_driver_cheat_hits"] ?? 0.0
+    let services = features["ext_driver_service_hits"] ?? 0.0
+    let score = features["ext_driver_score"] ?? 0.0
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if drivers > 0.0: ["ext_driver_cheat_hits"] else: no_keys end)
+        + (if services > 0.0: ["ext_driver_service_hits"] else: no_keys end)
+
+    # 驱动单项 40 分、服务单项 30 分，阈值 40：单个作弊驱动即判定，服务需叠加
+    when:
+        (drivers > 0.0 OR services > 0.0) AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "cheat_driver",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

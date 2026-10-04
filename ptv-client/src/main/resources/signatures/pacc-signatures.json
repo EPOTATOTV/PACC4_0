@@ -1,0 +1,337 @@
+{
+  "version": "2026.10",
+  "updated": "2026-10-04",
+  "signatures": [
+    {
+      "id": "cheat-engine-7.5",
+      "name": "Cheat Engine 7.5",
+      "category": "memory_editor",
+      "severity": "high",
+      "threshold": 50,
+      "indicators": [
+        {"type": "process_name", "pattern": "cheatengine*.exe", "weight": 30},
+        {"type": "window_title", "pattern": "*Cheat Engine*", "weight": 20},
+        {"type": "driver", "pattern": "dbk64*.sys", "weight": 40},
+        {"type": "registry", "pattern": "HKCU\\Software\\Cheat Engine", "weight": 15},
+        {"type": "file_path", "pattern": "*/Cheat Engine/*", "weight": 10}
+      ]
+    },
+    {
+      "id": "artmoney",
+      "name": "ArtMoney",
+      "category": "memory_editor",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "artmoney*.exe", "weight": 30},
+        {"type": "window_title", "pattern": "*ArtMoney*", "weight": 15},
+        {"type": "registry", "pattern": "HKCU\\Software\\ArtMoney", "weight": 20}
+      ]
+    },
+    {
+      "id": "wemod",
+      "name": "WeMod",
+      "category": "memory_editor",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "wemod*.exe", "weight": 35},
+        {"type": "window_title", "pattern": "*WeMod*", "weight": 15},
+        {"type": "file_path", "pattern": "*/WeMod/*", "weight": 20}
+      ]
+    },
+    {
+      "id": "horion-client",
+      "name": "Horion (A端)",
+      "category": "bedrock_client",
+      "severity": "critical",
+      "threshold": 50,
+      "indicators": [
+        {"type": "process_name", "pattern": "Horion*.exe", "weight": 40},
+        {"type": "module", "pattern": "Horion*.dll", "weight": 50},
+        {"type": "window_title", "pattern": "*Horion*", "weight": 15},
+        {"type": "file_path", "pattern": "*/Horion/*", "weight": 20}
+      ]
+    },
+    {
+      "id": "zephyr-client",
+      "name": "Zephyr",
+      "category": "bedrock_client",
+      "severity": "critical",
+      "threshold": 50,
+      "indicators": [
+        {"type": "process_name", "pattern": "Zephyr*.exe", "weight": 40},
+        {"type": "module", "pattern": "Zephyr*.dll", "weight": 50},
+        {"type": "file_path", "pattern": "*/Zephyr/*", "weight": 25}
+      ]
+    },
+    {
+      "id": "codebreak-client",
+      "name": "Codebreak",
+      "category": "bedrock_client",
+      "severity": "critical",
+      "threshold": 50,
+      "indicators": [
+        {"type": "process_name", "pattern": "Codebreak*.exe", "weight": 40},
+        {"type": "module", "pattern": "Codebreak*.dll", "weight": 45},
+        {"type": "file_path", "pattern": "*/Codebreak/*", "weight": 25}
+      ]
+    },
+    {
+      "id": "32k-client",
+      "name": "32K Client",
+      "category": "bedrock_client",
+      "severity": "critical",
+      "threshold": 50,
+      "indicators": [
+        {"type": "process_name", "pattern": "*32K*.exe", "weight": 40},
+        {"type": "module", "pattern": "*32K*.dll", "weight": 45},
+        {"type": "file_path", "pattern": "*/32K Client/*", "weight": 30}
+      ]
+    },
+    {
+      "id": "vape-bedrock",
+      "name": "Vape (基岩版)",
+      "category": "bedrock_client",
+      "severity": "critical",
+      "threshold": 50,
+      "indicators": [
+        {"type": "process_name", "pattern": "Vape*.exe", "weight": 40},
+        {"type": "module", "pattern": "Vape*.dll", "weight": 50},
+        {"type": "file_path", "pattern": "*/Vape/*", "weight": 30}
+      ]
+    },
+    {
+      "id": "neverlose-client",
+      "name": "Neverlose",
+      "category": "bedrock_client",
+      "severity": "critical",
+      "threshold": 50,
+      "indicators": [
+        {"type": "process_name", "pattern": "Neverlose*.exe", "weight": 40},
+        {"type": "module", "pattern": "Neverlose*.dll", "weight": 50},
+        {"type": "file_path", "pattern": "*/Neverlose/*", "weight": 30}
+      ]
+    },
+    {
+      "id": "wurst-client",
+      "name": "Wurst",
+      "category": "java_client",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "file_path", "pattern": "*/.minecraft/mods/wurst*.jar", "weight": 40}
+      ]
+    },
+    {
+      "id": "meteor-client",
+      "name": "Meteor Client",
+      "category": "java_client",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "file_path", "pattern": "*/.minecraft/mods/meteor-client*.jar", "weight": 40},
+        {"type": "file_path", "pattern": "*/.minecraft/meteor-client/*", "weight": 35}
+      ]
+    },
+    {
+      "id": "impact-client",
+      "name": "Impact",
+      "category": "java_client",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "file_path", "pattern": "*/.minecraft/mods/impact*.jar", "weight": 40},
+        {"type": "file_path", "pattern": "*/.minecraft/impact/*", "weight": 35}
+      ]
+    },
+    {
+      "id": "sigma-client",
+      "name": "Sigma",
+      "category": "java_client",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "file_path", "pattern": "*/.minecraft/mods/sigma*.jar", "weight": 40},
+        {"type": "file_path", "pattern": "*/.minecraft/sigma/*", "weight": 35}
+      ]
+    },
+    {
+      "id": "liquidbounce-client",
+      "name": "LiquidBounce",
+      "category": "java_client",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "file_path", "pattern": "*/.minecraft/mods/liquidbounce*.jar", "weight": 40}
+      ]
+    },
+    {
+      "id": "fdp-client",
+      "name": "FDP Client",
+      "category": "java_client",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "file_path", "pattern": "*/.minecraft/mods/fdp*.jar", "weight": 40}
+      ]
+    },
+    {
+      "id": "rusherhack-client",
+      "name": "RusherHack",
+      "category": "java_client",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "file_path", "pattern": "*/.minecraft/mods/rusherhack*.jar", "weight": 35},
+        {"type": "file_path", "pattern": "*/.minecraft/rusherhack/*", "weight": 30}
+      ]
+    },
+    {
+      "id": "process-hacker",
+      "name": "Process Hacker",
+      "category": "injector",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "*Process Hacker*.exe", "weight": 35},
+        {"type": "window_title", "pattern": "*Process Hacker*", "weight": 20},
+        {"type": "driver", "pattern": "kprocesshacker*", "weight": 35},
+        {"type": "registry", "pattern": "HKCU\\Software\\Process Hacker", "weight": 20}
+      ]
+    },
+    {
+      "id": "extreme-injector",
+      "name": "Extreme Injector",
+      "category": "injector",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "*Extreme Injector*.exe", "weight": 35},
+        {"type": "window_title", "pattern": "*Extreme Injector*", "weight": 20},
+        {"type": "file_path", "pattern": "*/Extreme Injector/*", "weight": 25},
+        {"type": "registry", "pattern": "HKCU\\Software\\Extreme Injector", "weight": 25}
+      ]
+    },
+    {
+      "id": "xenos-injector",
+      "name": "Xenos Injector",
+      "category": "injector",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "*Xenos*.exe", "weight": 35},
+        {"type": "file_path", "pattern": "*/Xenos Injector/*", "weight": 20},
+        {"type": "registry", "pattern": "HKCU\\Software\\Xenos", "weight": 20}
+      ]
+    },
+    {
+      "id": "x64dbg",
+      "name": "x64dbg / x32dbg",
+      "category": "debugger",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "x64dbg*.exe", "weight": 35},
+        {"type": "window_title", "pattern": "*x64dbg*", "weight": 20},
+        {"type": "file_path", "pattern": "*/x64dbg/*", "weight": 20},
+        {"type": "registry", "pattern": "HKCU\\Software\\x64dbg", "weight": 20}
+      ]
+    },
+    {
+      "id": "ollydbg",
+      "name": "OllyDbg",
+      "category": "debugger",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "*OllyDbg*.exe", "weight": 35},
+        {"type": "window_title", "pattern": "*OllyDbg*", "weight": 20},
+        {"type": "registry", "pattern": "HKCU\\Software\\OLLYDBG", "weight": 20}
+      ]
+    },
+    {
+      "id": "ida-pro",
+      "name": "IDA Pro",
+      "category": "debugger",
+      "severity": "medium",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "ida*.exe", "weight": 25},
+        {"type": "window_title", "pattern": "*IDA*", "weight": 15},
+        {"type": "file_path", "pattern": "*/IDA Pro/*", "weight": 15}
+      ]
+    },
+    {
+      "id": "autohotkey",
+      "name": "AutoHotkey",
+      "category": "macro_tool",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "autohotkey*.exe", "weight": 30},
+        {"type": "file_path", "pattern": "*/AutoHotkey/*", "weight": 15},
+        {"type": "registry", "pattern": "HKCU\\Software\\AutoHotkey", "weight": 15}
+      ]
+    },
+    {
+      "id": "anjian-jingling",
+      "name": "按键精灵",
+      "category": "macro_tool",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "*按键精灵*.exe", "weight": 30},
+        {"type": "window_title", "pattern": "*按键精灵*", "weight": 20},
+        {"type": "file_path", "pattern": "*/按键精灵/*", "weight": 20},
+        {"type": "registry", "pattern": "HKCU\\Software\\按键精灵", "weight": 20}
+      ]
+    },
+    {
+      "id": "titanhide",
+      "name": "TitanHide",
+      "category": "anti_detect",
+      "severity": "critical",
+      "threshold": 40,
+      "indicators": [
+        {"type": "driver", "pattern": "TitanHide*", "weight": 40},
+        {"type": "registry", "pattern": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\TitanHide", "weight": 40},
+        {"type": "file_path", "pattern": "*/TitanHide/*", "weight": 30}
+      ]
+    },
+    {
+      "id": "scyllahide",
+      "name": "ScyllaHide",
+      "category": "anti_detect",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "*ScyllaHide*", "weight": 20},
+        {"type": "file_path", "pattern": "*/ScyllaHide/*", "weight": 25}
+      ]
+    },
+    {
+      "id": "fiddler",
+      "name": "Fiddler / Charles",
+      "category": "network_tool",
+      "severity": "medium",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "fiddler*.exe", "weight": 30},
+        {"type": "window_title", "pattern": "*Fiddler*", "weight": 15},
+        {"type": "process_name", "pattern": "charles*.exe", "weight": 30}
+      ]
+    },
+    {
+      "id": "gameguardian",
+      "name": "GameGuardian",
+      "category": "mobile_cheat",
+      "severity": "high",
+      "threshold": 40,
+      "indicators": [
+        {"type": "process_name", "pattern": "*GameGuardian*", "weight": 30},
+        {"type": "file_path", "pattern": "*/GameGuardian/*", "weight": 25}
+      ]
+    }
+  ]
+}

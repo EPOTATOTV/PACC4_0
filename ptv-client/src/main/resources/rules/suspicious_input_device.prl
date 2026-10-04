@@ -1,0 +1,38 @@
+# suspicious_input_device：可疑输入设备（MCU / HID 模拟器，宏鼠标需叠加行为）
+# 文档 §4.7 / §6.1 系统类
+
+rule "suspicious_input_device" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "system"
+    description: "可疑输入设备：检测到 MCU/HID 模拟设备（Arduino/Teensy/RP2040 等）"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let mcu = features["ext_input_mcu_hits"] ?? 0.0
+    let score = features["ext_input_score"] ?? 0.0
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if mcu > 0.0: ["ext_input_mcu_hits"] else: no_keys end)
+
+    # 仅 MCU/HID 模拟器判定；游戏外设（罗技/雷蛇）即使带宏软件也不单独触发，
+    # 需结合行为异常（点击熵低）另行上报，避免竞技玩家误报（文档 §9 风险表）
+    when:
+        mcu > 0.0 AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "suspicious_input_device",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

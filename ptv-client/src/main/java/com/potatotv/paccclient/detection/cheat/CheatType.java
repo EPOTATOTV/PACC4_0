@@ -6,7 +6,8 @@ import java.util.Optional;
 
 /**
  * 作弊类型（文档 §3.2 在既有 AutoClicker/KillAura/Speed/Fly/Reach 之外新增 15 种，
- * §6.1 再补内存注入 / 系统级 / 行为异常 9 种，规则文件数即去重后的类型数）。
+ * §6.1 再补内存注入 / 系统级 / 行为异常 9 种，本次 DF Alpha 1.0.0 又补第三方作弊软件 /
+ * 系统痕迹 / 行为异常 12 种，共 41 种；规则文件数即去重后的类型数）。
  *
  * <p>每种类型有独立特征维度与判定逻辑（{@code detection.cheat.rules} 下一条规则对应一个类型），
  * 端侧命中后由 {@code LayeredDecision} 决定直接处置 / 上报云端。</p>
@@ -75,7 +76,33 @@ public enum CheatType {
     /** 移动轨迹异常（行为异常）。 */
     TRAJECTORY_ANOMALY("trajectory_anomaly", "移动轨迹异常"),
     /** 反应时间异常（行为异常）。 */
-    REACTION_TIME("reaction_time", "反应时间异常");
+    REACTION_TIME("reaction_time", "反应时间异常"),
+
+    // ---- 文档 §6.1 新增 12 种（第三方作弊软件 / 系统痕迹 / 行为异常） ----
+    /** 作弊软件进程（CE / Horion 等）。 */
+    CHEAT_PROCESS("cheat_process", "作弊软件进程"),
+    /** 可疑窗口标题。 */
+    SUSPICIOUS_WINDOW("suspicious_window", "可疑窗口标题"),
+    /** 已知作弊模块注入。 */
+    KNOWN_CHEAT_MODULE("known_cheat_module", "已知作弊模块"),
+    /** 可疑未知模块。 */
+    SUSPICIOUS_MODULE("suspicious_module", "可疑模块"),
+    /** 内存特征码命中。 */
+    MEMORY_SIGNATURE("memory_signature", "内存特征码命中"),
+    /** 作弊软件文件痕迹。 */
+    CHEAT_FILE_TRACE("cheat_file_trace", "作弊文件痕迹"),
+    /** 注册表痕迹。 */
+    CHEAT_REGISTRY_TRACE("cheat_registry_trace", "注册表痕迹"),
+    /** 作弊驱动 / 服务。 */
+    CHEAT_DRIVER("cheat_driver", "作弊驱动/服务"),
+    /** 可疑输入设备（宏 / MCU）。 */
+    SUSPICIOUS_INPUT_DEVICE("suspicious_input_device", "可疑输入设备"),
+    /** 异常网络行为。 */
+    SUSPICIOUS_NETWORK("suspicious_network", "异常网络行为"),
+    /** 行为异常（AI 判定）。 */
+    BEHAVIOR_ANOMALY("behavior_anomaly", "行为异常"),
+    /** IFEO 镜像劫持。 */
+    IFEO_HIJACK("ifeo_hijack", "镜像劫持");
 
     private final String code;
     private final String displayName;

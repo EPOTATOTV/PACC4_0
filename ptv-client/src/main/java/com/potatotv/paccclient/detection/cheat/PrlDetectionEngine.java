@@ -200,7 +200,7 @@ public final class PrlDetectionEngine {
         for (String key : FeatureSchema.keys()) {
             features.put(key, fv.get(key));
         }
-        features.putAll(fv.asMap());
+        features.putAll(fv.toReportMap());
 
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("features", features);

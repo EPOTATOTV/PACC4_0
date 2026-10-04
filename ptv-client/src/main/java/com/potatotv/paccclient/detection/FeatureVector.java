@@ -14,22 +14,55 @@ import java.util.Map;
 public final class FeatureVector {
 
     private final Map<String, Double> features = new LinkedHashMap<>();
+    /** DF Alpha 1.0.0 扩展维度（{@link ExtendedFeatureSchema}），与核心维度分开存放。 */
+    private final Map<String, Double> extended = new LinkedHashMap<>();
 
     public FeatureVector put(String key, double value) {
         features.put(key, value);
         return this;
     }
 
-    public double get(String key) {
-        return features.getOrDefault(key, 0.0);
+    /**
+     * 写入一个扩展维度（{@code ext_} 前缀，见 {@link ExtendedFeatureSchema}）。
+     * 与核心维度分开存放，避免影响端侧 AI / 降维对固定 178 维顺序的依赖。
+     */
+    public FeatureVector putExtended(String key, double value) {
+        extended.put(key, Double.isFinite(value) ? value : 0.0);
+        return this;
     }
 
+    /** 先查核心维度，再回退扩展维度；都没有返回 0。 */
+    public double get(String key) {
+        Double core = features.get(key);
+        if (core != null) return core;
+        return extended.getOrDefault(key, 0.0);
+    }
+
+    /** 核心 178 维（端侧 AI / 降维入参），不含扩展维度。 */
     public Map<String, Double> asMap() {
         return features;
     }
 
+    /**
+     * 上报 / 证据用的合并视图：核心 178 维 + 全部扩展维度。
+     * 扩展维度排在核心维度之后，供 PRL 规则与后端读取 {@code ext_} 键。
+     */
+    public Map<String, Double> toReportMap() {
+        if (extended.isEmpty()) return features;
+        Map<String, Double> merged = new LinkedHashMap<>(features.size() + extended.size());
+        merged.putAll(features);
+        merged.putAll(extended);
+        return merged;
+    }
+
+    /** 核心维度数（178）。 */
     public int size() {
         return features.size();
+    }
+
+    /** 已写入的扩展维度数。 */
+    public int extendedCount() {
+        return extended.size();
     }
 
     /** 按 {@link FeatureSchema} 顺序取值；未设置的维度记 0，便于模型/降维统一入参。 */
@@ -72,11 +105,11 @@ public final class FeatureVector {
         return n;
     }
 
-    /** 序列化为 evidence detailJson（供后端 {@code FeatureVector.fromJson} 还原）。 */
+    /** 序列化为 evidence detailJson（供后端 {@code FeatureVector.fromJson} 还原）；含扩展维度。 */
     public String toDetailJson() {
         StringBuilder sb = new StringBuilder("{");
         int i = 0;
-        for (Map.Entry<String, Double> e : features.entrySet()) {
+        for (Map.Entry<String, Double> e : toReportMap().entrySet()) {
             if (i++ > 0) sb.append(',');
             sb.append('"').append(e.getKey()).append("\":").append(e.getValue());
         }

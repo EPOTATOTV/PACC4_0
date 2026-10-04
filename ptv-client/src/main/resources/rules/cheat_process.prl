@@ -1,0 +1,38 @@
+# cheat_process：作弊软件进程（CE/Horion 等，进程名多指标加权命中）
+# 文档 §4.1 / §6.1 系统类
+
+rule "cheat_process" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "system"
+    description: "作弊软件进程：进程名命中已知作弊软件名单并达到加权阈值"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let score = features["ext_process_score"] ?? 0.0
+    let hits = features["ext_process_hits"] ?? 0.0
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if hits > 0.0: ["ext_process_hits"] else: no_keys end)
+        + (if score >= 30.0: ["ext_process_score"] else: no_keys end)
+
+    # 单条进程名只给 10-35 分，阈值 30 要求多指标或高权重类别命中；缺失维度恒为 0，不会白送分
+    when:
+        score >= 30.0
+
+    then:
+        emit_alert(
+            type = "cheat_process",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}
