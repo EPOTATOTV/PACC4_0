@@ -7,10 +7,11 @@ namespace PaccManager.Pco;
 /// 反调试注入：往产物里塞一个 <c>PaccManager.__AntiDebug</c> 类型，并在入口方法（App.OnStartup）
 /// 开头注入一次 <c>Start()</c> 调用。
 ///
-/// <para><b>只做降级，不做自毁。</b>设计文档给的是「清配置 + 关进程」，但那对误报零容忍：
+/// <para><b>默认降级，不自毁。</b>设计文档给的是「清配置 + 关进程」，但那对误报零容忍：
 /// 开发工具、沙箱、甚至某些杀软都会让调试器标志为真，硬退会把正常用户挡在门外。
-/// 这里改成把结果记进 <c>Detected</c> 静态标志，由调用方决定怎么用——检测精度降级，
-/// 进程继续跑。这也是设计文档风险表里「先降级，不直接退出」的落法。</para>
+/// 缺省把结果记进 <c>Detected</c> 静态标志，由调用方决定怎么用——检测精度降级，进程继续跑。
+/// 规则里显式写 <c>anti_debug_action = "exit"</c> 时，命中会额外调 <c>Environment.Exit(1)</c>；
+/// <c>"report"</c> 与缺省一样只置位（差别只在于宿主怎么解读，注入代码无需区分）。</para>
 ///
 /// <para>检测手段三条：托管调试器（Debugger.IsAttached）、本机调试器（kernel32 的
 /// IsDebuggerPresent / CheckRemoteDebuggerPresent）。后两条走 P/Invoke，所以要给产物补
@@ -35,7 +36,8 @@ internal static class AntiDebug
 
     private static byte[] Coded(int typeRefToken) => SignatureCoding.Coded(typeRefToken);
 
-    public static PendingType BuildType(AssemblyRewriter rewriter, int methodBase, int fieldBase)
+    public static PendingType BuildType(AssemblyRewriter rewriter, int methodBase, int fieldBase,
+        DetectionAction action)
     {
         // Timer / TimerCallback / Debugger 在 .NET 8 都由 System.Runtime 转发到 CoreLib，
         // 引用作用域必须落在 System.Runtime，挂到 System.Threading 会解析不到类型。
@@ -46,6 +48,14 @@ internal static class AntiDebug
 
         // P/Invoke 总要 ModuleRef；趁写元数据之前登记，否则 ModuleRef 表已经落完，补不进去。
         rewriter.RequireModuleRef("kernel32.dll");
+
+        // Exit 动作要调 Environment.Exit(int)：类型引用/成员引用同样必须在写元数据之前登记。
+        int exitRef = 0;
+        if (action == DetectionAction.Exit)
+        {
+            int environmentRef = rewriter.RequireTypeRef("System", "Environment");
+            exitRef = rewriter.RequireMethodRef(environmentRef, "Exit", [0x00, 0x01, 0x01, 0x08]);
+        }
 
         // Debugger.IsAttached 是静态属性，getter 没有 HASTHIS。
         int isAttached = rewriter.RequireMethodRef(debuggerRef, "get_IsAttached", [0x00, 0x00, 0x02]);
@@ -86,7 +96,8 @@ internal static class AntiDebug
         type.Methods.Add(Start(Token(ProbeIndex), Token(CheckLoopIndex), callbackCtor, timerCtor,
             Field(TimerFieldIndex)));
         type.Methods.Add(Probe(isAttached, Token(IsDebuggerPresentIndex),
-            Token(GetCurrentProcessIndex), Token(CheckRemoteDebuggerPresentIndex), Field(Detected), probeLocals));
+            Token(GetCurrentProcessIndex), Token(CheckRemoteDebuggerPresentIndex), Field(Detected), probeLocals,
+            exitRef));
         type.Methods.Add(Import("IsDebuggerPresent", [0x00, 0x00, 0x02]));
         type.Methods.Add(Import("CheckRemoteDebuggerPresent", [0x00, 0x02, 0x02, 0x18, 0x10, 0x02]));
         type.Methods.Add(Import("GetCurrentProcess", [0x00, 0x00, 0x18]));
@@ -125,27 +136,37 @@ internal static class AntiDebug
         };
     }
 
-    /// <summary>private static void Probe()：三条检测，命中就置 Detected。</summary>
+    /// <summary>private static void Probe()：三条检测，命中就置 Detected（Exit 动作下再退出进程）。</summary>
     private static PendingMethod Probe(int isAttached, int isDebuggerPresent, int getCurrentProcess,
-        int checkRemote, int detectedField, int locals)
+        int checkRemote, int detectedField, int locals, int exit)
     {
         var il = new IlBuilder();
         IlLabel afterManaged = il.NewLabel();
         IlLabel afterNative = il.NewLabel();
         IlLabel done = il.NewLabel();
 
+        // 命中：置位；Exit 动作时追加 Environment.Exit(1)。不返回，后续 IL 仍合法。
+        void Mark()
+        {
+            il.Emit("ldc.i4.1");
+            il.Emit("stsfld", detectedField);
+            if (exit != 0)
+            {
+                il.Emit("ldc.i4", 1);
+                il.Emit("call", exit);
+            }
+        }
+
         // 1. 托管调试器
         il.Emit("call", isAttached);
         il.Emit("brfalse", afterManaged);
-        il.Emit("ldc.i4.1");
-        il.Emit("stsfld", detectedField);
+        Mark();
         il.Mark(afterManaged);
 
         // 2. 本机调试器
         il.Emit("call", isDebuggerPresent);
         il.Emit("brfalse", afterNative);
-        il.Emit("ldc.i4.1");
-        il.Emit("stsfld", detectedField);
+        Mark();
         il.Mark(afterNative);
 
         // 3. 远程调试器：CheckRemoteDebuggerPresent(GetCurrentProcess(), ref remote)
@@ -155,8 +176,7 @@ internal static class AntiDebug
         il.Emit("brfalse", done);
         il.Emit("ldloc.0");
         il.Emit("brfalse", done);
-        il.Emit("ldc.i4.1");
-        il.Emit("stsfld", detectedField);
+        Mark();
         il.Mark(done);
         il.Emit("ret");
 

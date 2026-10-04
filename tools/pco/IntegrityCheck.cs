@@ -10,7 +10,8 @@ namespace PaccManager.Pco;
 /// 代价是攻击者改完文件也能重算尾部——它挡的是无意的损坏与不做重算的粗暴补丁，
 /// 不是有备而来的逆向者。这一点在注释里说清楚，别让人误以为它是密码学意义上的防篡改。</para>
 ///
-/// <para><b>不硬退：</b>与反调试一致，命中只置标志，由调用方决定怎么处理。</para>
+/// <para><b>默认不硬退：</b>与反调试一致，缺省命中只置标志，由调用方决定怎么处理；
+/// 规则里显式写 <c>integrity_action = "exit"</c> 时才在置位后调 <c>Environment.Exit(1)</c>。</para>
 /// </summary>
 internal static class IntegrityCheck
 {
@@ -23,7 +24,8 @@ internal static class IntegrityCheck
     /// <summary>注入类型里 Detected 字段的登记下标。</summary>
     public const int DetectedFieldIndex = 0;
 
-    public static PendingType BuildType(AssemblyRewriter rewriter, int methodBase, int fieldBase)
+    public static PendingType BuildType(AssemblyRewriter rewriter, int methodBase, int fieldBase,
+        DetectionAction action)
     {
         int objectRef = rewriter.RequireTypeRef("System", "Object");
         int assemblyRef = rewriter.RequireTypeRef("System.Reflection", "Assembly");
@@ -34,6 +36,14 @@ internal static class IntegrityCheck
         int shaRef = rewriter.RequireTypeRef(
             "System.Security.Cryptography", "SHA256", "System.Security.Cryptography");
         int byteRef = rewriter.RequireTypeRef("System", "Byte");
+
+        // Exit 动作要调 Environment.Exit(int)：类型引用/成员引用必须在写元数据之前登记。
+        int exitRef = 0;
+        if (action == DetectionAction.Exit)
+        {
+            int environmentRef = rewriter.RequireTypeRef("System", "Environment");
+            exitRef = rewriter.RequireMethodRef(environmentRef, "Exit", [0x00, 0x01, 0x01, 0x08]);
+        }
 
         byte[] codedAssembly = SignatureCoding.Coded(assemblyRef);
         byte[] codedArray = SignatureCoding.Coded(arrayRef);
@@ -126,6 +136,12 @@ internal static class IntegrityCheck
         il.Mark(fail);
         il.Emit("ldc.i4.1");
         il.Emit("stsfld", detectedField);
+        if (exitRef != 0)
+        {
+            // Exit 动作：置位后结束进程。不返回，后续 IL 仍合法。
+            il.Emit("ldc.i4", 1);
+            il.Emit("call", exitRef);
+        }
 
         il.Mark(done);
         il.Emit("ret");

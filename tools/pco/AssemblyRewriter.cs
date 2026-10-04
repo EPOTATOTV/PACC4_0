@@ -75,6 +75,12 @@ internal sealed class AssemblyRewriter
     /// <summary>被当作入口注入反调试调用的方法名（默认 App.OnStartup）。</summary>
     public string AntiDebugHook { get; set; } = "OnStartup";
 
+    /// <summary>反调试命中后的处置动作（默认只置位降级）。</summary>
+    public DetectionAction AntiDebugAction { get; set; } = DetectionAction.Degrade;
+
+    /// <summary>完整性校验命中后的处置动作（默认只置位降级）。</summary>
+    public DetectionAction IntegrityAction { get; set; } = DetectionAction.Degrade;
+
     /// <summary>是否真的注入过反调试调用。</summary>
     public bool AntiDebugInjected { get; private set; }
 
@@ -310,14 +316,14 @@ internal sealed class AssemblyRewriter
         {
             int methodBase = InjectedMethodCount;
             int fieldBase = InjectedFieldCount;
-            AddInjectedType(AntiDebug.BuildType(this, methodBase, fieldBase));
+            AddInjectedType(AntiDebug.BuildType(this, methodBase, fieldBase, AntiDebugAction));
             _antiDebugStartToken = InjectedMethodToken(methodBase + AntiDebug.StartIndex);
         }
         if (IntegrityTrailer && _integrityVerifyToken == 0)
         {
             int methodBase = InjectedMethodCount;
             int fieldBase = InjectedFieldCount;
-            AddInjectedType(IntegrityCheck.BuildType(this, methodBase, fieldBase));
+            AddInjectedType(IntegrityCheck.BuildType(this, methodBase, fieldBase, IntegrityAction));
             _integrityVerifyToken = InjectedMethodToken(methodBase + IntegrityCheck.VerifyIndex);
         }
         if (ProxyEnabled && _proxy is null)
@@ -328,10 +334,11 @@ internal sealed class AssemblyRewriter
     }
 
     /// <summary>打开反调试：注入 __AntiDebug，并在 <paramref name="hookMethod"/> 开头调用 Start()。</summary>
-    public void EnableAntiDebug(string hookMethod = "OnStartup")
+    public void EnableAntiDebug(string hookMethod = "OnStartup", DetectionAction action = DetectionAction.Degrade)
     {
         AntiDebugEnabled = true;
         AntiDebugHook = hookMethod;
+        AntiDebugAction = action;
         _transforms.Add(InjectAntiDebugCall);
     }
 
@@ -357,10 +364,11 @@ internal sealed class AssemblyRewriter
     }
 
     /// <summary>打开完整性校验：注入 __Integrity，并在 <paramref name="hookMethod"/> 开头调用 Verify()。</summary>
-    public void EnableIntegrity(string hookMethod = "OnStartup")
+    public void EnableIntegrity(string hookMethod = "OnStartup", DetectionAction action = DetectionAction.Degrade)
     {
         IntegrityTrailer = true;
         IntegrityHook = hookMethod;
+        IntegrityAction = action;
         _transforms.Add(InjectIntegrityCall);
     }
 

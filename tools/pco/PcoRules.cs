@@ -5,6 +5,24 @@ using System.Text.RegularExpressions;
 namespace PaccManager.Pco;
 
 /// <summary>
+/// 反调试 / 完整性校验命中后的处置动作。
+///
+/// <para><b>默认 Degrade。</b>开发工具、沙箱、部分杀软都会让调试器标志为真，
+/// 硬退会把正常用户挡在门外，所以缺省只置位、不退出；Exit 是显式选择。</para>
+/// </summary>
+internal enum DetectionAction
+{
+    /// <summary>只置检测标志，进程继续跑（默认）。</summary>
+    Degrade,
+
+    /// <summary>命中即结束进程。</summary>
+    Exit,
+
+    /// <summary>只置标志，交给宿主自行上报。</summary>
+    Report,
+}
+
+/// <summary>
 /// PCO 规则文件（pco-rules.json）的解析与匹配。
 ///
 /// <para>形态与设计文档一致：<c>rules.keep</c> 是保留清单，<c>options</c> 是行为开关。
@@ -41,6 +59,12 @@ internal sealed class PcoRules
 
     /// <summary>反调试/完整性校验要挂的入口方法名，默认 WPF 的 <c>App.OnStartup</c>。</summary>
     public string HookMethod { get; private set; } = "OnStartup";
+
+    /// <summary>反调试命中后的处置动作，默认只置位降级。</summary>
+    public DetectionAction AntiDebugAction { get; private set; } = DetectionAction.Degrade;
+
+    /// <summary>完整性校验命中后的处置动作，默认只置位降级。</summary>
+    public DetectionAction IntegrityAction { get; private set; } = DetectionAction.Degrade;
 
     /// <summary>是否有任何一个 IL 变换开关打开。全关时只走重命名，产物保持原地改写的老行为。</summary>
     public bool NeedsRewrite => StringEncrypt || AntiDebug || Integrity || ControlFlow || Proxy;
@@ -81,6 +105,8 @@ internal sealed class PcoRules
             rules.Integrity = Flag(options, "integrity");
             rules.ControlFlow = Flag(options, "control_flow");
             rules.Proxy = Flag(options, "proxy");
+            rules.AntiDebugAction = ParseAction(options, "anti_debug_action");
+            rules.IntegrityAction = ParseAction(options, "integrity_action");
             if (options.TryGetProperty("string_key", out var sk))
             {
                 rules.StringKey = unchecked((byte)sk.GetInt32());
@@ -96,6 +122,23 @@ internal sealed class PcoRules
     /// <summary>读一个布尔开关。缺省与写成 false 都按关处理，只有显式 true 才开。</summary>
     private static bool Flag(JsonElement options, string name) =>
         options.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.True;
+
+    /// <summary>读一个处置动作。缺省或非字符串按 Degrade 处理，写了非法值直接报错，避免拼错后静默降级。</summary>
+    private static DetectionAction ParseAction(JsonElement options, string name)
+    {
+        if (!options.TryGetProperty(name, out JsonElement v) || v.ValueKind != JsonValueKind.String)
+        {
+            return DetectionAction.Degrade;
+        }
+        string value = (v.GetString() ?? "").Trim().ToLowerInvariant();
+        return value switch
+        {
+            "degrade" => DetectionAction.Degrade,
+            "exit" => DetectionAction.Exit,
+            "report" => DetectionAction.Report,
+            _ => throw new ArgumentException($"options.{name} 取值无效：{value}（可选 degrade|exit|report）"),
+        };
+    }
 
     private void AddKeep(string pattern)
     {

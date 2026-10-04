@@ -11,11 +11,16 @@ namespace PaccManager.Pco;
 /// <para>开了 IL 变换就整个重建一遍元数据；一个都没开时保持老行为——原地改写后原样落盘。</para>
 ///
 /// <code>pco -i PaccManager.dll -o PaccManager.obf.dll --rules pco-rules.json --mapping pco-mapping.txt</code>
+/// <code>pco --retrace pco-mapping.txt crash.log</code>
 /// </summary>
 internal static class Program
 {
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] is "--retrace" or "-r")
+        {
+            return PcoRetrace.Run(args[1..]);
+        }
         try
         {
             var options = Options.Parse(args);
@@ -40,11 +45,11 @@ internal static class Program
                 }
                 if (rules.AntiDebug)
                 {
-                    rewriter.EnableAntiDebug(rules.HookMethod);
+                    rewriter.EnableAntiDebug(rules.HookMethod, rules.AntiDebugAction);
                 }
                 if (rules.Integrity)
                 {
-                    rewriter.EnableIntegrity(rules.HookMethod);
+                    rewriter.EnableIntegrity(rules.HookMethod, rules.IntegrityAction);
                 }
                 // 代理排在平坦化之前：先换掉调用点，平坦化再统一把这些调用摊进状态机。
                 if (rules.Proxy)

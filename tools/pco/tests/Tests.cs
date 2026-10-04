@@ -37,6 +37,8 @@ internal static class Tests
         ControlFlowSuite();
         ProxySuite();
         PipelineSuite();
+        RetraceSuite();
+        DetectionActionSuite();
 
         Console.WriteLine($"PCO 自测：{_passed} 项通过，{Failures.Count} 项失败");
         foreach (string f in Failures)
@@ -65,6 +67,8 @@ internal static class Tests
             "control_flow": true,
             "proxy": true,
             "hook_method": "OnActivated",
+            "anti_debug_action": "exit",
+            "integrity_action": "report",
           },
         }
         """;
@@ -87,6 +91,8 @@ internal static class Tests
             Check(rules.ControlFlow, "options.control_flow=true 生效");
             Check(rules.Proxy, "options.proxy=true 生效");
             Equal(rules.HookMethod, "OnActivated", "options.hook_method 生效");
+            Equal(rules.AntiDebugAction, DetectionAction.Exit, "options.anti_debug_action=exit 生效");
+            Equal(rules.IntegrityAction, DetectionAction.Report, "options.integrity_action=report 生效");
             Check(rules.NeedsRewrite, "只要有一个 IL 变换开着就要重建元数据");
         }
         finally
@@ -104,10 +110,35 @@ internal static class Tests
             Check(!off.NeedsRewrite, "不写变换开关时不重建元数据");
             Equal(off.HookMethod, "OnStartup", "hook_method 缺省是 WPF 的 OnStartup");
             Check(off.StringKey != 0, "缺省字符串密钥随机取非零字节");
+            Check(off.AntiDebugAction == DetectionAction.Degrade, "处置动作缺省为 degrade（不自毁）");
+            Check(off.IntegrityAction == DetectionAction.Degrade, "完整性处置动作缺省为 degrade");
         }
         finally
         {
             File.Delete(offPath);
+        }
+
+        // 动作拼错要立刻报错，不能静默当成 degrade——否则配置写错却不自知。
+        string badPath = Path.Combine(Path.GetTempPath(), "pco-rules-bad-" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(badPath,
+            """{ "rules": { "keep": [] }, "options": { "anti_debug": true, "anti_debug_action": "kill" } }""",
+            new UTF8Encoding(false));
+        try
+        {
+            bool threw = false;
+            try
+            {
+                PcoRules.Load(badPath);
+            }
+            catch (ArgumentException)
+            {
+                threw = true;
+            }
+            Check(threw, "非法的 anti_debug_action 直接报错");
+        }
+        finally
+        {
+            File.Delete(badPath);
         }
 
         // 真正随发行走的那份规则也要能解析，且必须保住承载 BAML 的两个类型。
@@ -119,6 +150,8 @@ internal static class Tests
             && shipped.ControlFlow && shipped.Proxy, "发行规则开满六个变换");
         Equal(shipped.HookMethod, "OnStartup", "发行规则的注入点是 App.OnStartup");
         Check(shipped.RenameNamespaces, "发行规则拍平命名空间");
+        Check(shipped.AntiDebugAction == DetectionAction.Degrade && shipped.IntegrityAction == DetectionAction.Degrade,
+            "发行规则的处置动作是缺省的 degrade（命中只降级不自毁）");
     }
 
     // ------------------------------------------------------------------
@@ -755,6 +788,119 @@ internal static class Tests
         }
     }
 
+    // ------------------------------------------------------------------
+    // 崩溃堆栈还原
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// PcoRetrace 读 mapping 把混淆名换回原名。帧行精确还原「类型.成员」，
+    /// 异常头里的类型名按词边界替换，未登记的类名与成员名一律不动。
+    /// </summary>
+    private static void RetraceSuite()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "pco-retrace-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        string mappingPath = Path.Combine(dir, "pco-mapping.txt");
+        string mappingText = string.Join("\n", new[]
+        {
+            "PaccManager.Services.ProbeLauncher -> a.b",
+            "PaccManager.Services.ProbeLauncher::Start -> a.b::c",
+            "PaccManager.Services.ProbeLauncher::Stop -> a.b::d",
+            "PaccManager.Services.ProbeLauncher+Inner -> a.b+e",
+            "PaccManager.Services.ProbeLauncher+Inner::Run -> a.b+e::f",
+            "",
+        });
+
+        try
+        {
+            File.WriteAllText(mappingPath, mappingText, new UTF8Encoding(false));
+            PcoRetrace.Mapping mapping = PcoRetrace.LoadMapping(mappingPath);
+
+            string stack = string.Join("\n", new[]
+            {
+                "System.NullReferenceException: a.b+e 崩溃",
+                "   at a.b.c(PaccManager.dll)",
+                "   at a.b+e.f()",
+                "   at PaccManager.App.Main()",
+                "   at a.b.zzz()",
+            });
+            string restored = mapping.Retrace(stack);
+
+            Check(restored.Contains("   at PaccManager.Services.ProbeLauncher.Start(PaccManager.dll)", StringComparison.Ordinal),
+                "retrace：帧行的类型名与成员名一起还原");
+            Check(restored.Contains("   at PaccManager.Services.ProbeLauncher+Inner.Run()", StringComparison.Ordinal),
+                "retrace：嵌套类型的帧正确还原");
+            Check(restored.Contains("System.NullReferenceException: PaccManager.Services.ProbeLauncher+Inner 崩溃", StringComparison.Ordinal),
+                "retrace：异常头里的类型名按词边界还原");
+            Check(restored.Contains("   at PaccManager.App.Main()", StringComparison.Ordinal),
+                "retrace：未登记的类名原样保留");
+            Check(restored.Contains("   at PaccManager.Services.ProbeLauncher.zzz()", StringComparison.Ordinal),
+                "retrace：登记类型下未登记的成员名保留");
+            Equal(restored.Split('\n').Length, stack.Split('\n').Length, "retrace：行数不变");
+            Equal(mapping.Retrace(""), "", "retrace：空输入原样返回");
+        }
+        catch (Exception ex)
+        {
+            Failures.Add($"retrace 抛出异常：{ex}");
+        }
+        finally
+        {
+            TryDelete(dir);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 检测命中处置动作
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// 反调试/完整性校验的处置动作可配置：degrade（默认）只置位，exit 额外调用 Environment.Exit。
+    /// 用「产物里有没有 Environment.Exit 的成员引用」来区分；不实际触发检测，那样会真的杀掉测试进程。
+    /// </summary>
+    private static void DetectionActionSuite()
+    {
+        string input = typeof(Startup).Assembly.Location;
+        string dir = Path.Combine(Path.GetTempPath(), "pco-action-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        string degradePath = Path.Combine(dir, "Pco.Tests.degrade.dll");
+        string exitPath = Path.Combine(dir, "Pco.Tests.exit.dll");
+
+        try
+        {
+            var degrade = new AssemblyRewriter(File.ReadAllBytes(input));
+            degrade.EnableAntiDebug("OnStartup", DetectionAction.Degrade);
+            degrade.EnableIntegrity("OnStartup", DetectionAction.Degrade);
+            File.WriteAllBytes(degradePath, degrade.Run());
+
+            var exit = new AssemblyRewriter(File.ReadAllBytes(input));
+            exit.EnableAntiDebug("OnStartup", DetectionAction.Exit);
+            exit.EnableIntegrity("OnStartup", DetectionAction.Exit);
+            File.WriteAllBytes(exitPath, exit.Run());
+
+            Check(!HasMemberRef(degradePath, "Environment", "Exit"),
+                "degrade 产物不引用 Environment.Exit（只降级不自毁）");
+            Check(HasMemberRef(exitPath, "Environment", "Exit"),
+                "exit 产物注入了 Environment.Exit 调用");
+
+            Inventory degradeInventory = InventoryOf(degradePath);
+            Inventory exitInventory = InventoryOf(exitPath);
+            Check(degradeInventory.Types.Contains("PaccManager.__AntiDebug")
+                && degradeInventory.Types.Contains("PaccManager.__Integrity"),
+                "degrade 产物含反调试与完整性校验注入类型");
+            Check(exitInventory.Types.Contains("PaccManager.__AntiDebug")
+                && exitInventory.Types.Contains("PaccManager.__Integrity"),
+                "exit 产物含反调试与完整性校验注入类型");
+        }
+        catch (Exception ex)
+        {
+            Failures.Add($"检测处置动作抛出异常：{ex}");
+        }
+        finally
+        {
+            TryDelete(dir);
+        }
+    }
+
     private static Assembly LoadInto(AssemblyLoadContext ctx, string path, string probeDir)
     {
         ctx.Resolving += (c, name) =>
@@ -880,6 +1026,26 @@ internal static class Tests
             }
         }
         return new Inventory(types, methods, fields, properties, events, imports);
+    }
+
+    /// <summary>产物里是否存在 <c>&lt;parentTypeName&gt;.&lt;memberName&gt;</c> 的成员引用。</summary>
+    private static bool HasMemberRef(string path, string parentTypeName, string memberName)
+    {
+        using var pe = new PEReader(File.OpenRead(path));
+        MetadataReader md = pe.GetMetadataReader();
+        foreach (MemberReferenceHandle h in md.MemberReferences)
+        {
+            MemberReference mr = md.GetMemberReference(h);
+            if (md.GetString(mr.Name) != memberName || mr.Parent.Kind != HandleKind.TypeReference)
+            {
+                continue;
+            }
+            if (md.GetString(md.GetTypeReference((TypeReferenceHandle)mr.Parent).Name) == parentTypeName)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static string FullNameOf(MetadataReader md, TypeDefinitionHandle h,
