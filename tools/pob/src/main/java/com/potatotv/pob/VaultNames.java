@@ -23,6 +23,11 @@ final class VaultNames {
     static final String CHECK_DESCRIPTOR = "()V";
     static final String INTEGRITY_GUARD_PLACEHOLDER = "POBINTEGRITYGUARDBLOB";
 
+    /** 字符串拼接引导方法类：把 invokedynamic 的 recipe 换成密文后解密再转交 JDK。 */
+    static final String CONCAT_BOOTSTRAP_RESOURCE = "ConcatBootstrap.class";
+    static final String CONCAT_BOOTSTRAP_SIMPLE = "PobConcat";
+    static final String CONCAT_BOOTSTRAP_PLACEHOLDER = "POBCONCATSALTPLACEHOLDER";
+
     /** BLOB 作为单个 UTF-8 常量，受 u2 长度上限 65535 约束，留出余量。 */
     static final int BLOB_LIMIT = 60000;
 

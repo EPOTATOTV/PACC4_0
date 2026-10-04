@@ -72,8 +72,13 @@ final class JarObfuscator {
             ordered.add(new Named(cf, original));
         }
 
-        byte[] vault = rules.encryptStrings()
-                ? new StringEncryptor(targetPackage, rules, renamer).encrypt(classes) : null;
+        byte[] vault = null;
+        byte[] concatBootstrap = null;
+        if (rules.encryptStrings()) {
+            StringEncryptor encryptor = new StringEncryptor(targetPackage, rules, renamer);
+            vault = encryptor.encrypt(classes);
+            concatBootstrap = encryptor.concatClass();
+        }
 
         // 顺序有讲究：字符串加密先做（它按 ldc 位置重算偏移），平坦化再重塑控制流，
         // 垃圾代码注入要求 return 还是显式指令，完整性校验最后做（哈希要覆盖前面所有变换）。
@@ -121,6 +126,9 @@ final class JarObfuscator {
         }
         if (vault != null) {
             output.put(targetPackage + '/' + VaultNames.STRING_VAULT_SIMPLE + ".class", vault);
+        }
+        if (concatBootstrap != null) {
+            output.put(targetPackage + '/' + VaultNames.CONCAT_BOOTSTRAP_SIMPLE + ".class", concatBootstrap);
         }
         if (guard != null) {
             output.put(targetPackage + '/' + VaultNames.INTEGRITY_GUARD_SIMPLE + ".class", guard);

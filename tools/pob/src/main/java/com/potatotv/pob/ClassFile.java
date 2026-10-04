@@ -450,6 +450,47 @@ final class ClassFile {
         return cp.size() - 1;
     }
 
+    /** 追加一条字段引用（按 owner/name/desc 去重）。字段常量改用 {@code <clinit>} 赋值时用。 */
+    int addFieldref(String owner, String name, String descriptor) {
+        int cls = addClass(owner);
+        int nat = findNameAndType(utf8Index(name), utf8Index(descriptor));
+        for (int i = 1; i < cp.size(); i++) {
+            Cp c = cp.get(i);
+            if (c != null && c.tag == C_FIELDREF && c.a == cls && c.b == nat) {
+                return i;
+            }
+        }
+        Cp c = new Cp(C_FIELDREF);
+        c.a = cls;
+        c.b = nat;
+        append(c);
+        return cp.size() - 1;
+    }
+
+    /** 追加一个字符串常量（按内容去重），返回 {@code CONSTANT_String} 下标。indy 配方密文用。 */
+    int addString(String value) {
+        int utf8 = utf8Index(value);
+        for (int i = 1; i < cp.size(); i++) {
+            Cp c = cp.get(i);
+            if (c != null && c.tag == C_STRING && c.a == utf8) {
+                return i;
+            }
+        }
+        Cp c = new Cp(C_STRING);
+        c.a = utf8;
+        append(c);
+        return cp.size() - 1;
+    }
+
+    /** 追加一个方法句柄常量。indy 引导方法重定向需要新建（不能就地改共享的旧句柄）。 */
+    int addMethodHandle(int referenceKind, int referenceIndex) {
+        Cp c = new Cp(C_METHODHANDLE);
+        c.a = referenceKind;
+        c.b = referenceIndex;
+        append(c);
+        return cp.size() - 1;
+    }
+
     private int findNameAndType(int nameIndex, int descriptorIndex) {
         for (int i = 1; i < cp.size(); i++) {
             Cp c = cp.get(i);
