@@ -34,6 +34,14 @@ jobs:
 
       - name: 运行 Scorecard
         # v2.4.4
+        #
+        # 不阻断流水线：Scorecard 是仓库治理姿态的评分（分支保护、action 是否 pin、
+        # 令牌权限……），不是本仓库代码的测试。私库上它会以
+        # 「ListCommits: githubv4.Query: Resource not accessible by integration」
+        # 失败 —— 那一步是 action 内部拿默认 GITHUB_TOKEN 走 GraphQL 列提交，
+        # 权限面不归 workflow 文件管；publish_results 本身也只在公开仓库生效。
+        # 扫描成功时照常产出 SARIF，失败时只留一条红步，不影响其它 job 的结论。
+        continue-on-error: true
         uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc
         with:
           results_file: results.sarif
@@ -47,6 +55,8 @@ jobs:
           retention-days: 5
 
       - name: 上传到 Code Scanning
+        # 扫描失败时没有 results.sarif，这里跟着失败没有意义（同上，不阻断）
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
         with:
           sarif_file: results.sarif
