@@ -496,7 +496,14 @@ jobs:
         continue-on-error: true
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang llvm libbpf-dev bpftool linux-tools-common
+          # 不写 bpftool：它在 Ubuntu 是虚拟包，提供者有两个（linux-tools-common /
+          # linux-lowlatency-tools-common），apt 直接判「no installation candidate」。
+          # linux-tools-common 只装一个转调脚本，脚本又要求与运行内核 ABI 一致的
+          # linux-tools-$(uname -r)；runner 内核（例：6.17.0-1022-azure）在档案库里没有
+          # 对应包，脚本就报「bpftool not found for kernel ...」并以 2 退出。
+          # 退而求其次装通用内核工具包：里面有一份真实 bpftool 二进制，读 BTF 与内核版本无关。
+          sudo apt-get install -y --no-install-recommends clang llvm libbpf-dev linux-tools-common
+          sudo apt-get install -y --no-install-recommends linux-tools-generic || true
       - name: 构建 eBPF 程序
         if: steps.probe.outputs.ebpf == 'yes'
         working-directory: platform/kernel-linux
@@ -506,7 +513,17 @@ jobs:
             echo "::warning::runner 内核无 BTF（/sys/kernel/btf/vmlinux 缺失），跳过 eBPF 编译"
             exit 0
           fi
-          make
+          # PATH 上的 bpftool 多半是那个转调脚本，先确认它真能跑，不行就从内核工具包里挑二进制。
+          BPFTOOL_BIN="$(command -v bpftool || true)"
+          if [ -z "$BPFTOOL_BIN" ] || ! "$BPFTOOL_BIN" version >/dev/null 2>&1; then
+            BPFTOOL_BIN="$(ls /usr/lib/linux-tools/*/bpftool 2>/dev/null | head -n1 || true)"
+          fi
+          if [ -z "$BPFTOOL_BIN" ]; then
+            echo "::warning::runner 上找不到可用的 bpftool，跳过 eBPF 编译（见 platform/kernel-linux/README）"
+            exit 0
+          fi
+          echo "[PACC] 使用 bpftool: $BPFTOOL_BIN"
+          make BPFTOOL="$BPFTOOL_BIN"
       - name: 上传 eBPF 目标文件
         if: steps.probe.outputs.ebpf == 'yes'
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
@@ -536,8 +553,11 @@ jobs:
     name: 依赖漏洞扫描 (Trivy)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    # 上传 SARIF 到 Code Scanning 需该权限
+    # 上传 SARIF 到 Code Scanning 需 security-events: write；contents: read 不能省 ——
+    # job 级 permissions 会把没列出的域一律置成 none，私库里缺了它 checkout 直接当成
+    # 「仓库不存在」失败（git exit 128 / repository not found）。
     permissions:
+      contents: read
       security-events: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
