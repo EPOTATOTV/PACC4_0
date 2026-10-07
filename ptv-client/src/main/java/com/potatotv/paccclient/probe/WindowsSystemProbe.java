@@ -3,6 +3,7 @@ package com.potatotv.paccclient.probe;
 import com.potatotv.paccclient.Json;
 import com.potatotv.paccclient.detection.stealth.OsCommand;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,7 +53,9 @@ public final class WindowsSystemProbe extends PortableSystemProbe {
     public boolean isSupported(SystemProbe.Capability capability) {
         return switch (capability) {
             case PROCESSES, FILES, DRIVERS, SERVICES, REGISTRY, NETWORK, USB, WINDOWS -> true;
-            case MODULES, MEMORY -> client.reachable();
+            case MODULES, MEMORY, SIGNATURE_VERIFY, INJECTION -> client.reachable();
+            // 内核级状态需要驱动配合，用户态探针一律不支持（文档 §7 风险表）
+            case KERNEL -> false;
         };
     }
 
@@ -249,6 +252,32 @@ public final class WindowsSystemProbe extends PortableSystemProbe {
             return MemoryScanResult.unsupported(null, "PaccManager 探针不可达");
         }
         return client.scan(processName, null, pattern, mask);
+    }
+
+    // ------------------------------------------------------------------ 签名 / 注入（三层架构 §4）
+
+    @Override
+    public List<SignatureResult> verifyModuleSignatures(String processName) {
+        if (!client.reachable()) {
+            return List.of();
+        }
+        return client.verifyModules(processName);
+    }
+
+    @Override
+    public List<SignatureResult> verifyFileSignatures(List<Path> files) {
+        if (!client.reachable()) {
+            return List.of();
+        }
+        return client.verifyFiles(files);
+    }
+
+    @Override
+    public InjectionReport detectInjection(String processName) {
+        if (!client.reachable()) {
+            return InjectionReport.unsupported("PaccManager 探针不可达");
+        }
+        return client.detectInjection(processName);
     }
 
     // ------------------------------------------------------------------ USB

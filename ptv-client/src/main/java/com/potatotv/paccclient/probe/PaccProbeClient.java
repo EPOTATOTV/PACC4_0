@@ -8,6 +8,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,16 @@ import java.util.Map;
  *
  * GET /probe/memory?process={name}&signature={id}&pattern={hex}&mask={hex}
  *   → {"signature":"...","supported":true,"addresses":[123,456],"note":"..."}
+ *
+ * GET /probe/signature?process={name}
+ *   → {"process":"...","supported":true,"modules":[{"path":"...","valid":false,"publisher":null,"note":null}]}
+ *
+ * GET /probe/verify?paths={p1;p2;...}
+ *   → {"supported":true,"files":[{"path":"...","valid":true,"publisher":"...","note":null}]}
+ *
+ * GET /probe/injection?process={name}
+ *   → {"process":"...","supported":true,"remoteThreadCount":0,"execRwRegionCount":0,
+ *      "pendingApc":false,"suspiciousHandleCount":0,"note":"..."}
  * </pre>
  *
  * <p>所有调用失败（不可达 / 超时 / 非 200 / 解析失败）都返回空结果，绝不抛出 —— 探针是尽力而为，
@@ -130,6 +141,83 @@ public final class PaccProbeClient {
     }
 
     // ------------------------------------------------------------------ 内部
+
+    /** 验证指定进程已加载模块的数字签名（文档 §4.2）。探针不可达时返回空表。 */
+    public List<SignatureResult> verifyModules(String processName) {
+        String name = processName == null ? "" : processName;
+        String body = httpGet("/probe/signature?process=" + encode(name));
+        if (body == null) {
+            return List.of();
+        }
+        return parseSignatureList(body, "modules");
+    }
+
+    /** 验证一批文件的数字签名（文档 §4.5）。探针不可达时返回空表。 */
+    public List<SignatureResult> verifyFiles(List<Path> files) {
+        if (files == null || files.isEmpty()) {
+            return List.of();
+        }
+        StringBuilder joined = new StringBuilder();
+        for (Path file : files) {
+            if (file == null) {
+                continue;
+            }
+            if (joined.length() > 0) {
+                joined.append(';');
+            }
+            joined.append(file.toAbsolutePath());
+        }
+        if (joined.length() == 0) {
+            return List.of();
+        }
+        String body = httpGet("/probe/verify?paths=" + encode(joined.toString()));
+        if (body == null) {
+            return List.of();
+        }
+        return parseSignatureList(body, "files");
+    }
+
+    /** 检测指定进程的注入痕迹（文档 §4.3）。探针不可达时返回不支持状态。 */
+    public InjectionReport detectInjection(String processName) {
+        String name = processName == null ? "" : processName;
+        String body = httpGet("/probe/injection?process=" + encode(name));
+        if (body == null) {
+            return InjectionReport.unsupported("PaccManager 探针不可达");
+        }
+        try {
+            Map<String, Object> obj = Json.decodeObject(body);
+            return new InjectionReport(
+                    Boolean.TRUE.equals(obj.get("supported")),
+                    (int) num(obj.get("remoteThreadCount")),
+                    (int) num(obj.get("execRwRegionCount")),
+                    Boolean.TRUE.equals(obj.get("pendingApc")),
+                    (int) num(obj.get("suspiciousHandleCount")),
+                    str(obj.get("note")));
+        } catch (RuntimeException e) {
+            return InjectionReport.unsupported("探针响应解析失败");
+        }
+    }
+
+    private static List<SignatureResult> parseSignatureList(String body, String arrayKey) {
+        List<SignatureResult> out = new ArrayList<>();
+        try {
+            Map<String, Object> obj = Json.decodeObject(body);
+            if (obj.get(arrayKey) instanceof List<?> list) {
+                for (Object item : list) {
+                    if (item instanceof Map<?, ?> m) {
+                        out.add(new SignatureResult(
+                                str(m.get("path")),
+                                Boolean.TRUE.equals(m.get("valid")),
+                                str(m.get("publisher")),
+                                str(m.get("note"))));
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+        return out;
+    }
 
     private String httpGet(String path) {
         HttpURLConnection conn = null;

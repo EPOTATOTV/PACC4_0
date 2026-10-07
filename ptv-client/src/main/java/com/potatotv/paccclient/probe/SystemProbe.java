@@ -31,7 +31,13 @@ public interface SystemProbe {
         REGISTRY,
         NETWORK,
         USB,
-        WINDOWS
+        WINDOWS,
+        /** 数字签名验证（三层架构 §4.2 / §4.5，由 PaccManager 原生探针提供）。 */
+        SIGNATURE_VERIFY,
+        /** 注入痕迹检测（三层架构 §4.3：远程线程 / 可执行读写区 / 句柄）。 */
+        INJECTION,
+        /** 内核级状态（三层架构 §4.4；用户态版本不支持，恒 false）。 */
+        KERNEL
     }
 
     /** 当前平台 / 运行环境是否支持该能力。 */
@@ -79,4 +85,40 @@ public interface SystemProbe {
     // ---- 窗口 ----
 
     List<WindowInfo> enumerateWindows();
+
+    // ---- 数字签名验证（三层架构 §4.2 / §4.5；默认不支持，由原生探针覆写） ----
+
+    /**
+     * 验证指定进程已加载模块的数字签名。
+     *
+     * @param processName 目标进程名（如 {@code Minecraft.Windows.exe}）
+     * @return 每个模块一条结果；探针不可用时返回空表（调用方以 {@link #isSupported} 区分）
+     */
+    default List<SignatureResult> verifyModuleSignatures(String processName) {
+        return List.of();
+    }
+
+    /**
+     * 验证一批文件的数字签名（未签名可执行文件扫描用，文档 §4.5）。
+     *
+     * @param files 待验证文件（调用方保证数量有上限）
+     * @return 每个文件一条结果；探针不可用时返回空表
+     */
+    default List<SignatureResult> verifyFileSignatures(List<Path> files) {
+        return List.of();
+    }
+
+    // ---- 注入痕迹检测（三层架构 §4.3；默认不支持） ----
+
+    /** 检测指定进程的远程线程 / 可执行读写内存区 / 可疑句柄。 */
+    default InjectionReport detectInjection(String processName) {
+        return InjectionReport.unsupported("当前探针不支持注入痕迹检测");
+    }
+
+    // ---- 内核级状态（三层架构 §4.4；用户态默认不支持） ----
+
+    /** 内核 hook / 回调 / 未签名驱动状态。 */
+    default KernelState kernelState() {
+        return KernelState.unsupported("内核级检测需要驱动配合，用户态探针不支持");
+    }
 }
