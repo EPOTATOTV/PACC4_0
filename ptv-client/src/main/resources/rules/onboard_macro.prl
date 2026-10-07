@@ -1,0 +1,47 @@
+# onboard_macro：板载宏（输入时序 + 宏设备/软件双源印证）
+# 文档 §3.5 / §5.2 屏幕+系统同时命中
+
+rule "onboard_macro" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "input"
+    description: "板载宏：固定间隔点击 + 极低抖动，且存在宏可编程设备 / 宏软件或近期修改的宏配置"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let fixed = features["ext_input_fixed_interval"] ?? 0.0
+    let jitter = features["ext_input_click_jitter_ms"] ?? 0.0
+    let device = features["ext_macro_device_score"] ?? 0.0
+    let files = features["ext_macro_file_recent"] ?? 0.0
+
+    # 单一指标不触发（文档 §7 注意事项 4）：固定间隔可能来自连点设置，必须叠加宏设备分（≥30）
+    # 与极低抖动（<1ms，人类点击达不到）；宏配置文件近期修改再加分
+    let score = 50.0
+        + (if device >= 60.0: 20.0 else: 0.0 end)
+        + (if files >= 1.0: 15.0 else: 0.0 end)
+        + (if jitter < 1.0: 15.0 else: 0.0 end)
+
+    let no_keys = take([""], 0)
+    let keys = (if fixed >= 1.0: ["ext_input_fixed_interval"] else: no_keys end)
+        + (if jitter < 1.0: ["ext_input_click_jitter_ms"] else: no_keys end)
+        + (if device >= 30.0: ["ext_macro_device_score"] else: no_keys end)
+        + (if files >= 1.0: ["ext_macro_file_recent"] else: no_keys end)
+
+    when:
+        fixed >= 1.0 AND jitter < 1.0 AND device >= 30.0
+
+    then:
+        emit_alert(
+            type = "onboard_macro",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

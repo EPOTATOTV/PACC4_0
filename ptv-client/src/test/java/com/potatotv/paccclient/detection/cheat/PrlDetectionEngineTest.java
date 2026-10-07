@@ -41,7 +41,8 @@ import org.junit.jupiter.api.Test;
  */
 class PrlDetectionEngineTest {
 
-    private static final int EXPECTED_RULE_COUNT = 36;
+    /** 24 条既有 + 系统专项 12 条 + 三层检测架构 10 条。 */
+    private static final int EXPECTED_RULE_COUNT = 46;
 
     private PrlDetectionEngine engine;
 

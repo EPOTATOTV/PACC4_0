@@ -1,0 +1,42 @@
+# net_teleport：网络层瞬移（单次位置更新距离越界）
+# 文档 §2.5 网络层独立验证
+
+rule "net_teleport" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "network"
+    description: "网络层瞬移：单次位置更新超过 8 格且反复出现，或伴随服务器纠正"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let teleport = features["ext_net_teleport_count"] ?? 0.0
+    let correction = features["ext_net_server_correction"] ?? 0.0
+
+    # 单次瞬移可能来自服务器传送 / 末影珍珠，需在 60 秒窗口内累积 3 次；
+    # 或 1 次瞬移叠加 ≥3 次服务器纠正（服务器反复把玩家拉回原位 = 客户端位置被篡改）
+    let score = 40.0
+        + (if teleport >= 3.0: 25.0 else: 15.0 end)
+        + (if correction >= 5.0: 20.0 else: 0.0 end)
+
+    let no_keys = take([""], 0)
+    let keys = (if teleport > 0.0: ["ext_net_teleport_count"] else: no_keys end)
+        + (if correction > 0.0: ["ext_net_server_correction"] else: no_keys end)
+
+    when:
+        teleport >= 3.0 OR (teleport >= 1.0 AND correction >= 3.0)
+
+    then:
+        emit_alert(
+            type = "net_teleport",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

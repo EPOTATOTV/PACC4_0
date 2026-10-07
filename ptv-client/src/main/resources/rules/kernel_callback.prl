@@ -1,0 +1,52 @@
+# kernel_callback：内核回调异常（SSDT / IDT hook 或未签名驱动 + 可疑回调）
+# 文档 §4.4 / §5.2 系统单独（极高分）
+#
+# 注意：用户态版本拿不到 SSDT / IDT / 回调数据，这三项恒为 0；
+# 未签名驱动数可由「已加载驱动的签名验证」在用户态得到（文档 §4.4 第 3 项），
+# 因此 driver 单独命中不触发（目录签名口径未校准，避免误报），
+# 只有 driver 与 callback 同时命中，或 SSDT / IDT 命中，才判定——
+# 待内核模块接入后本规则自动进入完整形态（文档 §7 风险表）。
+
+rule "kernel_callback" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: critical
+    category: "system"
+    description: "内核回调异常：SSDT / IDT 被挂钩，或未签名驱动注册了可疑内核回调"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let ssdt = features["ext_sys_ssdt_hooks"] ?? 0.0
+    let idt = features["ext_sys_idt_hooks"] ?? 0.0
+    let driver = features["ext_sys_unsigned_driver_count"] ?? 0.0
+    let callback = features["ext_sys_suspicious_callback_count"] ?? 0.0
+
+    let score = 60.0
+        + (if ssdt >= 1.0: 25.0 else: 0.0 end)
+        + (if idt >= 1.0: 15.0 else: 0.0 end)
+        + (if driver >= 1.0: 10.0 else: 0.0 end)
+        + (if callback >= 1.0: 10.0 else: 0.0 end)
+
+    let no_keys = take([""], 0)
+    let keys = (if ssdt > 0.0: ["ext_sys_ssdt_hooks"] else: no_keys end)
+        + (if idt > 0.0: ["ext_sys_idt_hooks"] else: no_keys end)
+        + (if driver > 0.0: ["ext_sys_unsigned_driver_count"] else: no_keys end)
+        + (if callback > 0.0: ["ext_sys_suspicious_callback_count"] else: no_keys end)
+
+    when:
+        ssdt >= 1.0 OR idt >= 1.0 OR (driver >= 1.0 AND callback >= 1.0)
+
+    then:
+        emit_alert(
+            type = "kernel_callback",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

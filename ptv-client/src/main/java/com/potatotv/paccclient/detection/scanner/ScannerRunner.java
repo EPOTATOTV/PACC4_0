@@ -1,6 +1,9 @@
 package com.potatotv.paccclient.detection.scanner;
 
 import com.potatotv.paccclient.detection.DetectionEvent;
+import com.potatotv.paccclient.detection.input.InputTimingScanner;
+import com.potatotv.paccclient.detection.network.NetworkBehaviorScanner;
+import com.potatotv.paccclient.detection.vision.ScreenVisionScanner;
 import com.potatotv.paccclient.spi.DetectContext;
 import com.potatotv.paccclient.spi.Detector;
 
@@ -53,7 +56,16 @@ public final class ScannerRunner {
                 new NetworkScanner(),
                 new MemoryScanner(),
                 new BehaviorAIScanner(),
-                new SignatureMatcher()));
+                new SignatureMatcher(),
+                // ---- 三层检测架构批次（文档 §6.1 第一/二批）：各检测器内部按层开关自门控，
+                // 关闭的层（网络代理 / 屏幕）在 detect() 首行直接返回空，不产生任何采集开销 ----
+                new NetworkBehaviorScanner(),
+                new ScreenVisionScanner(),
+                new InputTimingScanner(),
+                new DllSignatureScanner(),
+                new InjectionScanner(),
+                new UnsignedExecutableScanner(),
+                new KernelCallbackScanner()));
     }
 
     /** 内置检测器 + 插件注册的检测器（文档 §2.4 步骤 7）。 */

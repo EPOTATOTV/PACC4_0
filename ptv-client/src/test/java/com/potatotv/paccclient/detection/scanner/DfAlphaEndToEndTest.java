@@ -23,15 +23,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * DF Alpha 1.0.0 端到端验证（文档 §10.3 验收）：
- * 「检测器写 ext_ 扩展特征 → PRL 规则读取并加权判定」全链路。
+ * 「检测器写 ext_ 扩展特征 → PRL 规则读取并加权判定」全链路，
+ * 并覆盖三层检测架构批次新增的网络 / 屏幕 / 系统增强检测器与规则。
  */
 class DfAlphaEndToEndTest {
 
-    /** 文档 §8.1 本批次新增的 12 条 PRL 规则（规则名 = CheatType.code）。 */
+    /** 系统专项批次新增的 12 条 PRL 规则（规则名 = CheatType.code）。 */
     private static final List<String> NEW_CODES = List.of(
             "cheat_process", "suspicious_window", "known_cheat_module", "suspicious_module",
             "memory_signature", "cheat_file_trace", "cheat_registry_trace", "ifeo_hijack",
             "cheat_driver", "suspicious_input_device", "suspicious_network", "behavior_anomaly");
+
+    /** 三层检测架构批次新增的 10 条 PRL 规则。 */
+    private static final List<String> LAYER_CODES = List.of(
+            "net_speed_anomaly", "net_fly_anomaly", "net_teleport", "net_packet_tamper",
+            "vision_aimbot", "vision_esp", "onboard_macro", "injected_client",
+            "kernel_callback", "unsigned_executable");
 
     private static PrlDetectionEngine newRuleEngine() {
         PrlDetectionEngine engine = new PrlDetectionEngine();
@@ -44,20 +51,29 @@ class DfAlphaEndToEndTest {
     }
 
     @Test
-    void 扩展特征schema为32维且结构合法() {
+    void 扩展特征schema为74维且结构合法() {
         ExtendedFeatureSchema.validate();
-        assertEquals(32, ExtendedFeatureSchema.size());
-        assertEquals(32, ExtendedFeatureSchema.keys().stream().distinct().count());
+        assertEquals(ExtendedFeatureSchema.SYSTEM_BATCH_SIZE + ExtendedFeatureSchema.LAYER_BATCH_SIZE, 74);
+        assertEquals(74, ExtendedFeatureSchema.size());
+        assertEquals(74, ExtendedFeatureSchema.keys().stream().distinct().count());
         assertTrue(ExtendedFeatureSchema.isExtendedKey("ext_process_score"));
+        assertTrue(ExtendedFeatureSchema.isExtendedKey("ext_net_speed_ratio"));
+        assertTrue(ExtendedFeatureSchema.isExtendedKey("ext_vision_hud_box_count"));
+        assertTrue(ExtendedFeatureSchema.isExtendedKey("ext_macro_device_score"));
+        assertTrue(ExtendedFeatureSchema.isExtendedKey("ext_sys_remote_thread_count"));
+        assertTrue(ExtendedFeatureSchema.isExtendedKey("ext_fusion_score"));
     }
 
     @Test
-    void 内置规则装载并包含全部12条新规则() {
+    void 内置规则装载并包含全部新增规则() {
         PrlDetectionEngine engine = newRuleEngine();
-        assertEquals(36, engine.size(), "24 条既有 + 12 条新增");
+        assertEquals(46, engine.size(), "24 条既有 + 系统专项 12 条 + 三层架构 10 条");
         List<String> names = engine.ruleNames();
         for (String code : NEW_CODES) {
             assertTrue(names.contains(code), "缺少新规则 " + code);
+        }
+        for (String code : LAYER_CODES) {
+            assertTrue(names.contains(code), "缺少三层架构规则 " + code);
         }
     }
 
@@ -126,13 +142,16 @@ class DfAlphaEndToEndTest {
     }
 
     @Test
-    void 调度器登记10个内置检测器并可追加插件检测器() {
+    void 调度器登记17个内置检测器并可追加插件检测器() {
         ScannerRunner runner = ScannerRunner.withBuiltinDetectors();
-        assertEquals(10, runner.detectors().size());
+        assertEquals(17, runner.detectors().size(), "系统专项 10 个 + 三层架构 7 个");
         assertEquals(Set.of("process_scanner", "module_scanner", "driver_scanner",
                         "file_scanner", "registry_scanner", "input_device_scanner",
                         "network_scanner", "memory_scanner", "behavior_ai_scanner",
-                        "signature_matcher"),
+                        "signature_matcher",
+                        "network_behavior_scanner", "screen_vision_scanner", "input_timing_scanner",
+                        "dll_signature_scanner", "injection_scanner", "unsigned_executable_scanner",
+                        "kernel_callback_scanner"),
                 runner.detectors().stream().map(Detector::id).collect(Collectors.toSet()));
 
         Detector pluginDetector = new Detector() {
@@ -152,7 +171,7 @@ class DfAlphaEndToEndTest {
             }
         };
         ScannerRunner withPlugins = ScannerRunner.withBuiltinDetectors(List.of(pluginDetector));
-        assertEquals(11, withPlugins.detectors().size(), "插件检测器应追加进调度器（文档 §2.4 步骤 7）");
+        assertEquals(18, withPlugins.detectors().size(), "插件检测器应追加进调度器（文档 §2.4 步骤 7）");
     }
 
     @Test
@@ -164,5 +183,85 @@ class DfAlphaEndToEndTest {
         assertEquals(1, fv.size(), "核心维度只含显式写入的键");
         assertEquals(1, fv.extendedCount());
         assertTrue(fv.toReportMap().containsKey("ext_process_score"), "上报视图应包含扩展维度");
+    }
+
+    // ------------------------------------------------------------------ 三层检测架构批次端到端
+
+    @Test
+    void 网络层速度规则需要屏幕印证或极端倍率() {
+        // 4.5 倍 + 画面运动不匹配：双源印证，命中
+        FeatureVector dual = new FeatureVector();
+        dual.putExtended("ext_net_speed_ratio", 4.5);
+        dual.putExtended("ext_vision_motion_mismatch", 1);
+        List<CheatFinding> hits = newRuleEngine().evaluate(dual, AnalysisContext.empty());
+        assertTrue(hits.stream().anyMatch(h -> h.type() == CheatType.NET_SPEED_ANOMALY),
+                "网络 + 屏幕双源应命中 net_speed_anomaly");
+
+        // 3.0 倍但画面运动正常：弱单源，不命中（文档 §5.2 多源印证）
+        FeatureVector weak = new FeatureVector();
+        weak.putExtended("ext_net_speed_ratio", 3.0);
+        List<CheatFinding> single = newRuleEngine().evaluate(weak, AnalysisContext.empty());
+        assertTrue(single.stream().noneMatch(h -> h.type() == CheatType.NET_SPEED_ANOMALY),
+                "3 倍速且无屏幕印证属于弱单源，不应触发");
+
+        // 6.0 倍：极端单源，命中
+        FeatureVector extreme = new FeatureVector();
+        extreme.putExtended("ext_net_speed_ratio", 6.0);
+        List<CheatFinding> blatant = newRuleEngine().evaluate(extreme, AnalysisContext.empty());
+        assertTrue(blatant.stream().anyMatch(h -> h.type() == CheatType.NET_SPEED_ANOMALY),
+                "≥4 倍属于极端单源，应触发");
+    }
+
+    @Test
+    void 透视规则单源高分命中而单条线条不命中() {
+        FeatureVector many = new FeatureVector();
+        many.putExtended("ext_vision_esp_lines", 12);
+        List<CheatFinding> hits = newRuleEngine().evaluate(many, AnalysisContext.empty());
+        assertTrue(hits.stream().anyMatch(h -> h.type() == CheatType.VISION_ESP),
+                "12 条长直线（透视 ESP）单源高分应命中");
+
+        FeatureVector few = new FeatureVector();
+        few.putExtended("ext_vision_esp_lines", 4);
+        assertTrue(newRuleEngine().evaluate(few, AnalysisContext.empty()).stream()
+                        .noneMatch(h -> h.type() == CheatType.VISION_ESP),
+                "4 条长直线属正常画面，不应触发");
+    }
+
+    @Test
+    void 板载宏规则要求时序与设备双源() {
+        FeatureVector both = new FeatureVector();
+        both.putExtended("ext_input_fixed_interval", 1);
+        both.putExtended("ext_input_click_jitter_ms", 0.3);
+        both.putExtended("ext_macro_device_score", 45);
+        assertTrue(newRuleEngine().evaluate(both, AnalysisContext.empty()).stream()
+                        .anyMatch(h -> h.type() == CheatType.ONBOARD_MACRO),
+                "固定间隔 + 极低抖动 + 宏设备分应命中 onboard_macro");
+
+        FeatureVector timingOnly = new FeatureVector();
+        timingOnly.putExtended("ext_input_fixed_interval", 1);
+        timingOnly.putExtended("ext_input_click_jitter_ms", 0.3);
+        assertTrue(newRuleEngine().evaluate(timingOnly, AnalysisContext.empty()).stream()
+                        .noneMatch(h -> h.type() == CheatType.ONBOARD_MACRO),
+                "缺宏设备线索时单一时序信号不触发（文档 §7 注意事项 4）");
+    }
+
+    @Test
+    void 注入与内核规则在系统层特征上命中() {
+        FeatureVector injected = new FeatureVector();
+        injected.putExtended("ext_sys_remote_thread_count", 2);
+        injected.putExtended("ext_sys_unsigned_module_count", 1);
+        injected.putExtended("ext_sys_blacklisted_publisher", 1);
+        assertTrue(newRuleEngine().evaluate(injected, AnalysisContext.empty()).stream()
+                        .anyMatch(h -> h.type() == CheatType.INJECTED_CLIENT),
+                "远程线程 + 未签名模块 + 黑名单发布者应命中 injected_client");
+
+        FeatureVector kernel = new FeatureVector();
+        kernel.putExtended("ext_sys_ssdt_hooks", 1);
+        assertTrue(newRuleEngine().evaluate(kernel, AnalysisContext.empty()).stream()
+                        .anyMatch(h -> h.type() == CheatType.KERNEL_CALLBACK),
+                "SSDT hook 应命中 kernel_callback（内核能力接入后生效）");
+
+        assertTrue(newRuleEngine().evaluate(new FeatureVector(), AnalysisContext.empty()).isEmpty(),
+                "全零扩展特征不得触发任何规则（用户态版本内核维度恒 0）");
     }
 }

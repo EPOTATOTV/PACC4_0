@@ -1,6 +1,8 @@
 package com.potatotv.paccclient.detection.scanner;
 
 import com.potatotv.paccclient.probe.DriverSnapshot;
+import com.potatotv.paccclient.probe.InjectionReport;
+import com.potatotv.paccclient.probe.KernelState;
 import com.potatotv.paccclient.probe.MemoryScanResult;
 import com.potatotv.paccclient.probe.ModuleSnapshot;
 import com.potatotv.paccclient.probe.NetworkSnapshot;
@@ -11,6 +13,7 @@ import com.potatotv.paccclient.probe.ProcessSnapshot;
 import com.potatotv.paccclient.probe.RegistryHit;
 import com.potatotv.paccclient.probe.RegistryPattern;
 import com.potatotv.paccclient.probe.ServiceSnapshot;
+import com.potatotv.paccclient.probe.SignatureResult;
 import com.potatotv.paccclient.probe.SystemProbe;
 import com.potatotv.paccclient.probe.UsbDevice;
 import com.potatotv.paccclient.probe.WindowInfo;
@@ -43,6 +46,10 @@ final class FakeSystemProbe implements SystemProbe {
     MemoryScanResult memory = MemoryScanResult.unsupported(null, "test");
     /** 非空时按调用顺序逐条消费，用于精确模拟「部分特征码命中」。 */
     final Deque<MemoryScanResult> memoryResults = new ArrayDeque<>();
+    List<SignatureResult> moduleSignatures = List.of();
+    List<SignatureResult> fileSignatures = List.of();
+    InjectionReport injection = InjectionReport.unsupported("test");
+    KernelState kernel = KernelState.unsupported("test");
     OsInfo os = WIN;
 
     final Set<Capability> supported = EnumSet.of(
@@ -112,5 +119,25 @@ final class FakeSystemProbe implements SystemProbe {
     @Override
     public List<WindowInfo> enumerateWindows() {
         return List.of();
+    }
+
+    @Override
+    public List<SignatureResult> verifyModuleSignatures(String processName) {
+        return moduleSignatures;
+    }
+
+    @Override
+    public List<SignatureResult> verifyFileSignatures(List<Path> files) {
+        return fileSignatures;
+    }
+
+    @Override
+    public InjectionReport detectInjection(String processName) {
+        return injection;
+    }
+
+    @Override
+    public KernelState kernelState() {
+        return kernel;
     }
 }

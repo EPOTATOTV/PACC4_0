@@ -434,6 +434,8 @@ public final class PaccClient {
             detector.stop();
             streamPipeline.close();
             gradientUploader.close();
+            // 三层检测器资源：本地代理端口 / 抓屏线程（未启用时为空操作）
+            engine.close();
             recorder.stop();
             if (control != null) control.close();
             opsScheduler.shutdownNow();
