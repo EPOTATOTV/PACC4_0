@@ -16,6 +16,12 @@ namespace PaccManager.Services;
 ///   <item>{@code GET /probe/modules?process=} → {@code {"process":"...","modules":[{"name","path","base","size"}]}}</item>
 ///   <item>{@code GET /probe/memory?process=&signature=&pattern=hex&mask=hex} →
 ///         {@code {"signature":"...","supported":true,"addresses":[...],"note":"..."}}</item>
+///   <item>{@code GET /probe/signature?process=} →
+///         {@code {"process":"...","supported":true,"modules":[{"path":"...","valid":false,"publisher":null,"note":null}],"note":null}}</item>
+///   <item>{@code GET /probe/verify?paths=p1;p2;...} →
+///         {@code {"supported":true,"files":[{"path":"...","valid":true,"publisher":"...","note":null}],"note":null}}</item>
+///   <item>{@code GET /probe/injection?process=} →
+///         {@code {"process":"...","supported":true,"remoteThreadCount":0,"execRwRegionCount":0,"pendingApc":false,"suspiciousHandleCount":0,"note":"..."}}</item>
 /// </list>
 ///
 /// <para>安全约束：只绑定 {@link IPAddress#Loopback}（外部不可达，不做跨网暴露）；只接受 {@code GET}；
@@ -28,6 +34,7 @@ public sealed class SystemProbeEndpoint : IDisposable
     private const int MaxRequestLine = 4096;
     private const int MaxQueryLength = 2048;
     private const int MaxModules = 4096;
+    private const int MaxVerifyPaths = 64;
 
     private readonly int _port;
     private TcpListener? _listener;
@@ -126,6 +133,15 @@ public sealed class SystemProbeEndpoint : IDisposable
                     case "/probe/memory":
                         WriteJson(stream, 200, MemoryResponse(query));
                         break;
+                    case "/probe/signature":
+                        WriteJson(stream, 200, SignatureResponse(query.GetValueOrDefault("process", string.Empty)));
+                        break;
+                    case "/probe/verify":
+                        WriteJson(stream, 200, VerifyResponse(query));
+                        break;
+                    case "/probe/injection":
+                        WriteJson(stream, 200, InjectionResponse(query.GetValueOrDefault("process", string.Empty)));
+                        break;
                     default:
                         WriteJson(stream, 404, new { error = "not_found" });
                         break;
@@ -194,6 +210,78 @@ public sealed class SystemProbeEndpoint : IDisposable
             addresses = result.Addresses,
             note = result.Note
         };
+    }
+
+    private static object SignatureResponse(string processName)
+    {
+        bool supported = ProcessExists(processName);
+        var modules = new List<object>();
+        if (supported)
+        {
+            foreach (var info in DllSignatureVerifier.VerifyModules(processName))
+            {
+                modules.Add(new
+                {
+                    path = info.Path,
+                    valid = info.Valid,
+                    publisher = info.Publisher,
+                    note = info.Note
+                });
+            }
+        }
+        return new { process = processName, supported, modules, note = (string?)null };
+    }
+
+    private static object VerifyResponse(Dictionary<string, string> query)
+    {
+        string raw = query.GetValueOrDefault("paths", string.Empty);
+        string[] paths = raw.Split(';', StringSplitOptions.RemoveEmptyEntries);
+        if (paths.Length > MaxVerifyPaths) paths = paths[..MaxVerifyPaths];
+
+        var files = new List<object>();
+        foreach (var info in DllSignatureVerifier.VerifyFiles(paths))
+        {
+            files.Add(new
+            {
+                path = info.Path,
+                valid = info.Valid,
+                publisher = info.Publisher,
+                note = info.Note
+            });
+        }
+        return new { supported = true, files, note = (string?)null };
+    }
+
+    private static object InjectionResponse(string processName)
+    {
+        var result = InjectionDetector.Detect(processName);
+        return new
+        {
+            process = processName,
+            supported = result.Supported,
+            remoteThreadCount = result.RemoteThreadCount,
+            execRwRegionCount = result.ExecRwRegionCount,
+            pendingApc = result.PendingApc,
+            suspiciousHandleCount = result.SuspiciousHandleCount,
+            note = result.Note
+        };
+    }
+
+    /// <summary>指定进程是否存在（supported 判定用）。</summary>
+    private static bool ProcessExists(string processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return false;
+        try
+        {
+            var procs = System.Diagnostics.Process.GetProcessesByName(Path.GetFileNameWithoutExtension(processName));
+            bool any = procs.Length > 0;
+            foreach (var proc in procs) proc.Dispose();
+            return any;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static string SafeFileName(System.Diagnostics.ProcessModule module)
