@@ -90,7 +90,7 @@ static int h_pvmread_pre(struct kprobe *p, struct pt_regs *regs)
 /* write(fd=%rdi, ...)：对 /dev/mem 的写访问（低权限提权/直接写内存） */
 static int h_write_pre(struct kprobe *p, struct pt_regs *regs)
 {
-	if (pid_vnr(current) > 0)
+	if (pid_vnr(task_tgid(current)) > 0)
 		atomic64_inc(&pacc_hits_devmem);
 	return 0;
 }
