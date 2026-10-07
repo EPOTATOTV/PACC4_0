@@ -93,9 +93,26 @@ final class NameRewriter {
         return null;
     }
 
+    /**
+     * {@code L} 的前一个字符是否说明它开始了一个类型名。
+     *
+     * <p>除了描述符/签名里的结构性字符，基本类型码（{@code B C D F I J S Z}）也必须算边界：
+     * {@code (ILcom/foo/Bar;)V} 这种「基本类型参数紧跟对象参数」的写法里，{@code L} 前面就是 {@code I}，
+     * 漏掉它会让该处类型引用整段留在常量池里 —— 类被改名了、引用还是原名，运行时报
+     * {@code NoClassDefFoundError}，jdeps 门禁也会报 not found。</p>
+     *
+     * <p>同理 {@code :} 是泛型签名里类型变量上界（{@code <T:Lcom/foo/Bar;>}）的分隔符。</p>
+     */
     private static boolean isTypeBoundary(char c) {
         return c == '\0' || c == '(' || c == ')' || c == ';' || c == '[' || c == '<'
-                || c == '>' || c == '+' || c == '-' || c == '*' || c == '^';
+                || c == '>' || c == '+' || c == '-' || c == '*' || c == '^'
+                || c == ':' || isPrimitiveCode(c);
+    }
+
+    /** JVMS 4.3 的基本类型描述符码。 */
+    private static boolean isPrimitiveCode(char c) {
+        return c == 'B' || c == 'C' || c == 'D' || c == 'F'
+                || c == 'I' || c == 'J' || c == 'S' || c == 'Z';
     }
 
     /**
