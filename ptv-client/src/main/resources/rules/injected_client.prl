@@ -1,0 +1,49 @@
+# injected_client：注入客户端（远程线程 + 未签名模块双源印证）
+# 文档 §4.3 / §4.2 / §5.2 系统单独（高分）
+
+rule "injected_client" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "system"
+    description: "注入客户端：游戏进程存在远程线程，且伴随未签名模块、黑名单发布者或可执行读写内存区"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let threads = features["ext_sys_remote_thread_count"] ?? 0.0
+    let unsigned = features["ext_sys_unsigned_module_count"] ?? 0.0
+    let blacklist = features["ext_sys_blacklisted_publisher"] ?? 0.0
+    let rw = features["ext_sys_exec_rw_region_count"] ?? 0.0
+
+    # 远程线程本身可能是 JIT / 崩溃转储线程，必须叠加注入侧证据；
+    # 黑名单发布者（Horion / Cheat Engine 等）单条即判定，≥3 条远程线程视为极端单源
+    let score = 55.0
+        + (if blacklist >= 1.0: 25.0 else: 0.0 end)
+        + (if unsigned >= 1.0: 10.0 else: 0.0 end)
+        + (if rw >= 1.0: 10.0 else: 0.0 end)
+
+    let no_keys = take([""], 0)
+    let keys = (if threads > 0.0: ["ext_sys_remote_thread_count"] else: no_keys end)
+        + (if unsigned > 0.0: ["ext_sys_unsigned_module_count"] else: no_keys end)
+        + (if blacklist > 0.0: ["ext_sys_blacklisted_publisher"] else: no_keys end)
+        + (if rw > 0.0: ["ext_sys_exec_rw_region_count"] else: no_keys end)
+
+    when:
+        (threads >= 1.0 AND (unsigned >= 1.0 OR blacklist >= 1.0 OR rw >= 1.0))
+        OR threads >= 3.0
+        OR blacklist >= 1.0
+
+    then:
+        emit_alert(
+            type = "injected_client",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

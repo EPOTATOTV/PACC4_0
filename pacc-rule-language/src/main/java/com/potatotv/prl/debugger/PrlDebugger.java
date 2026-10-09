@@ -206,19 +206,23 @@ public final class PrlDebugger implements PrlExecutionObserver {
 
     private void execute(PrlBytecode program, String ruleName, Map<String, Object> input) {
         PrlVm vm = new PrlVm(host, this);
+        Event outcome;
         try {
             Object result = ruleName != null && program.rule(ruleName) != null
                     ? vm.executeRule(program, ruleName, input)
                     : vm.execute(program, input);
-            publish(new Finished(result));
+            outcome = new Finished(result);
         } catch (PrlDebugAbortedException e) {
-            publish(new Aborted());
+            outcome = new Aborted();
         } catch (Throwable e) {
-            publish(new Failed(e));
-        } finally {
-            paused = false;
-            running.set(false);
+            outcome = new Failed(e);
         }
+        // 结束标志必须先落，再把结束事件放进队列：{@link #awaitPause} 的调用方拿事件只是
+        // 「不再有暂停」，判断「跑完了还是还在跑」靠的正是 {@link #isRunning()}。反过来写，
+        // 队列一唤醒调用方、标志位还没置false 的那个窗口里，它会读到「还在运行」。
+        paused = false;
+        running.set(false);
+        publish(outcome);
     }
 
     /**

@@ -1,0 +1,38 @@
+# suspicious_window：可疑窗口标题（需与其它进程指标加权，单窗口不触发）
+# 文档 §4.1 / §6.1 系统类
+
+rule "suspicious_window" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "system"
+    description: "可疑窗口标题：命中作弊软件窗口名且进程侧综合分达到阈值"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let windows = features["ext_process_window_hits"] ?? 0.0
+    let score = features["ext_process_score"] ?? 0.0
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if windows > 0.0: ["ext_process_window_hits"] else: no_keys end)
+        + (if score >= 30.0: ["ext_process_score"] else: no_keys end)
+
+    # 窗口标题单项仅 15 分，必须叠加进程名等其它指标到 30 分才判定，避免正常软件标题误报
+    when:
+        windows > 0.0 AND score >= 30.0
+
+    then:
+        emit_alert(
+            type = "suspicious_window",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

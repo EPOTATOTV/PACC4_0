@@ -1,0 +1,42 @@
+# vision_aimbot：视觉自瞄框（HUD 方框 + 网络旋转角速度双源印证）
+# 文档 §3.3.1 / §5.2 网络+屏幕双源印证
+
+rule "vision_aimbot" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "vision"
+    description: "视觉自瞄框：画面检出 HUD 方框，且网络层旋转角速度超过人类极限或方框数量异常"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let box = features["ext_vision_hud_box_count"] ?? 0.0
+    let rotation = features["ext_net_rotation_speed"] ?? 0.0
+
+    # 单个方框可能来自准星 / 血条 / 字幕框，需叠加网络层旋转角速度（>1000 度/秒）
+    # 或画面出现 ≥3 个方框（典型自瞄 GUI）才判定（文档 §5.2 自瞄双源）
+    let score = 50.0
+        + (if rotation > 1000.0: 25.0 else: 0.0 end)
+        + (if box >= 3.0: 20.0 else: 0.0 end)
+
+    let no_keys = take([""], 0)
+    let keys = (if box > 0.0: ["ext_vision_hud_box_count"] else: no_keys end)
+        + (if rotation > 0.0: ["ext_net_rotation_speed"] else: no_keys end)
+
+    when:
+        box >= 1.0 AND (rotation > 1000.0 OR box >= 3.0)
+
+    then:
+        emit_alert(
+            type = "vision_aimbot",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

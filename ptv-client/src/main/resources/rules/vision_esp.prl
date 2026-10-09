@@ -1,0 +1,38 @@
+# vision_esp：透视 ESP（屏幕线条检测，单源高分）
+# 文档 §3.3.1 / §5.2 屏幕单独（高分）
+
+rule "vision_esp" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "vision"
+    description: "透视 ESP：画面出现大量长直线（骨骼 / 追踪线），正常游戏 HUD 不会持续存在"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let esp = features["ext_vision_esp_lines"] ?? 0.0
+
+    # 正常画面（含建筑 / 网格纹理）也会有长直线，阈值取 5 条以上；
+    # ESP 骨骼线通常 8~20 条且逐帧稳定，≥10 条时给满分档（文档 §5.2 屏幕单独高分）
+    let score = 55.0
+        + (if esp >= 10.0: 20.0 else: 10.0 end)
+
+    let keys = ["ext_vision_esp_lines"]
+
+    when:
+        esp > 5.0
+
+    then:
+        emit_alert(
+            type = "vision_esp",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

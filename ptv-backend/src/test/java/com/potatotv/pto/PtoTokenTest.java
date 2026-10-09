@@ -1,13 +1,20 @@
 package com.potatotv.pto;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -15,14 +22,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * PTO 核心行为测试：签发/校验往返、篡改拒绝、算法混淆拒绝、issuer/时间窗约束、
- * 以及 jjwt 旧令牌的兼容性（同一 HMAC-SHA256 口径）。
+ * 设备指纹与用途 claim、RS256 非对称签发、PEM 解析，以及 jjwt 旧令牌的兼容性
+ * （同一 HMAC-SHA256 口径）。
  */
 class PtoTokenTest {
 
     private static final byte[] KEY = "0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8);
     private static final String ISSUER = "pacc-ptv";
 
+    private static KeyPair rsaKeyPair;
+    private static String rsaPrivatePem;
+    private static String rsaPublicPem;
+
     private final PtoToken pto = new PtoToken(KEY, ISSUER);
+
+    @BeforeAll
+    static void generateRsaKeys() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        rsaKeyPair = generator.generateKeyPair();
+        rsaPrivatePem = pem("PRIVATE KEY", rsaKeyPair.getPrivate().getEncoded());
+        rsaPublicPem = pem("PUBLIC KEY", rsaKeyPair.getPublic().getEncoded());
+    }
 
     @Test
     void roundTripClaims() {
@@ -58,7 +79,7 @@ class PtoTokenTest {
 
     @Test
     void algNoneRejected() {
-        // 手工拼一个 alg:none 的令牌：签名段留空。PTO 只认 HS256，必须拒绝。
+        // 手工拼一个 alg:none 的令牌：签名段留空。PTO 只认签名算法，必须拒绝。
         String header = base64Url("{\"alg\":\"none\",\"typ\":\"JWT\"}");
         String payload = base64Url("{\"iss\":\"" + ISSUER + "\",\"exp\":9999999999}");
         assertThrows(PtoException.class, () -> pto.verify(header + "." + payload + "."));
@@ -98,7 +119,7 @@ class PtoTokenTest {
     @Test
     void audienceAsPlainStringParsed() {
         // 兼容把 aud 写成单个字符串的载荷（部分实现如此）
-        Map<String, Object> claims = new java.util.LinkedHashMap<>();
+        Map<String, Object> claims = new LinkedHashMap<>();
         claims.put("iss", ISSUER);
         claims.put("aud", "pacc-client");
         claims.put("sub", "PT1");
@@ -110,7 +131,7 @@ class PtoTokenTest {
     @Test
     void jjwtStyleTokenVerifies() {
         // jjwt 输出的典型载荷（aud 为数组），用 PTO 校验必须能通过——保证替换时老令牌不掉线
-        Map<String, Object> claims = new java.util.LinkedHashMap<>();
+        Map<String, Object> claims = new LinkedHashMap<>();
         claims.put("iss", ISSUER);
         claims.put("aud", List.of("pacc-client"));
         claims.put("sub", "PT999");
@@ -135,7 +156,132 @@ class PtoTokenTest {
         assertFalse(pto.verify(token).has("empty"));
     }
 
+    // ------------------------------ 设备指纹与用途 ------------------------------
+
+    @Test
+    void deviceFingerprintBoundIntoToken() {
+        String token = pto.builder().subject("PT1").deviceFingerprint("dev-abc")
+                .expiresAt(Instant.now().plusSeconds(60)).sign();
+        PtoClaims claims = pto.verify(token);
+        assertEquals("dev-abc", claims.deviceFingerprint());
+    }
+
+    @Test
+    void unboundTokenHasNoDeviceFingerprint() {
+        String token = pto.builder().subject("PT1").expiresAt(Instant.now().plusSeconds(60)).sign();
+        assertEquals(null, pto.verify(token).deviceFingerprint());
+    }
+
+    @Test
+    void tokenTypeDeclared() {
+        String token = pto.builder().subject("PT1").tokenType("refresh")
+                .expiresAt(Instant.now().plusSeconds(60)).sign();
+        assertEquals("refresh", pto.verify(token).type());
+    }
+
+    // ------------------------------ RS256 非对称签名 ------------------------------
+
+    @Test
+    void rs256RoundTrip() {
+        PtoToken rsa = PtoToken.rsa(rsaKeyPair.getPrivate(), rsaKeyPair.getPublic(), ISSUER);
+        assertTrue(rsa.isRsa());
+        assertEquals(PtoToken.ALG_RS256, rsa.algorithm());
+
+        String token = rsa.builder().audience("pacc-client").subject("PT7")
+                .expiresAt(Instant.now().plusSeconds(60)).sign();
+        assertEquals("PT7", rsa.verify(token).subject());
+    }
+
+    @Test
+    void rs256TokenUsesRs256Header() {
+        PtoToken rsa = PtoToken.rsa(rsaKeyPair.getPrivate(), rsaKeyPair.getPublic(), ISSUER);
+        String token = rsa.builder().subject("PT7").expiresAt(Instant.now().plusSeconds(60)).sign();
+        String header = new String(Base64.getUrlDecoder().decode(token.split("\\.")[0]), StandardCharsets.UTF_8);
+        assertTrue(header.contains("\"alg\":\"RS256\""), header);
+    }
+
+    @Test
+    void rs256RejectsHs256Token() {
+        // 算法混淆攻击：RS256 实例拿到用对称密钥签的 HS256 令牌，必须拒绝
+        String hsToken = pto.builder().subject("PT1").expiresAt(Instant.now().plusSeconds(60)).sign();
+        PtoToken rsa = PtoToken.rsa(rsaKeyPair.getPrivate(), rsaKeyPair.getPublic(), ISSUER);
+        assertThrows(PtoException.class, () -> rsa.verify(hsToken));
+    }
+
+    @Test
+    void hs256RejectsRs256Token() {
+        PtoToken rsa = PtoToken.rsa(rsaKeyPair.getPrivate(), rsaKeyPair.getPublic(), ISSUER);
+        String rsToken = rsa.builder().subject("PT1").expiresAt(Instant.now().plusSeconds(60)).sign();
+        assertThrows(PtoException.class, () -> pto.verify(rsToken));
+    }
+
+    @Test
+    void rs256SignedByOtherKeyRejected() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair other = generator.generateKeyPair();
+        PtoToken signer = PtoToken.rsa(other.getPrivate(), other.getPublic(), ISSUER);
+        String token = signer.builder().subject("PT1").expiresAt(Instant.now().plusSeconds(60)).sign();
+
+        PtoToken verifier = PtoToken.rsa(rsaKeyPair.getPrivate(), rsaKeyPair.getPublic(), ISSUER);
+        assertThrows(PtoException.class, () -> verifier.verify(token));
+    }
+
+    @Test
+    void kidCarriedInHeaderAndVerified() {
+        PtoToken rsa = PtoToken.rsa(rsaKeyPair.getPrivate(), rsaKeyPair.getPublic(), ISSUER, "kid-1");
+        String token = rsa.builder().subject("PT1").expiresAt(Instant.now().plusSeconds(60)).sign();
+        String header = new String(Base64.getUrlDecoder().decode(token.split("\\.")[0]), StandardCharsets.UTF_8);
+        assertTrue(header.contains("\"kid\":\"kid-1\""), header);
+        assertEquals("kid-1", rsa.kid());
+        assertEquals("PT1", rsa.verify(token).subject());
+    }
+
+    @Test
+    void kidMismatchRejected() {
+        PtoToken signer = PtoToken.rsa(rsaKeyPair.getPrivate(), rsaKeyPair.getPublic(), ISSUER, "kid-1");
+        String token = signer.builder().subject("PT1").expiresAt(Instant.now().plusSeconds(60)).sign();
+        // 轮换后旧 kid 的验证实例应拒绝
+        PtoToken rotated = PtoToken.rsa(rsaKeyPair.getPrivate(), rsaKeyPair.getPublic(), ISSUER, "kid-2");
+        assertThrows(PtoException.class, () -> rotated.verify(token));
+    }
+
+    // ------------------------------ PEM 解析 ------------------------------
+
+    @Test
+    void parsePrivateKeyPemRoundTrip() {
+        PrivateKey parsed = PtoToken.parsePrivateKeyPem(rsaPrivatePem);
+        assertArrayEquals(rsaKeyPair.getPrivate().getEncoded(), parsed.getEncoded());
+    }
+
+    @Test
+    void parsePublicKeyPemRoundTrip() {
+        PublicKey parsed = PtoToken.parsePublicKeyPem(rsaPublicPem);
+        assertArrayEquals(rsaKeyPair.getPublic().getEncoded(), parsed.getEncoded());
+    }
+
+    @Test
+    void parsePemWithLiteralNewlines() {
+        // 环境变量注入常把换行写成字面量 \n，解析器需还原
+        String literal = rsaPrivatePem.replace("\n", "\\n");
+        PrivateKey parsed = PtoToken.parsePrivateKeyPem(literal);
+        assertArrayEquals(rsaKeyPair.getPrivate().getEncoded(), parsed.getEncoded());
+    }
+
+    @Test
+    void parsePemRejectsWrongLabel() {
+        assertThrows(PtoException.class, () -> PtoToken.parsePrivateKeyPem(rsaPublicPem));
+        assertThrows(PtoException.class, () -> PtoToken.parsePublicKeyPem("not-a-pem"));
+        assertThrows(PtoException.class, () -> PtoToken.parsePublicKeyPem(""));
+    }
+
     // ------------------------------ 测试辅助 ------------------------------
+
+    private static String pem(String label, byte[] der) {
+        return "-----BEGIN " + label + "-----\n"
+                + Base64.getMimeEncoder(64, new byte[]{'\n'}).encodeToString(der)
+                + "\n-----END " + label + "-----\n";
+    }
 
     private static String base64Url(String s) {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(s.getBytes(StandardCharsets.UTF_8));

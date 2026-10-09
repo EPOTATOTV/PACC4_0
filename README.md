@@ -114,7 +114,8 @@ npm run dev
 cd ptv-client
 mvn clean package
 java -jar target/ptv-client-*.jar
-# 配置见 src/main/resources/pacc-client.properties
+# 配置：外部工作目录下的 pacc-client.properties，或 PACC_CLIENT_* 环境变量
+# 生产端点（server.uri / wss.uri）已内置在代码默认值里，随 POB 加密，不再随包附带明文配置
 ```
 
 ### 一体化部署（Docker Compose，推荐）

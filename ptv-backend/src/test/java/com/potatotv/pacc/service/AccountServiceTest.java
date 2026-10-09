@@ -1,5 +1,6 @@
 package com.potatotv.pacc.service;
 
+import com.potatotv.pa2.Argon2;
 import com.potatotv.pacc.domain.Account;
 import com.potatotv.pacc.repository.AccountRepository;
 import com.potatotv.pacc.repository.DetectionEventRepository;
@@ -8,7 +9,10 @@ import com.potatotv.pacc.repository.PeripheralRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Optional;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -151,5 +155,40 @@ class AccountServiceTest {
         assertThrows(IllegalArgumentException.class, () ->
                 service.register("dup@ptv.dev", "13800138001", "DupMC", "E2", "100200300",
                         null, PASSWORD, "fp-1"));
+    }
+
+    // ---------------- PA2 标准格式与惰性迁移
+
+    @Test
+    void registerStoresPhcStandardFormat() {
+        Account a = registerValid();
+        assertTrue(a.getPasswordHash().startsWith("$argon2id$v=19$m=65536,t=3,p=1$"), a.getPasswordHash());
+    }
+
+    @Test
+    void loginMigratesLegacyHashToPhcFormat() {
+        Account a = registerValid();
+        a.setPasswordHash(legacyHash(PASSWORD));
+        // 旧格式仍能登录，且登录成功后持久化为标准格式
+        assertDoesNotThrow(() -> service.login(EMAIL, PASSWORD, "fp-1", false));
+        assertTrue(saved.getPasswordHash().startsWith("$argon2id$"), saved.getPasswordHash());
+        // 迁移后仍能正常登录
+        assertDoesNotThrow(() -> service.login(EMAIL, PASSWORD, "fp-1", false));
+    }
+
+    @Test
+    void loginRejectsWrongPasswordAgainstLegacyHash() {
+        Account a = registerValid();
+        a.setPasswordHash(legacyHash(PASSWORD));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.login(EMAIL, "WrongPassword1!", "fp-1", false));
+    }
+
+    /** 构造迁移前的存储格式：{@code Base64(salt):Base64(hash)}（生产参数 t=3,m=64MiB,p=1,T=32）。 */
+    private static String legacyHash(String password) {
+        byte[] salt = new byte[16];
+        new Random(20261002L).nextBytes(salt);
+        byte[] hash = new Argon2(3, 65536, 1, 32).hash(password.getBytes(StandardCharsets.UTF_8), salt);
+        return Base64.getEncoder().encodeToString(salt) + ":" + Base64.getEncoder().encodeToString(hash);
     }
 }

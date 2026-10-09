@@ -15,7 +15,7 @@
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <!-- 发行件不带调试符号：PDB 会把混淆后的 IL 逐行映射回原始源码，
-         等于让 PCO 白做。publish 目录里出现 PaccManager.pdb 即说明此项失效。 -->
+         等于让 Obfuscar 白做。publish 目录里出现 PaccManager.pdb 即说明此项失效。 -->
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>

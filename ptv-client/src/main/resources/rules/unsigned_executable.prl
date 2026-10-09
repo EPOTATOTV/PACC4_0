@@ -1,0 +1,42 @@
+# unsigned_executable：未签名可执行文件（黑名单发布者或大量未签名样本）
+# 文档 §4.5 系统层
+
+rule "unsigned_executable" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "system"
+    description: "未签名可执行文件：用户目录存在黑名单发布者的可执行文件，或未签名样本数量异常"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let unsigned = features["ext_sys_unsigned_exe_count"] ?? 0.0
+    let blacklist = features["ext_sys_blacklisted_exe_count"] ?? 0.0
+
+    # 未签名本身很常见（自编译工具 / 绿色软件），单条不判定；
+    # 5 条以上未签名或黑名单（Cheat Engine / WeMod / FLiNG 等）单条即判定
+    let score = 35.0
+        + (if blacklist >= 1.0: 40.0 else: 0.0 end)
+        + (if unsigned >= 5.0: 20.0 else: 10.0 end)
+
+    let no_keys = take([""], 0)
+    let keys = (if unsigned > 0.0: ["ext_sys_unsigned_exe_count"] else: no_keys end)
+        + (if blacklist > 0.0: ["ext_sys_blacklisted_exe_count"] else: no_keys end)
+
+    when:
+        blacklist >= 1.0 OR unsigned >= 5.0
+
+    then:
+        emit_alert(
+            type = "unsigned_executable",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

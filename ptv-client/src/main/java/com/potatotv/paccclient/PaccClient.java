@@ -16,6 +16,7 @@ import com.potatotv.paccclient.detection.federated.LocalGradientTrainer;
 import com.potatotv.paccclient.detection.stealth.StealthTelemetry;
 import com.potatotv.paccclient.detection.stream.StreamDetectionPipeline;
 import com.potatotv.paccclient.inspect.InspectAgent;
+import com.potatotv.paccclient.plugin.PluginManager;
 import com.potatotv.paccclient.redscreen.FullScreenRed;
 import com.potatotv.paccclient.redscreen.RedscreenReceiver;
 import com.potatotv.paccclient.redscreen.SessionRecorder;
@@ -119,6 +120,15 @@ public final class PaccClient {
         Thread.ofVirtual().name("ptv-stealth-warmup").start(StealthTelemetry::probe);
 
         DetectionEngine engine = new DetectionEngine(localAi);
+
+        // ---- 可扩展插件 API（文档 §2.4）：扫描 <store>/plugins/*.jar，注册检测器/特征/规则 ----
+        // 默认只加载受信任签名插件（开发者模式 env PACC_PLUGIN_DEV 放行未签名）；
+        // 目录不存在或无插件时零副作用。
+        PluginManager pluginManager = new PluginManager(storeDir.resolve("plugins"),
+                engine.systemProbe(), engine.ruleEngine()::updateRule);
+        pluginManager.loadAll();
+        engine.addPluginDetectors(pluginManager.detectors());
+        engine.addPluginFeatureProviders(pluginManager.featureProviders());
 
         // ---- DF §4.1.1 实时流式检测管线：增量特征 + 滑动窗口 + 两级判定（规则层 <1ms，存疑才进 AI）----
         // 消费线程无事件时 park，空闲不耗 CPU；判定与端到端延迟百分位由管线自身 metrics 暴露。
@@ -424,12 +434,15 @@ public final class PaccClient {
             detector.stop();
             streamPipeline.close();
             gradientUploader.close();
+            // 三层检测器资源：本地代理端口 / 抓屏线程（未启用时为空操作）
+            engine.close();
             recorder.stop();
             if (control != null) control.close();
             opsScheduler.shutdownNow();
             updateScheduler.shutdownNow();
             apmCollector.stop();
             reporter.close();
+            pluginManager.close();
             System.out.println("[PTV-Client] 玩家端已退出");
         }));
 

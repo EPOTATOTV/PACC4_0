@@ -68,7 +68,12 @@ public final class PrlDetectionEngine {
             CheatType.AUTOARMOR, CheatType.FASTEAT, CheatType.BLINK,
             CheatType.MEMORY_REGION, CheatType.MODULE_INJECTION, CheatType.DEBUGGER_PRESENT,
             CheatType.INJECTOR_TOOL, CheatType.VIRTUAL_MACHINE, CheatType.KERNEL_HOOK,
-            CheatType.CLICK_REGULARITY, CheatType.TRAJECTORY_ANOMALY, CheatType.REACTION_TIME);
+            CheatType.CLICK_REGULARITY, CheatType.TRAJECTORY_ANOMALY, CheatType.REACTION_TIME,
+            // 三层检测架构批次：同样按「网络 → 屏幕 → 系统」的登记顺序参与同分定序
+            CheatType.NET_SPEED_ANOMALY, CheatType.NET_FLY_ANOMALY, CheatType.NET_TELEPORT,
+            CheatType.NET_PACKET_TAMPER, CheatType.VISION_AIMBOT, CheatType.VISION_ESP,
+            CheatType.ONBOARD_MACRO, CheatType.INJECTED_CLIENT, CheatType.KERNEL_CALLBACK,
+            CheatType.UNSIGNED_EXECUTABLE);
 
     private final RuleManager manager;
     private final PrlCompiler compiler;
@@ -200,7 +205,7 @@ public final class PrlDetectionEngine {
         for (String key : FeatureSchema.keys()) {
             features.put(key, fv.get(key));
         }
-        features.putAll(fv.asMap());
+        features.putAll(fv.toReportMap());
 
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("features", features);

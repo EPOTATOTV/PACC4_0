@@ -1,7 +1,7 @@
 name: 安全问题
 description: 加固、扫描告警、供应链问题。可利用的漏洞请不要用这个模板。
 title: "[security] "
-labels: ["security"]
+labels: ["security", "status: needs-triage"]
 body:
   - type: markdown
     attributes:

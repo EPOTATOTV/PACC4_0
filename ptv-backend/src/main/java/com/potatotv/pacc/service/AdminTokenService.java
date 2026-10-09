@@ -1,17 +1,21 @@
 package com.potatotv.pacc.service;
 
+import com.potatotv.pacc.config.PtoKeyFactory;
 import com.potatotv.pto.PtoClaims;
 import com.potatotv.pto.PtoToken;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 
 /**
  * 管理员会话令牌（JWT，含 role 声明）。用于飞书登录成功后签发管理员会话，
  * 由管理后台的 {@code com.potatotv.pacc.config.AdminKeyFilter} 验签放行。
+ *
+ * <p>与玩家令牌共用 {@link PtoKeyFactory} 的算法与密钥：生产切到 RS256 时，
+ * 管理端与玩家端一起走非对称签名。</p>
  */
 @Service
 public class AdminTokenService {
@@ -19,14 +23,14 @@ public class AdminTokenService {
     public static final String ISSUER = "pacc-ptv-admin";
     public static final String AUDIENCE = "pacc-admin-console";
 
-    private final PtoToken pto;
-
-    public AdminTokenService(@Value("${pacc.security.jwt-secret}") String secret) {
-        this.pto = new PtoToken(secret.getBytes(StandardCharsets.UTF_8), ISSUER);
-    }
-
     /** 会话指纹 claim 名。绑定的目的是：令牌被盗后在其它设备/IP 上无法使用。 */
     public static final String FP_CLAIM = "fp";
+
+    private final PtoToken pto;
+
+    public AdminTokenService(PtoKeyFactory keys) {
+        this.pto = keys.create(ISSUER);
+    }
 
     public String create(String identity, String role) {
         return create(identity, role, null);
@@ -68,9 +72,9 @@ public class AdminTokenService {
         if (c == null) return null;
         String bound = c.getString(FP_CLAIM);
         if (bound != null && !bound.isBlank()) {
-            if (fingerprint == null || !java.security.MessageDigest.isEqual(
-                    bound.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                    fingerprint.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
+            if (fingerprint == null || !MessageDigest.isEqual(
+                    bound.getBytes(StandardCharsets.UTF_8),
+                    fingerprint.getBytes(StandardCharsets.UTF_8))) {
                 return null;
             }
         }

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: {{ include "pacc.image" (dict "image" .Values.images.frontend "ctx" .) }}
+          image: {{ include "pacc.image" (dict "image" .Values.images.frontend) }}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -26,30 +26,11 @@ spec:
             httpGet: { path: /healthz, port: http }
             initialDelaySeconds: 5
             periodSeconds: 10
-          livenessProbe:
-            httpGet: { path: /healthz, port: http }
-            initialDelaySeconds: 15
-            periodSeconds: 20
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "pacc.fullname" . }}-frontend
-  labels:
-    app: pacc-frontend
-    {{- include "pacc.labels" . | nindent 4 }}
-spec:
-  selector: { app: pacc-frontend }
-  ports:
-    - name: http
-      port: 80
-      targetPort: http
----
-# 兼容别名：nginx 网关镜像内的配置写死上游主机名 ptv-frontend，故补一个同名 Service。
-apiVersion: v1
-kind: Service
-metadata:
-  name: ptv-frontend
   labels:
     app: pacc-frontend
     {{- include "pacc.labels" . | nindent 4 }}

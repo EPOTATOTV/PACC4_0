@@ -1,0 +1,46 @@
+# net_packet_tamper：数据包篡改（服务器纠正偏差 + 字节级异常）
+# 文档 §2.5 / §2.6 / §5.2 网络+系统双源印证
+
+rule "net_packet_tamper" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "network"
+    description: "数据包篡改：客户端位置与服务器纠正偏差过大，且伴随字节级异常或内存特征码命中"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let correction = features["ext_net_server_correction"] ?? 0.0
+    let bytes = features["ext_net_byte_anomaly_count"] ?? 0.0
+    let signature = features["ext_memory_signature_hits"] ?? 0.0
+
+    # 服务器纠正是弱信号（丢包 / 网络抖动也会触发），必须叠加字节级异常；
+    # 20 次以上纠正视为极端单源；「字节异常 + 内存特征码命中」对应文档 §5.2 的内存修改双源印证
+    let score = 45.0
+        + (if bytes >= 1.0: 20.0 else: 0.0 end)
+        + (if signature >= 1.0: 25.0 else: 0.0 end)
+
+    let no_keys = take([""], 0)
+    let keys = (if correction > 0.0: ["ext_net_server_correction"] else: no_keys end)
+        + (if bytes > 0.0: ["ext_net_byte_anomaly_count"] else: no_keys end)
+        + (if signature > 0.0: ["ext_memory_signature_hits"] else: no_keys end)
+
+    when:
+        (correction >= 5.0 AND bytes >= 1.0)
+        OR correction >= 20.0
+        OR (bytes >= 3.0 AND signature >= 1.0)
+
+    then:
+        emit_alert(
+            type = "net_packet_tamper",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

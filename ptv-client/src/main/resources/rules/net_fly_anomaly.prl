@@ -1,0 +1,42 @@
+# net_fly_anomaly：网络层飞行异常（垂直速度持续越界）
+# 文档 §2.5 / §5.2 网络+屏幕双源印证
+
+rule "net_fly_anomaly" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "network"
+    description: "网络层飞行异常：垂直速度持续上升超过 2 秒，且画面运动不匹配或持续超 4 秒"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let fly = features["ext_net_fly_duration"] ?? 0.0
+    let mismatch = features["ext_vision_motion_mismatch"] ?? 0.0
+
+    # 鞘翅 / 水流电梯 / 服务器跳跃增益都会造成短暂上升，2 秒内不做判定；
+    # 2~4 秒需要屏幕层印证（画面几乎静止却持续上升），≥4 秒视为极端单源判定
+    let score = 55.0
+        + (if fly >= 4.0: 25.0 else: 0.0 end)
+        + (if mismatch >= 1.0: 20.0 else: 0.0 end)
+
+    let no_keys = take([""], 0)
+    let keys = (if fly > 0.0: ["ext_net_fly_duration"] else: no_keys end)
+        + (if mismatch >= 1.0: ["ext_vision_motion_mismatch"] else: no_keys end)
+
+    when:
+        fly >= 2.0 AND (mismatch >= 1.0 OR fly >= 4.0)
+
+    then:
+        emit_alert(
+            type = "net_fly_anomaly",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

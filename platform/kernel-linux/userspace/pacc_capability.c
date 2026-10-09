@@ -1,9 +1,10 @@
 /* PACC 内核层能力探测实现
  *
- * 依赖 libbpf 的 bpf() 包装（<bpf/bpf.h>），因此本文件只在能链到 libbpf 时编译。
- * 这一点是刻意的：用裸 syscall(__NR_bpf) 也能做，但 <sys/syscall.h> 的 __NR_bpf
- * 在旧 glibc 上可能缺失（需要自己兜 321），而 bpf() 的入参结构体 union bpf_attr
- * 必须与内核 ABI 逐字段对齐——libbpf 已经保证这件事，不必自己再抄一遍。
+ * 这里直接走 syscall(__NR_bpf)，不依赖任何现成的 bpf() 包装：libbpf 从 v1.0 起
+ * 就不提供裸 bpf()（<bpf/bpf.h> 只有 bpf_map_create() 这类高阶 API），glibc 的
+ * bpf() 是 2.36 才加的、Ubuntu 24.04 自带的 glibc 2.39 上也拿不到声明，两端都
+ * 靠不住。union bpf_attr 的逐字段 ABI 对齐由内核 uapi 头 <linux/bpf.h> 保证
+ * ——libbpf 自己也是用的它，不必再抄一遍。
  */
 #define _GNU_SOURCE
 #include <errno.h>
@@ -11,8 +12,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/utsname.h>
 
+#include <linux/bpf.h>
 #include <bpf/bpf.h>
 
 #include "pacc_capability.h"
@@ -35,6 +38,13 @@
 #define PACC_KV_RINGBUF_MINOR		8
 #define PACC_KV_PROC_MISC_MINOR		15	/* 4.15 */
 
+/* 裸 bpf(2) 包装，签名对齐 man 2 bpf（第三个参数是 union bpf_attr 的实际大小，
+ * 少了它内核按调用方传进来的垃圾值做 EFAULT/EINVAL 判定）。 */
+static int pacc_bpf(int cmd, union bpf_attr *attr, unsigned int size)
+{
+	return (int)syscall(__NR_bpf, cmd, attr, size);
+}
+
 /* 用 bpf(2) 实测一次最小 map 创建，判定 bpf 子系统是否真的可用。
  * 只信 uname 是不够的：发行版裁剪内核（CONFIG_BPF_SYSCALL=n）、容器 seccomp、
  * 缺 CAP_BPF 都会让「版本够」的机器用不了 eBPF，而这三者的报错原因完全不同，
@@ -50,7 +60,7 @@ static int pacc_probe_bpf_syscall(int *out_errno, int *out_ringbuf)
 	attr.value_size = sizeof(unsigned int);
 	attr.max_entries = 1;
 
-	fd = bpf(BPF_MAP_CREATE, &attr);
+	fd = pacc_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
 	if (fd < 0) {
 		*out_errno = errno;
 		return 0;
@@ -64,7 +74,7 @@ static int pacc_probe_bpf_syscall(int *out_errno, int *out_ringbuf)
 	memset(&attr, 0, sizeof(attr));
 	attr.map_type = BPF_MAP_TYPE_RINGBUF;
 	attr.max_entries = 4096;	/* 必须是 2 的幂且为页大小整数倍 */
-	fd = bpf(BPF_MAP_CREATE, &attr);
+	fd = pacc_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
 	if (fd < 0) {
 		*out_ringbuf = 0;
 		return 1;

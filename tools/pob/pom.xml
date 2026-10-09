@@ -8,7 +8,7 @@
     <artifactId>pacc-obfuscator</artifactId>
     <version>1.0.0</version>
     <name>PACC 字节码混淆器（POB）</name>
-    <description>自研 Java 字节码混淆器：类/成员重命名 + 类名字符串同步改写 + 调试属性剥离，零第三方依赖。</description>
+    <description>自研 Java 字节码混淆器：类/成员重命名 + 类名字符串同步改写 + 调试属性剥离，另含可选的字符串加密 / Unicode 私有区命名 / 垃圾代码 / 完整性校验（默认全部关闭），零第三方依赖。</description>
 
     <properties>
         <java.version>21</java.version>

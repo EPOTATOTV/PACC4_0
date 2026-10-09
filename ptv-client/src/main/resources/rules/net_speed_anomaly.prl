@@ -1,0 +1,42 @@
+# net_speed_anomaly：网络层速度异常（行为数据流独立验证）
+# 文档 §2.5 / §5.2 网络+屏幕双源印证
+
+rule "net_speed_anomaly" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: high
+    category: "network"
+    description: "网络层速度异常：瞬时速度超过基准速度 2.5 倍，且画面运动不匹配或倍率极端"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let ratio = features["ext_net_speed_ratio"] ?? 0.0
+    let mismatch = features["ext_vision_motion_mismatch"] ?? 0.0
+
+    # 单源（网络）只在倍率极端（≥4 倍）时判定；2.5~4 倍之间需要屏幕层画面运动印证，
+    # 避免传送门 / 载具 / 服务器传送造成的正常瞬时高速度误报（文档 §5.2 多源印证）
+    let score = 55.0
+        + (if ratio >= 4.0: 25.0 else: 0.0 end)
+        + (if mismatch >= 1.0: 20.0 else: 0.0 end)
+
+    let no_keys = take([""], 0)
+    let keys = (if ratio > 0.0: ["ext_net_speed_ratio"] else: no_keys end)
+        + (if mismatch >= 1.0: ["ext_vision_motion_mismatch"] else: no_keys end)
+
+    when:
+        ratio >= 2.5 AND (mismatch >= 1.0 OR ratio >= 4.0)
+
+    then:
+        emit_alert(
+            type = "net_speed_anomaly",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

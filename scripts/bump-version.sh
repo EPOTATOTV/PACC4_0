@@ -106,8 +106,6 @@ sub ptv-client/src/main/java/com/potatotv/paccclient/PtvAuth.java \
 
 # 签名库版本随客户端版本一起走：端侧请求的库版本必须和后端默认库版本对得上，
 # 否则特征库热更新会因为版本号不匹配而拿不到包
-sub ptv-client/src/main/resources/pacc-client.properties \
-  's{(pacc\.client\.signature\.version=v)[0-9][0-9.]*}{$1 . $ENV{PACC_NEW_VERSION}}se'
 sub ptv-client/src/main/java/com/potatotv/paccclient/ClientConfig.java \
   's{(PACC_CLIENT_SIGNATURE_VERSION",\s*"v)[0-9][0-9.]*}{$1 . $ENV{PACC_NEW_VERSION}}se'
 sub ptv-backend/src/main/java/com/potatotv/pacc/bootstrap/DataSeeder.java \

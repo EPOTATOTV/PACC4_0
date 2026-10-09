@@ -1,0 +1,37 @@
+# suspicious_module：可疑未知模块（白名单外的模块数量达到阈值）
+# 文档 §4.2 / §6.1 内存注入类
+
+rule "suspicious_module" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "memory"
+    description: "可疑模块：Minecraft 进程加载了多个白名单外的未知模块"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let unknown = features["ext_module_unknown_count"] ?? 0.0
+    let score = features["ext_module_score"] ?? 0.0
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if unknown >= 3.0: ["ext_module_unknown_count"] else: no_keys end)
+
+    # 未知模块可能是正常第三方库，需数量 >=3 且综合分达标才判定，降低误报
+    when:
+        unknown >= 3.0 AND score >= 40.0
+
+    then:
+        emit_alert(
+            type = "suspicious_module",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

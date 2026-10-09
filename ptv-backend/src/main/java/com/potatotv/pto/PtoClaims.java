@@ -12,6 +12,12 @@ import java.util.Map;
  */
 public final class PtoClaims {
 
+    /** 设备指纹 claim 名：绑定签发时的设备，令牌被挪到其它设备使用时应被拒绝。 */
+    public static final String DFP = "dfp";
+
+    /** 令牌用途 claim 名：access / refresh。 */
+    public static final String TYPE = "type";
+
     private final Map<String, Object> claims;
 
     PtoClaims(Map<String, Object> claims) {
@@ -28,6 +34,16 @@ public final class PtoClaims {
 
     public String id() {
         return getString("jti");
+    }
+
+    /** 绑定的设备指纹；未绑定时返回 null。 */
+    public String deviceFingerprint() {
+        return getString(DFP);
+    }
+
+    /** 令牌用途（access / refresh）；未声明时返回 null。 */
+    public String type() {
+        return getString(TYPE);
     }
 
     /** 过期时间（epoch 秒）。缺失返回 0。 */

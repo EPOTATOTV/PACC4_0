@@ -3,10 +3,17 @@ package com.potatotv.paccclient.detection;
 import com.potatotv.paccclient.ai.LocalAiModel;
 import com.potatotv.paccclient.detection.cheat.PrlDetectionEngine;
 import com.potatotv.paccclient.detection.samples.InputEvent;
+import com.potatotv.paccclient.detection.scanner.ScannerRunner;
 import com.potatotv.paccclient.detection.stealth.StealthSnapshot;
 import com.potatotv.paccclient.detection.stealth.StealthTelemetry;
+import com.potatotv.paccclient.probe.SystemProbe;
+import com.potatotv.paccclient.probe.SystemProbes;
+import com.potatotv.paccclient.spi.DetectContext;
+import com.potatotv.paccclient.spi.Detector;
+import com.potatotv.paccclient.spi.FeatureProvider;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,9 +43,13 @@ public final class DetectionEngine {
     private final BufferedInputSource inputSource = new BufferedInputSource();
     private final FeatureCollector featureCollector = new FeatureCollector(inputSource);
     private final BruteForceDetector bruteForceDetector;
+    private final SystemProbe systemProbe;
+    private final ScannerRunner scannerRunner;
 
     /** 最近一次 L0/L1 判定层级（供本地控制服务与联调观测）。 */
     private volatile LayeredDecision.Decision lastDecision = LayeredDecision.Decision.PERIODIC;
+    /** 最近一次三层融合风险分（文档 §5.3；各层未启用 / 未采样时为 0）。 */
+    private volatile double lastFusedRisk;
     /** 最近一次采样的特征覆盖度（验收 A02 的运行时观测值）。 */
     private volatile int lastCoverage;
     /** 最近一次采集到的行为特征；特征采集关闭或尚未采样时为空向量。 */
@@ -57,9 +68,54 @@ public final class DetectionEngine {
 
     /** 测试接缝：注入探针（生产固定走 {@code 127.0.0.1:17020} 的默认端点）。 */
     DetectionEngine(LocalAiModel aiModel, JavaAgentProbe javaAgentProbe) {
+        this(aiModel, javaAgentProbe, SystemProbes.create());
+    }
+
+    /** 测试接缝：注入系统探针（按平台自动选择，测试可注入假探针）。 */
+    DetectionEngine(LocalAiModel aiModel, JavaAgentProbe javaAgentProbe, SystemProbe systemProbe) {
         LocalAiModel model = aiModel == null ? new LocalAiModel() : aiModel;
         this.javaAgentProbe = javaAgentProbe == null ? new JavaAgentProbe() : javaAgentProbe;
+        this.systemProbe = systemProbe == null ? SystemProbes.create() : systemProbe;
+        this.scannerRunner = ScannerRunner.withBuiltinDetectors();
         this.bruteForceDetector = new BruteForceDetector(model, null);
+        // 插件特征提供者与核心检测器共用同一份只读探针
+        this.featureCollector.setSystemProbe(this.systemProbe);
+    }
+
+    /** 只读系统探针（供插件宿主复用，避免重复建探针）。 */
+    public SystemProbe systemProbe() {
+        return systemProbe;
+    }
+
+    /**
+     * 接入插件检测器（文档 §2.4 步骤 7）。应在开始周期性 {@code sample} 之前调用；
+     * 检测器已由插件沙箱包好超时与熔断。
+     */
+    public void addPluginDetectors(Collection<Detector> pluginDetectors) {
+        scannerRunner.addDetectors(pluginDetectors);
+    }
+
+    /** 接入插件特征提供者（文档 §2.4 步骤 7）。 */
+    public void addPluginFeatureProviders(Collection<FeatureProvider> providers) {
+        featureCollector.addFeatureProviders(providers);
+    }
+
+    /**
+     * 释放三层检测器持有的资源（本地代理监听端口 / 抓屏线程）。幂等，可重复调用。
+     *
+     * <p>只有实现了 {@link AutoCloseable} 的检测器会被关闭（网络 / 屏幕层）；
+     * 单个检测器关闭失败不影响其余检测器，也不抛出——退出路径不应该被清理异常打断。</p>
+     */
+    public void close() {
+        for (Detector detector : scannerRunner.detectors()) {
+            if (detector instanceof AutoCloseable closeable) {
+                try {
+                    closeable.close();
+                } catch (Exception ignored) {
+                    // 清理失败只影响该层资源，不打断退出
+                }
+            }
+        }
     }
 
     /** 行为采样落点：Java Agent 轮询把 {@code runtime_sample} 写进来。 */
@@ -74,6 +130,11 @@ public final class DetectionEngine {
 
     public LayeredDecision.Decision lastDecision() {
         return lastDecision;
+    }
+
+    /** 最近一次三层融合风险分（文档 §5.3 加权判定结果，0-100）。 */
+    public double lastFusedRisk() {
+        return lastFusedRisk;
     }
 
     /** 最近一帧有真实数据支撑的维度数。 */
@@ -102,12 +163,38 @@ public final class DetectionEngine {
             return Optional.of(e);
         }
 
-        // ---- 2. L0/L1：特征 + 规则 + 端侧 AI ----
+        // ---- 2. L0/L1：特征采集 ----
         FeatureVector behaviorFv = null;
         if (PerfToggles.enabled(PerfToggles.FEATURE_COLLECTION)) {
             behaviorFv = featureCollector.collect();
             lastFeatures = behaviorFv;
             lastCoverage = featureCollector.coverage();
+        }
+
+        // ---- 2.5 DF Alpha 专项检测器（§4）：到点的 Scanner 产出，把 ext_ 写回特征 ----
+        // 必须在规则求值之前跑：cheat_process / known_cheat_module 等规则读的就是这些 ext_ 维度。
+        // Scanner 自身返回的事件只作兜底（规则缺失 / 关闭时才用到），避免与 PRL 命中重复上报。
+        // 三层架构批次（§2/§3/§4 增强）由各检测器按 PerfToggles 的层开关自门控；
+        // 输入源一并注入，供输入时序检测器读原始点击 / 按键序列。
+        Optional<DetectionEvent> scannerEvent = Optional.empty();
+        if (PerfToggles.enabled(PerfToggles.SYSTEM_SCANNERS)) {
+            FeatureVector scanFv = behaviorFv == null ? new FeatureVector() : behaviorFv;
+            scannerEvent = scannerRunner.tick(new DetectContext(systemProbe, scanFv, inputSource));
+
+            // 文档 §5.3：三层证据加权融合（网络 35% / 屏幕 25% / 系统 40%），融合分写回扩展特征
+            // 供上报与规则引用；达到红屏阈值且本周期有检测器命中时，端侧直接处置。
+            double fused = LayeredDecision.fusedRisk(
+                    scanFv.get("ext_net_score"), scanFv.get("ext_vision_score"), scanFv.get("ext_sys_score"));
+            lastFusedRisk = fused;
+            scanFv.putExtended("ext_fusion_score", fused);
+            if (fused >= LayeredDecision.RISK_REDSCREEN && scannerEvent.isPresent()) {
+                lastDecision = LayeredDecision.Decision.LOCAL_BLOCK;
+                return scannerEvent;
+            }
+        }
+
+        // ---- 2.6 L0 规则 + L1 端侧 AI ----
+        if (behaviorFv != null) {
             BruteForceDetector.Verdict verdict = bruteForceDetector.evaluate(
                     behaviorFv, clickIntervals(), inputSource.mouseTrajectory(), inputSource.aimTarget());
             LayeredDecision.Decision decision = LayeredDecision.decide(
@@ -130,9 +217,11 @@ public final class DetectionEngine {
         // ---- 4. 底层探针与行为兜底 ----
         long cps = behaviorFv == null ? 0 : Math.round(behaviorFv.get("feature_click_cps"));
         double aim = behaviorFv == null ? 0 : behaviorFv.get("feature_killaura_angle_speed");
+        Optional<DetectionEvent> scannerFallback = scannerEvent;
         return lowLevelProbe.scan()
                 .or(() -> behaviorMonitor.inspectInput(cps, aim))
-                .or(() -> javaAgentProbe.scanForMods(false));
+                .or(() -> javaAgentProbe.scanForMods(false))
+                .or(() -> scannerFallback);
     }
 
     /** 最近点击间隔（ms，旧→新）：取输入缓冲里的 CLICK 事件时间差。 */

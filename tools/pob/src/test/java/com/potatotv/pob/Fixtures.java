@@ -2,7 +2,11 @@ package com.potatotv.pob;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -252,12 +256,18 @@ final class Fixtures {
 
     /** 编译样例源码并打成 jar；返回 jar 路径。 */
     static Path compileAndJar(Path workDir, Path jarPath) throws IOException {
+        return jar(workDir, jarPath, sources(), ENTRY);
+    }
+
+    /** 编译任意一组源码并打成 jar，入口写进清单；返回 jar 路径。 */
+    static Path jar(Path workDir, Path jarPath, Map<String, String> sources, String entry) throws IOException {
         Path srcDir = workDir.resolve("src");
         Path classesDir = workDir.resolve("classes");
         Files.createDirectories(classesDir);
         List<String> files = new ArrayList<>();
-        for (Map.Entry<String, String> e : sources().entrySet()) {
-            Path file = srcDir.resolve(PKG).resolve(e.getKey() + ".java");
+        for (Map.Entry<String, String> e : sources.entrySet()) {
+            String relative = e.getKey().replace('.', '/') + ".java";
+            Path file = srcDir.resolve(relative);
             Files.createDirectories(file.getParent());
             Files.writeString(file, e.getValue(), StandardCharsets.UTF_8);
             files.add(file.toString());
@@ -277,7 +287,7 @@ final class Fixtures {
         try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(jarPath))) {
             Path manifest = classesDir.resolve("MANIFEST.MF");
             Files.writeString(manifest, "Manifest-Version: 1.0\r\n"
-                    + "Main-Class: " + ENTRY + "\r\n\r\n", StandardCharsets.UTF_8);
+                    + "Main-Class: " + entry + "\r\n\r\n", StandardCharsets.UTF_8);
             zip.putNextEntry(new ZipEntry("META-INF/MANIFEST.MF"));
             zip.write(Files.readAllBytes(manifest));
             zip.closeEntry();
@@ -292,5 +302,59 @@ final class Fixtures {
             }
         }
         return jarPath;
+    }
+
+    /** 运行 jar 入口类的 main，捕获标准输出（去掉首尾空白）。 */
+    static String runMain(Path jar, String entry) throws Exception {
+        try (URLClassLoader loader = new URLClassLoader(new URL[]{jar.toUri().toURL()},
+                Fixtures.class.getClassLoader())) {
+            Class<?> main = Class.forName(entry, true, loader);
+            PrintStream saved = System.out;
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            try {
+                System.setOut(new PrintStream(buffer, true, StandardCharsets.UTF_8));
+                main.getMethod("main", String[].class).invoke(null, (Object) new String[0]);
+            } finally {
+                System.setOut(saved);
+            }
+            return buffer.toString(StandardCharsets.UTF_8).trim();
+        }
+    }
+
+    /** 读取 jar 的所有条目（已解压）。 */
+    static Map<String, byte[]> readJar(Path jar) throws IOException {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar.toFile())) {
+            var it = zip.entries();
+            while (it.hasMoreElements()) {
+                var entry = it.nextElement();
+                entries.put(entry.getName(), zip.getInputStream(entry).readAllBytes());
+            }
+        }
+        return entries;
+    }
+
+    /** 整个 jar 的任意条目里是否出现该 ASCII 明文。 */
+    static boolean containsPlaintext(Map<String, byte[]> entries, String text) {
+        byte[] needle = text.getBytes(StandardCharsets.UTF_8);
+        for (byte[] bytes : entries.values()) {
+            if (indexOf(bytes, needle) >= 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int indexOf(byte[] haystack, byte[] needle) {
+        outer:
+        for (int i = 0; i + needle.length <= haystack.length; i++) {
+            for (int j = 0; j < needle.length; j++) {
+                if (haystack[i + j] != needle[j]) {
+                    continue outer;
+                }
+            }
+            return i;
+        }
+        return -1;
     }
 }

@@ -37,14 +37,24 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       - name: 安装 Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: ptv-frontend/package-lock.json
+          cache-dependency-path: |
+            ptv-frontend/package-lock.json
+            pacc-rule-language/prl-editor/package-lock.json
+
+      # 管理端的规则编辑器是 file: 依赖（pacc-rule-language/prl-editor）。npm ci 只做软链，
+      # 不会替它跑构建脚本；拿不到它的 dist 与类型声明时，ptv-frontend 的 tsc -b 会先炸在
+      # src/pages/p1/RuleEditor.tsx 的回调参数上（TS7006 implicit any）。ci.yml 的前端 job
+      # 也是先编这一包，这里必须照做。
+      - name: 构建 PRL 编辑器组件包
+        working-directory: pacc-rule-language/prl-editor
+        run: npm ci && npm run build
 
       # iOS 壳需要前端 dist 作为 WebView 资源，先构建
       - name: 构建前端 web 资源
@@ -61,6 +71,29 @@ jobs:
         run: |
           npx cap sync ios
           cd ios/App && pod install --repo-update
+
+      # Capacitor 的 iOS 模板只带 App.xcodeproj / App.xcworkspace，不带共享 scheme
+      # （xcshareddata/xcschemes 是空的），而 xcodebuild -scheme 只认共享 scheme：
+      # 本地第一次用 Xcode 打开工程时它会把 scheme 写进 xcuserdata（.gitignore 里，
+      # 且是用户级的），CI 上没人打开过 Xcode，于是必然报
+      # 「The workspace named "App" does not contain a scheme named "App"」。
+      # 用 CocoaPods 依赖的 xcodeproj gem 现场生成一个共享 scheme —— 它自己从
+      # project.pbxproj 里取 target UUID，比手抄 xcscheme 里的 BlueprintIdentifier 可靠。
+      - name: 生成共享 Scheme
+        working-directory: ptv-mobile/ios/App
+        run: |
+          set -euo pipefail
+          ruby -e 'require "xcodeproj"' 2>/dev/null || gem install xcodeproj --no-document
+          ruby -e '
+            require "xcodeproj"
+            project = Xcodeproj::Project.open("App.xcodeproj")
+            target = project.targets.find { |t| t.name == "App" } or abort("找不到 App target")
+            scheme = Xcodeproj::XCScheme.new
+            scheme.add_build_target(target)
+            scheme.save_as("App.xcodeproj", "App", true)
+          '
+          ls -l App.xcodeproj/xcshareddata/xcschemes/
+          xcodebuild -workspace App.xcworkspace -list | sed -n '1,20p'
 
       - name: xcodebuild 编译校验
         working-directory: ptv-mobile/ios/App
@@ -96,7 +129,7 @@ jobs:
 
       - name: 上传构建产物
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: ios-sim-archive
           path: ptv-mobile/ios/App/build-release/App.xcarchive

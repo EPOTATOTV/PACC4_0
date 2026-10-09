@@ -62,6 +62,55 @@ final class JarObfuscator {
         renamer = Renamer.compute(classes, rules, targetPackage);
         nameRewriter = new NameRewriter(renamer.classMap());
 
+        List<Named> ordered = new ArrayList<>();
+        for (ClassFile cf : classes) {
+            String original = cf.thisName(); // rewriteUtf8 之后 thisName() 已经是新名，必须先取
+            if (renamer.covers(original)) {
+                cf.widenAccess();
+            }
+            rename(cf);
+            ordered.add(new Named(cf, original));
+        }
+
+        byte[] vault = null;
+        byte[] concatBootstrap = null;
+        if (rules.encryptStrings()) {
+            StringEncryptor encryptor = new StringEncryptor(targetPackage, rules, renamer);
+            vault = encryptor.encrypt(classes);
+            concatBootstrap = encryptor.concatClass();
+        }
+
+        // 顺序有讲究：字符串加密先做（它按 ldc 位置重算偏移），平坦化再重塑控制流，
+        // 垃圾代码注入要求 return 还是显式指令，完整性校验最后做（哈希要覆盖前面所有变换）。
+        int flattened = 0;
+        if (rules.flatten()) {
+            for (Named n : ordered) {
+                if (renamer.covers(n.original)) {
+                    flattened += ControlFlowFlattener.apply(n.cf);
+                }
+            }
+            System.err.println("POB：控制流平坦化完成 " + flattened + " 个方法（其余方法不满足保守条件，原样放行）");
+        }
+
+        if (rules.bogusCode()) {
+            for (Named n : ordered) {
+                if (rules.enhancesClass(n.original)) {
+                    BogusInsert.apply(n.cf);
+                }
+            }
+        }
+
+        byte[] guard = null;
+        if (rules.integrity()) {
+            List<ClassFile> marked = new ArrayList<>();
+            for (Named n : ordered) {
+                if (rules.enhancesClass(n.original)) {
+                    marked.add(n.cf);
+                }
+            }
+            guard = new IntegrityGuardInjector(targetPackage).inject(marked);
+        }
+
         Map<String, byte[]> output = new LinkedHashMap<>();
         byte[] manifest = resources.get("META-INF/MANIFEST.MF");
         if (manifest != null) {
@@ -72,18 +121,32 @@ final class JarObfuscator {
                 output.put(e.getKey(), e.getValue());
             }
         }
-        for (ClassFile cf : classes) {
-            String original = cf.thisName(); // rewriteUtf8 之后 thisName() 已经是新名，必须先取
-            if (renamer.covers(original)) {
-                cf.widenAccess();
-            }
-            rename(cf);
-            String renamed = renamer.classMap().getOrDefault(original, original);
-            output.put(renamed + ".class", cf.write());
+        for (Named n : ordered) {
+            output.put(n.cf.thisName() + ".class", n.cf.write());
+        }
+        if (vault != null) {
+            output.put(targetPackage + '/' + VaultNames.STRING_VAULT_SIMPLE + ".class", vault);
+        }
+        if (concatBootstrap != null) {
+            output.put(targetPackage + '/' + VaultNames.CONCAT_BOOTSTRAP_SIMPLE + ".class", concatBootstrap);
+        }
+        if (guard != null) {
+            output.put(targetPackage + '/' + VaultNames.INTEGRITY_GUARD_SIMPLE + ".class", guard);
         }
 
         writeJar(inputJar, output);
         writeMapping();
+    }
+
+    /** 记住重命名前的原名，供 enhance / keep 之类的规则在改名后仍能命中。 */
+    private static final class Named {
+        final ClassFile cf;
+        final String original;
+
+        Named(ClassFile cf, String original) {
+            this.cf = cf;
+            this.original = original;
+        }
     }
 
     // ------------------------------------------------------------------

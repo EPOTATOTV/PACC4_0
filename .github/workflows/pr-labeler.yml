@@ -1,0 +1,30 @@
+# PACC PR Labeler —— 按变更路径自动打 area:* 标签
+#
+# 用 pull_request_target 而不是 pull_request：fork 来的 PR 在 pull_request 事件下
+# GITHUB_TOKEN 是只读的，打标签会 403，而外部贡献恰恰是最需要自动分流的场景。
+# 这里不 checkout、不执行 PR 里的任何代码，labeler 只通过 API 读改动文件列表，
+# 所以不存在 pull_request_target 常见的「拿可写 token 跑不可信代码」风险。
+name: PR Labeler
+
+on:
+  pull_request_target:
+    types: [ opened, reopened, synchronize ]
+
+permissions:
+  contents: read
+  pull-requests: write   # 给 PR 打标签
+
+concurrency:
+  group: pr-labeler-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: 按变更路径打标签
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9  # v5.0.0
+        with:
+          # 只追加，不因后续提交改动了路径就把人工加的标签撤掉
+          sync-labels: false

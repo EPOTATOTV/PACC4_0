@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.potatotv.pacc.domain.SecurityTotp;
 import com.potatotv.pacc.repository.SecurityTotpRepository;
 import com.potatotv.pto.PtoClaims;
-import com.potatotv.pto.PtoException;
 import com.potatotv.pto.PtoToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +48,10 @@ public class TotpService {
 
     private final SecurityTotpRepository totpRepository;
     private final ObjectMapper objectMapper;
+    /**
+     * pending 令牌专用签名器：密钥由 jwt-secret 二次派生，与主会话令牌隔离。
+     * 这里固定 HS256——pending 只是登录流程内的短时握手凭据，不需要非对称公钥分发。
+     */
     private final PtoToken pendingPto;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -159,21 +162,19 @@ public class TotpService {
 
     private String issuePending(String subject, String issuer, String adminRole) {
         Instant exp = Instant.now().plusSeconds(PENDING_TTL_SECONDS);
-        var builder = pendingPto.builder()
+        return pendingPto.builder()
                 .issuer(issuer)
                 .subject(subject)
                 .id(randomId())
-                .expiresAt(exp);
-        if (adminRole != null) {
-            builder.claim("arole", adminRole);
-        }
-        return builder.sign();
+                .claim("arole", adminRole)
+                .expiresAt(exp)
+                .sign();
     }
 
     private PtoClaims parsePending(String pending, String issuer) {
         try {
             return pendingPto.verify(pending, issuer);
-        } catch (PtoException | IllegalArgumentException e) {
+        } catch (Exception e) {
             throw new SecurityException("两步验证会话已失效，请重新登录");
         }
     }

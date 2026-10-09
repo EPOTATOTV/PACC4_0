@@ -7,8 +7,10 @@ import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * PA2（自研 Argon2id + Blake2b）单元测试。
@@ -109,6 +111,108 @@ class Argon2Test {
         assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 1024, 0, 32));
         assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 1024, 1, 3));
         assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 4, 1, 32));
+        // 上限：挡住超大参数导致的巨量分配 / 长时间迭代
+        assertThrows(IllegalArgumentException.class, () -> new Argon2(17, 1024, 1, 32));
+        assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 1024, 17, 32));
+        assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 1024, 1, 65));
+        assertThrows(IllegalArgumentException.class, () -> new Argon2(1, 2097153, 1, 32));
+    }
+
+    // ---------------- PHC 标准格式（§3.2.1） ----------------
+
+    @Test
+    void encodeUsesPhcStandardFormat() {
+        String encoded = new Argon2(3, 65536, 1, 32).encode(utf8("Pacc@Test123"), SALT);
+        // $argon2id$v=19$m=65536,t=3,p=1$salt$hash（无填充标准 Base64）
+        assertTrue(encoded.startsWith("$argon2id$v=19$m=65536,t=3,p=1$"), encoded);
+        assertEquals(6, encoded.split("\\$").length);
+        Base64.getDecoder().decode(encoded.split("\\$")[4]);
+        Base64.getDecoder().decode(encoded.split("\\$")[5]);
+    }
+
+    @Test
+    void parseRoundTripsEncode() {
+        Argon2 argon2 = new Argon2(3, 65536, 1, 32);
+        String encoded = argon2.encode(utf8("Pacc@Test123"), SALT);
+        Argon2.Argon2Hash parsed = Argon2.parse(encoded);
+        assertEquals(0x13, parsed.version());
+        assertEquals(65536, parsed.memoryKib());
+        assertEquals(3, parsed.iterations());
+        assertEquals(1, parsed.parallelism());
+        assertArrayEquals(SALT, parsed.salt());
+        assertEquals(32, parsed.hash().length);
+    }
+
+    @Test
+    void verifyAcceptsOwnEncodingAndRejectsWrongPassword() {
+        String encoded = new Argon2(3, 65536, 1, 32).encode(utf8("Pacc@Test123"), SALT);
+        assertTrue(Argon2.verify(encoded, utf8("Pacc@Test123")));
+        assertFalse(Argon2.verify(encoded, utf8("Pacc@Test124")));
+    }
+
+    @Test
+    void verifyAcceptsUrlSafeAlphabet() {
+        // 编码固定用标准 Base64，但解析要兼容别处生成的 URL 安全字母表
+        String standard = new Argon2(3, 65536, 1, 32).encode(utf8("Pacc@Test123"), SALT);
+        String urlSafe = standard.replace('+', '-').replace('/', '_');
+        assertTrue(Argon2.verify(urlSafe, utf8("Pacc@Test123")));
+    }
+
+    @Test
+    void verifyReturnsFalseForMalformedEncoding() {
+        assertFalse(Argon2.verify(null, utf8("Pacc@Test123")));
+        assertFalse(Argon2.verify("not-a-phc-string", utf8("Pacc@Test123")));
+        assertFalse(Argon2.verify("$argon2id$v=16$m=65536,t=3,p=1$c29tZXNhbHQ$AAAAAAAA", utf8("x")));
+        assertFalse(Argon2.verify("$argon2i$v=19$m=65536,t=3,p=1$c29tZXNhbHQ$AAAA", utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=3$c29tZXNhbHQ$AAAA", utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=3,p=1$!!!$AAAA", utf8("x")));
+    }
+
+    @Test
+    void verifyReturnsFalseForExcessiveParameters() {
+        // 编码里的参数超出支持范围时按不匹配处理，不按超大参数分配内存或迭代
+        String salt = b64(SALT);
+        String hash = b64(new byte[32]);
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=17,p=1$" + salt + "$" + hash, utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=3,p=17$" + salt + "$" + hash, utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=8388608,t=3,p=1$" + salt + "$" + hash, utf8("x")));
+        assertFalse(Argon2.verify("$argon2id$v=19$m=65536,t=3,p=1$" + salt + "$" + b64(new byte[65]), utf8("x")));
+    }
+
+    @Test
+    void parseRejectsMalformedEncoding() {
+        assertThrows(IllegalArgumentException.class, () -> Argon2.parse("$argon2id$v=19$m=1,t=1,p=1$abc"));
+        assertThrows(IllegalArgumentException.class, () -> Argon2.parse("$argon2id$v=19$m=x,t=1,p=1$abc$def"));
+        assertThrows(IllegalArgumentException.class, () -> Argon2.parse("$argon2id$v=16$m=1,t=1,p=1$abc$def"));
+    }
+
+    // ---------------- char[] 密码（§3.2.2） ----------------
+
+    @Test
+    void charArrayOverloadsMatchByteArray() {
+        Argon2 argon2 = new Argon2(3, 65536, 1, 32);
+        char[] password = "Pacc@Test123".toCharArray();
+        assertArrayEquals(argon2.hash(utf8("Pacc@Test123"), SALT), argon2.hash(password, SALT));
+
+        String encoded = argon2.encode(password, SALT);
+        assertEquals(argon2.encode(utf8("Pacc@Test123"), SALT), encoded);
+        assertTrue(Argon2.verify(encoded, password));
+        assertFalse(Argon2.verify(encoded, "Pacc@Test124".toCharArray()));
+    }
+
+    @Test
+    void charArrayEncodesUtf8NotRawChars() {
+        Argon2 argon2 = new Argon2(2, 256, 1, 32);
+        char[] password = "密码Pacc123!".toCharArray();
+        assertArrayEquals(argon2.hash(utf8("密码Pacc123!"), SALT), argon2.hash(password, SALT));
+        assertTrue(Argon2.verify(argon2.encode(utf8("密码Pacc123!"), SALT), password));
+    }
+
+    @Test
+    void charArrayRejectsUnpairedSurrogate() {
+        Argon2 argon2 = new Argon2(2, 256, 1, 32);
+        char[] broken = {'a', '\uD83D', 'b'};
+        assertThrows(IllegalArgumentException.class, () -> argon2.hash(broken, SALT));
     }
 
     private static String toHex(byte[] b) {

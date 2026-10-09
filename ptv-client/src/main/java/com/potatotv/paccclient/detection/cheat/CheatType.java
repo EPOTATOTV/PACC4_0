@@ -6,7 +6,9 @@ import java.util.Optional;
 
 /**
  * 作弊类型（文档 §3.2 在既有 AutoClicker/KillAura/Speed/Fly/Reach 之外新增 15 种，
- * §6.1 再补内存注入 / 系统级 / 行为异常 9 种，规则文件数即去重后的类型数）。
+ * §6.1 再补内存注入 / 系统级 / 行为异常 9 种，DF Alpha 1.0.0 又补第三方作弊软件 /
+ * 系统痕迹 / 行为异常 12 种，三层检测架构批次再补网络 / 屏幕 / 系统增强 10 种，共 51 种；
+ * 规则文件数即去重后的类型数）。
  *
  * <p>每种类型有独立特征维度与判定逻辑（{@code detection.cheat.rules} 下一条规则对应一个类型），
  * 端侧命中后由 {@code LayeredDecision} 决定直接处置 / 上报云端。</p>
@@ -75,7 +77,55 @@ public enum CheatType {
     /** 移动轨迹异常（行为异常）。 */
     TRAJECTORY_ANOMALY("trajectory_anomaly", "移动轨迹异常"),
     /** 反应时间异常（行为异常）。 */
-    REACTION_TIME("reaction_time", "反应时间异常");
+    REACTION_TIME("reaction_time", "反应时间异常"),
+
+    // ---- 文档 §6.1 新增 12 种（第三方作弊软件 / 系统痕迹 / 行为异常） ----
+    /** 作弊软件进程（CE / Horion 等）。 */
+    CHEAT_PROCESS("cheat_process", "作弊软件进程"),
+    /** 可疑窗口标题。 */
+    SUSPICIOUS_WINDOW("suspicious_window", "可疑窗口标题"),
+    /** 已知作弊模块注入。 */
+    KNOWN_CHEAT_MODULE("known_cheat_module", "已知作弊模块"),
+    /** 可疑未知模块。 */
+    SUSPICIOUS_MODULE("suspicious_module", "可疑模块"),
+    /** 内存特征码命中。 */
+    MEMORY_SIGNATURE("memory_signature", "内存特征码命中"),
+    /** 作弊软件文件痕迹。 */
+    CHEAT_FILE_TRACE("cheat_file_trace", "作弊文件痕迹"),
+    /** 注册表痕迹。 */
+    CHEAT_REGISTRY_TRACE("cheat_registry_trace", "注册表痕迹"),
+    /** 作弊驱动 / 服务。 */
+    CHEAT_DRIVER("cheat_driver", "作弊驱动/服务"),
+    /** 可疑输入设备（宏 / MCU）。 */
+    SUSPICIOUS_INPUT_DEVICE("suspicious_input_device", "可疑输入设备"),
+    /** 异常网络行为。 */
+    SUSPICIOUS_NETWORK("suspicious_network", "异常网络行为"),
+    /** 行为异常（AI 判定）。 */
+    BEHAVIOR_ANOMALY("behavior_anomaly", "行为异常"),
+    /** IFEO 镜像劫持。 */
+    IFEO_HIJACK("ifeo_hijack", "镜像劫持"),
+
+    // ---- 三层检测架构批次新增 10 种（网络代理层 / 屏幕视觉层 / 系统进程层增强） ----
+    /** 网络层速度异常（行为数据流独立验证）。 */
+    NET_SPEED_ANOMALY("net_speed_anomaly", "网络层速度异常"),
+    /** 网络层飞行异常（垂直速度持续越界）。 */
+    NET_FLY_ANOMALY("net_fly_anomaly", "网络层飞行异常"),
+    /** 网络层瞬移（单次位置更新距离越界）。 */
+    NET_TELEPORT("net_teleport", "网络层瞬移"),
+    /** 数据包篡改（服务器纠正偏差 + 字节级异常）。 */
+    NET_PACKET_TAMPER("net_packet_tamper", "数据包篡改"),
+    /** 视觉自瞄框（HUD 方框 + 网络旋转角速度双源印证）。 */
+    VISION_AIMBOT("vision_aimbot", "视觉自瞄框"),
+    /** 透视 ESP（屏幕线条检测，单源高分）。 */
+    VISION_ESP("vision_esp", "透视 ESP"),
+    /** 板载宏（输入时序 + 宏设备/软件双源印证）。 */
+    ONBOARD_MACRO("onboard_macro", "板载宏"),
+    /** 注入客户端（远程线程 + 未签名模块双源印证）。 */
+    INJECTED_CLIENT("injected_client", "注入客户端"),
+    /** 内核回调异常（SSDT / IDT hook 或未签名驱动 + 可疑回调）。 */
+    KERNEL_CALLBACK("kernel_callback", "内核回调异常"),
+    /** 未签名可执行文件（黑名单发布者或大量未签名样本）。 */
+    UNSIGNED_EXECUTABLE("unsigned_executable", "未签名可执行文件");
 
     private final String code;
     private final String displayName;

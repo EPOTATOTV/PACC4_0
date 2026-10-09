@@ -63,8 +63,10 @@ public final class ClientConfig {
         this.pteid = get(p, "pacc.client.pteid", "PACC_CLIENT_PTEID", "PT0000000001");
         this.token = getSecretOr(p, "pacc.client.token", null, "PACC_CLIENT_TOKEN", "demo-access-token");
         this.edition = get(p, "pacc.client.edition", "PACC_CLIENT_EDITION", "JAVA");
-        this.wssUri = get(p, "pacc.client.wss.uri", "PACC_CLIENT_WSS_URI", "ws://localhost:8080/ws/ptv");
-        this.serverUri = get(p, "pacc.client.server.uri", "PACC_CLIENT_SERVER_URI", "http://localhost:8080");
+        // 生产默认端点写在这里而不是内置 properties：这些串会被 POB 一并加密，发行件里看不到明文。
+        // 需要改指向时用外部 pacc-client.properties 或环境变量覆盖，不要动这里的默认值。
+        this.wssUri = get(p, "pacc.client.wss.uri", "PACC_CLIENT_WSS_URI", "ws://pacc.potatotv.asia/ws/ptv");
+        this.serverUri = get(p, "pacc.client.server.uri", "PACC_CLIENT_SERVER_URI", "http://api.potatotv.asia");
         this.heartbeatSeconds = getInt(p, "pacc.client.heartbeat.seconds", "PACC_CLIENT_HEARTBEAT_SECONDS", 15);
         this.clientRisk = getInt(p, "pacc.client.client.risk", "PACC_CLIENT_RISK", 58);
         this.demo = getBool(p, "pacc.client.demo", "PACC_CLIENT_DEMO", true);

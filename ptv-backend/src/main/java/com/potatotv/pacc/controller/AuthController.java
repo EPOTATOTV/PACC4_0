@@ -89,7 +89,7 @@ public class AuthController {
                     body.get("device_fingerprint"), true);
             competitionService.recordLogin(a.getPteid(), a.getDeviceFingerprint(), clientIp(request));
             log.info("玩家注册成功 pteid={}", a.getPteid());
-            setPlayerCookie(response, token.accessToken(), token.expiresAt());
+            setSessionCookies(response, token);
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("ok", true);
             out.put("pteid", a.getPteid());
@@ -265,7 +265,7 @@ public class AuthController {
                     Account accT = accountService.findByPteidOrNull(token.pteid());
                     competitionService.recordLogin(token.pteid(),
                             accT == null ? null : accT.getDeviceFingerprint(), ip);
-                    setPlayerCookie(response, token.accessToken(), token.expiresAt());
+                    setSessionCookies(response, token);
                     Map<String, Object> out = new LinkedHashMap<>();
                     out.put("pteid", token.pteid());
                     out.put("expires_at", token.expiresAt());
@@ -282,8 +282,8 @@ public class AuthController {
             Account acc = accountService.findByPteidOrNull(token.pteid());
             competitionService.recordLogin(token.pteid(),
                     acc == null ? null : acc.getDeviceFingerprint(), ip);
-            // 会话令牌写入 HttpOnly 会话 cookie：JS 不可读，防 XSS 窃取
-            setPlayerCookie(response, token.accessToken(), token.expiresAt());
+            // 会话令牌写入 HttpOnly cookie：JS 不可读，防 XSS 窃取
+            setSessionCookies(response, token);
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("pteid", token.pteid());
             out.put("expires_at", token.expiresAt());
@@ -356,7 +356,7 @@ public class AuthController {
         TokenService.Token token = accountService.issueToken(pteid, remember);
         competitionService.recordLogin(pteid, accountFingerprint(pteid), ip);
         log.info("2FA 第二步验证成功 pteid={}", pteid);
-        setPlayerCookie(response, token.accessToken(), token.expiresAt());
+        setSessionCookies(response, token);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("pteid", pteid);
         out.put("expires_at", token.expiresAt());
@@ -416,14 +416,25 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
         response.addHeader("Set-Cookie", playerCookieHeader("", 0));
+        response.addHeader("Set-Cookie", refreshCookieHeader("", 0));
         return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    /** 下发会话 cookie。 */
+    private static void setSessionCookies(HttpServletResponse response, TokenService.Token token) {
+        setPlayerCookie(response, token.accessToken(), token.expiresAt());
     }
 
     /** 将玩家会话 JWT 写入 HttpOnly 安全 cookie。Only HTTPS 下发时附加 Secure。 */
     private static void setPlayerCookie(HttpServletResponse response, String token, long expiresAtMillis) {
-        long now = System.currentTimeMillis();
-        long maxAge = expiresAtMillis <= 0 ? 0 : Math.max(0, (expiresAtMillis - now) / 1000);
-        response.addHeader("Set-Cookie", playerCookieHeader(token, maxAge));
+        response.addHeader("Set-Cookie", playerCookieHeader(token, cookieMaxAge(expiresAtMillis)));
+    }
+
+    private static long cookieMaxAge(long expiresAtMillis) {
+        if (expiresAtMillis <= 0) {
+            return 0;
+        }
+        return Math.max(0, (expiresAtMillis - System.currentTimeMillis()) / 1000);
     }
 
     private static String playerCookieHeader(String value, long maxAge) {
@@ -433,6 +444,16 @@ public class AuthController {
             sb.append("; Max-Age=").append(maxAge);
         }
         // Secure 属性由响应是否源自 HTTPS 决定：本地明文联调不加，生产 HTTPS 自动带
+        if (secureResponseHint()) sb.append("; Secure");
+        return sb.toString();
+    }
+
+    private static String refreshCookieHeader(String value, long maxAge) {
+        StringBuilder sb = new StringBuilder(PtoAuthController.REFRESH_COOKIE).append('=').append(value)
+                .append("; Path=/api/v1/auth; HttpOnly; SameSite=Lax");
+        if (maxAge > 0) {
+            sb.append("; Max-Age=").append(maxAge);
+        }
         if (secureResponseHint()) sb.append("; Secure");
         return sb.toString();
     }

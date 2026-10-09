@@ -21,14 +21,11 @@ spec:
       {{- end }}
       containers:
         - name: backend
-          image: {{ include "pacc.image" (dict "image" .Values.images.backend "ctx" .) }}
+          image: {{ include "pacc.image" (dict "image" .Values.images.backend) }}
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080
-          envFrom:
-            - configMapRef:
-                name: {{ include "pacc.fullname" . }}-config
           env:
             - name: SPRING_DATASOURCE_URL
               value: {{ include "pacc.mysqlUri" . | quote }}
@@ -36,25 +33,23 @@ spec:
               value: "pacc"
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
-                secretKeyRef: { name: {{ include "pacc.fullname" . }}-secrets, key: mysql-password }
+                secretKeyRef:
+                  name: {{ include "pacc.fullname" . }}-secrets
+                  key: mysql-password
             - name: PACC_SECURITY_ADMIN_API_KEY
               valueFrom:
-                secretKeyRef: { name: {{ include "pacc.fullname" . }}-secrets, key: admin-api-key }
-            - name: PACC_SECURITY_SUPER_ADMIN_KEY
-              valueFrom:
-                secretKeyRef: { name: {{ include "pacc.fullname" . }}-secrets, key: super-admin-key }
+                secretKeyRef:
+                  name: {{ include "pacc.fullname" . }}-secrets
+                  key: admin-api-key
             - name: PACC_SECURITY_JWT_SECRET
               valueFrom:
-                secretKeyRef: { name: {{ include "pacc.fullname" . }}-secrets, key: jwt-secret }
-            - name: PACC_SECURITY_WSS_SIGN_SECRET
-              valueFrom:
-                secretKeyRef: { name: {{ include "pacc.fullname" . }}-secrets, key: wss-sign-secret }
-            - name: SMTP_PASSWORD
-              valueFrom:
-                secretKeyRef: { name: {{ include "pacc.fullname" . }}-secrets, key: smtp-password }
-            - name: PACC_FEISHU_APP_SECRET
-              valueFrom:
-                secretKeyRef: { name: {{ include "pacc.fullname" . }}-secrets, key: feishu-app-secret }
+                secretKeyRef:
+                  name: {{ include "pacc.fullname" . }}-secrets
+                  key: jwt-secret
+            - name: PACC_SEED
+              value: "true"
+            - name: TZ
+              value: "Asia/Shanghai"
           resources:
             {{- toYaml .Values.resources.backend | nindent 12 }}
           readinessProbe:
@@ -70,21 +65,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "pacc.fullname" . }}-backend
-  labels:
-    app: pacc-backend
-    {{- include "pacc.labels" . | nindent 4 }}
-spec:
-  selector: { app: pacc-backend }
-  ports:
-    - name: http
-      port: 8080
-      targetPort: http
----
-# 兼容别名：前端与 nginx 网关镜像内的配置写死上游主机名 ptv-backend，故补一个同名 Service。
-apiVersion: v1
-kind: Service
-metadata:
-  name: ptv-backend
   labels:
     app: pacc-backend
     {{- include "pacc.labels" . | nindent 4 }}

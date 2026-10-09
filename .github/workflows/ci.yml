@@ -31,7 +31,7 @@ jobs:
       contents: read
       security-events: write   # 上传 SARIF 到 Code Scanning
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with:
           fetch-depth: 0         # 要扫提交历史，必须全量 clone
       # 用官方二进制，不用 gitleaks-action：本仓库属于组织，action 需要 GITLEAKS_LICENSE，
@@ -54,7 +54,7 @@ jobs:
       # 扫到密钥时上一步会以非 0 退出，报告仍要用 always() 捞出来
       - name: 上传扫描结果
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
         continue-on-error: true
         with:
           sarif_file: gitleaks.sarif
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       - name: 取出基准版本
         id: ver
         run: |
@@ -104,9 +104,9 @@ jobs:
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       - name: 安装 JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961  # v5.7.0
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
@@ -168,8 +168,9 @@ jobs:
           if unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/(detection|transport|signature|store|ops|probe)/'; then
             echo "::error::发行 JAR 未混淆：仍存在原始业务包路径"; exit 1
           fi
-          # 必须存在短名混淆类，防止 POB 被误跳过
-          unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/[a-z]{1,3}\.class' \
+          # 必须存在短名混淆类，防止 POB 被误跳过。Unicode 命名下短名是私有区字符，
+          # 因此按「1~3 个非 / 字符」判定，不再限制为 ASCII 字母。
+          unzip -l "$JAR" | grep -qE 'com/potatotv/paccclient/[^/]{1,3}\.class' \
             || { echo "::error::未发现混淆后的短类名，POB 可能未执行"; exit 1; }
           # 端侧检测规则以资源形式随包发布，缺了端侧就是"零规则运行"。这里只清点条目数，
           # 不验证能否被加载——后者由 PrlDetectionEngineTest 里那条"无目录条目 jar"的用例钉住
@@ -198,7 +199,7 @@ jobs:
       # 测试失败时报告最需要被看到，所以用 always()：即便上面构建挂了也把报告捞出来
       - name: 上传后端测试报告与覆盖率
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: java-test-reports
           path: |
@@ -206,19 +207,20 @@ jobs:
             pacc-binary-protocol/runtime-java/target/surefire-reports/
             pacc-cross-platform-updater/target/surefire-reports/
             pacc-rule-language/target/surefire-reports/
+            tools/pob/target/surefire-reports/
             ptv-backend/target/site/jacoco/
           if-no-files-found: ignore
       # 没配 CODECOV_TOKEN 时整步跳过：留一个必然失败的步骤靠 continue-on-error 吞着，
       # "token 配了但上传真坏了"就看不出来了。
       - name: 上传覆盖率到 Codecov
         if: ${{ always() && env.CODECOV_TOKEN != '' }}
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238  # v4.6.0
         with:
           files: ptv-backend/target/site/jacoco/jacoco.xml
           token: ${{ env.CODECOV_TOKEN }}
           fail_ci_if_error: false
       - name: 上传制品
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: java-artifacts
           path: |
@@ -234,9 +236,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       - name: 安装 Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -248,12 +250,14 @@ jobs:
           npm ci
           npm test
       - name: 安装 Rust 工具链
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d  # stable
+        with:
+          toolchain: stable
       - name: Rust 运行时测试
         working-directory: pacc-binary-protocol/runtime-rust
         run: cargo test --locked
       - name: 安装 .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9  # v4.3.1
         with:
           dotnet-version: '8.0.x'
       - name: C# 运行时测试
@@ -264,32 +268,15 @@ jobs:
           set -euo pipefail
           python -m unittest discover -s tests -t .
 
-  # ---- 自研混淆器 PCO（Windows 发行链第 1b 步用的就是它）----
-  pco:
-    name: PCO 混淆器自测
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - name: 安装 .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      # 工具本身是纯元数据读写，不碰 WPF，因此在 Linux 上就能跑。
-      # 被测输入是自测程序集自己（真实 Roslyn 产物），断言只动 #Strings 堆、
-      # keep 生效、覆写/枚举/P-Invoke 保名、产物仍可解析。
-      - name: PCO 自测
-        run: dotnet run --project tools/pco/tests/Pco.Tests.csproj -c Release
-
   # ---- 前端（Node 20 + Vite）----
   frontend:
     name: 前端构建
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       - name: 安装 Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -317,7 +304,7 @@ jobs:
         run: npm run test:ci
       - name: 上传前端测试报告
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: frontend-test-reports
           path: ptv-frontend/reports/
@@ -344,7 +331,7 @@ jobs:
             exit 1
           fi
       - name: 上传制品
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: frontend-dist
           path: ptv-frontend/dist
@@ -358,9 +345,9 @@ jobs:
       run:
         working-directory: deploy/gateway-go
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       - name: 安装 Go 1.22
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
         with:
           go-version: '1.22'
           cache: true
@@ -369,7 +356,7 @@ jobs:
       - run: go vet ./...
       - run: go build -trimpath -ldflags="-s -w" -o gateway-go .
       - name: 上传制品
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: gateway-go-bin
           path: deploy/gateway-go/gateway-go
@@ -383,19 +370,20 @@ jobs:
       run:
         working-directory: deploy/pipe-rust
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       # 显式装工具链：as_chunks 需要 Rust 1.88+，且 clippy 规则集随版本漂移，
       # 依赖 runner 预装版本会让本地过、CI 挂。
       - name: 安装 Rust 工具链
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d  # stable
         with:
+          toolchain: stable
           components: clippy, rustfmt
       # 该模块此前只 build 不 test，密钥扩展写错也无人发现；纯 std 安全模块的测试即唯一防线。
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
       - run: cargo build --release --locked
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: pipe-rust-bin
           path: deploy/pipe-rust/target/release/*
@@ -408,7 +396,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
       - name: 探测源码是否存在
         id: probe
@@ -421,12 +409,13 @@ jobs:
 
       - name: 安装 Rust 工具链
         if: steps.probe.outputs.rust_core == 'yes' || steps.probe.outputs.linux_client == 'yes'
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d  # stable
         with:
+          toolchain: stable
           components: clippy, rustfmt
       - name: 缓存 cargo
         if: steps.probe.outputs.rust_core == 'yes' || steps.probe.outputs.linux_client == 'yes'
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
         with:
           workspaces: |
             platform/rust-core
@@ -450,7 +439,7 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings -A linker_messages
       - name: 上传 Rust 核心产物
         if: steps.probe.outputs.rust_core == 'yes'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: rust-core-libs
           path: platform/rust-core/target/release/*.so
@@ -494,7 +483,7 @@ jobs:
           fi
       - name: 上传 Linux 客户端安装包
         if: steps.probe.outputs.linux_client == 'yes'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: linux-client-packages
           path: platform/linux-client/target/dist/*
@@ -507,7 +496,14 @@ jobs:
         continue-on-error: true
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang llvm libbpf-dev bpftool linux-tools-common
+          # 不写 bpftool：它在 Ubuntu 是虚拟包，提供者有两个（linux-tools-common /
+          # linux-lowlatency-tools-common），apt 直接判「no installation candidate」。
+          # linux-tools-common 只装一个转调脚本，脚本又要求与运行内核 ABI 一致的
+          # linux-tools-$(uname -r)；runner 内核（例：6.17.0-1022-azure）在档案库里没有
+          # 对应包，脚本就报「bpftool not found for kernel ...」并以 2 退出。
+          # 退而求其次装通用内核工具包：里面有一份真实 bpftool 二进制，读 BTF 与内核版本无关。
+          sudo apt-get install -y --no-install-recommends clang llvm libbpf-dev linux-tools-common
+          sudo apt-get install -y --no-install-recommends linux-tools-generic || true
       - name: 构建 eBPF 程序
         if: steps.probe.outputs.ebpf == 'yes'
         working-directory: platform/kernel-linux
@@ -517,10 +513,20 @@ jobs:
             echo "::warning::runner 内核无 BTF（/sys/kernel/btf/vmlinux 缺失），跳过 eBPF 编译"
             exit 0
           fi
-          make
+          # PATH 上的 bpftool 多半是那个转调脚本，先确认它真能跑，不行就从内核工具包里挑二进制。
+          BPFTOOL_BIN="$(command -v bpftool || true)"
+          if [ -z "$BPFTOOL_BIN" ] || ! "$BPFTOOL_BIN" version >/dev/null 2>&1; then
+            BPFTOOL_BIN="$(ls /usr/lib/linux-tools/*/bpftool 2>/dev/null | head -n1 || true)"
+          fi
+          if [ -z "$BPFTOOL_BIN" ]; then
+            echo "::warning::runner 上找不到可用的 bpftool，跳过 eBPF 编译（见 platform/kernel-linux/README）"
+            exit 0
+          fi
+          echo "[PACC] 使用 bpftool: $BPFTOOL_BIN"
+          make BPFTOOL="$BPFTOOL_BIN"
       - name: 上传 eBPF 目标文件
         if: steps.probe.outputs.ebpf == 'yes'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: ebpf-objects
           path: platform/kernel-linux/*.o
@@ -535,9 +541,9 @@ jobs:
       run:
         working-directory: deploy/ai
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       - name: 安装 Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: '3.11'
       - run: python -m compileall -q .
@@ -547,11 +553,14 @@ jobs:
     name: 依赖漏洞扫描 (Trivy)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    # 上传 SARIF 到 Code Scanning 需该权限
+    # 上传 SARIF 到 Code Scanning 需 security-events: write；contents: read 不能省 ——
+    # job 级 permissions 会把没列出的域一律置成 none，私库里缺了它 checkout 直接当成
+    # 「仓库不存在」失败（git exit 128 / repository not found）。
     permissions:
+      contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       - name: Trivy 文件系统扫描
         # v0.36.0；注意标签带 v 前缀，写 0.36.0 会解析不到，job 会死在 Set up job
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
@@ -564,7 +573,7 @@ jobs:
           ignore-unfixed: true
         continue-on-error: true
       - name: 上传扫描结果
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
         continue-on-error: true
         with:
           sarif_file: trivy-results.sarif

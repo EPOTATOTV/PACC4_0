@@ -11,8 +11,8 @@
 #   2) 本脚本会就地覆盖 dist/win-x64/PaccManager.dll 为 ConfuserEx 加固后的版本。
 #
 # 与 build-client.ps1 的关系（务必理解再运行）：
-#   - build-client.ps1 走 PCO（发行默认档，仓库自研：tools/pco），可在一条命令里完成 EXE 打包 +
-#     Java 探针 + 配置生成 + zip 组装。
+#   - build-client.ps1 走 PCO（发行默认档），可在一条命令里完成 EXE 打包 + Java 探针 +
+#     配置生成 + zip 组装。
 #   - 本脚本只做「把已经 publish 出来的 PaccManager.dll 换成 ConfuserEx 加固版」这一步，
 #     不重建 zip、不生成配置。它用于**替代** PCO 档，而不是在其之上叠加（两套都做重命名，
 #     串起来属于二次处理，收益有限、出问题的面更大）。
@@ -81,7 +81,7 @@ $confusedDll = Join-Path $outDir "PaccManager.dll"
 if (-not (Test-Path $confusedDll)) { throw "ConfuserEx 未产出 $confusedDll" }
 
 # ---------- 覆盖回 publish 目录 ----------
-# ConfuserEx 与 PCO 一样：输出目录只是加固后的模块（可能含解析到的依赖），
+# ConfuserEx 与 Obfuscar 一样：输出目录只是加固后的模块（可能含解析到的依赖），
 # 不复制 apphost 与运行时 dll。只把 PaccManager.dll 覆盖回去，保持其余运行时文件不动。
 Copy-Item $confusedDll $dll -Force
 Write-Host ("  已加固: {0}" -f $dll)

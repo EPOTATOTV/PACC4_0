@@ -55,6 +55,11 @@ public class ApiV1AuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String uri = request.getRequestURI();
+        // PTO 令牌端点（JWKS 公钥分发 / 刷新续期）公开访问：JWKS 供第三方离线验签，
+        // 刷新靠 HttpOnly cookie，都不该要求开放 API 的 Key + HMAC 鉴权
+        if (uri.startsWith("/api/v1/auth/")) {
+            return true;
+        }
         // 开放数据 API 与开发者自助门户共用同一套 API Key + HMAC 鉴权
         return !(uri.startsWith("/api/v1/") || uri.startsWith("/api/dev/"));
     }

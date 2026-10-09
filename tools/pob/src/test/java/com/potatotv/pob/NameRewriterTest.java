@@ -48,6 +48,21 @@ class NameRewriterTest {
     }
 
     @Test
+    void 基本类型参数紧跟对象参数时也要替换() {
+        // (ILcom/...;)V 里 L 前面是 I，漏判会把类型引用留在常量池，运行时 NoClassDefFoundError
+        assertEquals("(ILcom/potatotv/paccclient/b;)V",
+                rewriter.rewrite("(ILcom/potatotv/paccclient/security/HookDetector;)V"));
+        assertEquals("(DLcom/potatotv/paccclient/a;Ljava/lang/String;II)V",
+                rewriter.rewrite("(DLcom/potatotv/paccclient/detection/DetectionEngine;Ljava/lang/String;II)V"));
+    }
+
+    @Test
+    void 泛型签名里的类型变量上界也要替换() {
+        assertEquals("<T:Lcom/potatotv/paccclient/b;>Ljava/lang/Object;",
+                rewriter.rewrite("<T:Lcom/potatotv/paccclient/security/HookDetector;>Ljava/lang/Object;"));
+    }
+
+    @Test
     void 泛型签名里的嵌套类点号形态() {
         assertEquals("Ljava/util/List<Lcom/potatotv/paccclient/c;>;",
                 rewriter.rewrite("Ljava/util/List<Lcom/potatotv/paccclient/security/HookDetector.Finding;>;"));

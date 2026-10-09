@@ -19,6 +19,7 @@
 
     <properties>
         <java.version>21</java.version>
+        <jmh.version>1.37</jmh.version>
         <!-- PBP 自研二进制协议运行时，版本独立于 PACC（1.0.0），不参与 scripts/bump-version.sh 的整体升版 -->
         <pacc.pbp.version>1.0.0</pacc.pbp.version>
         <!-- PRL 自研规则语言运行时，版本同样独立于 PACC；bump-version.sh 只做一致性断言，不改它 -->
@@ -57,6 +58,13 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Swagger / OpenAPI 3.0（在线调试；默认仅 local 开启，生产经 PACC_SPRINGDOC_ENABLED 显式开启） -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.9.1</version>
+        </dependency>
+
         <!-- 邮件（密码找回真实发送；对公上线必须配置真实 SMTP） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -92,9 +100,30 @@
         </dependency>
 
         <!-- Argon2id 密码哈希：自研 PA2（com.potatotv.pa2，零第三方依赖，仅用 JDK 标准库），
-             源码随本模块提供，取代原先的 BouncyCastle bcprov。 -->
+             源码随本模块提供，运行时不再引入 BouncyCastle bcprov。 -->
+        <!-- 测试作用域保留 BouncyCastle，仅用于生成基准向量，校验 PA2 逐字节一致（验收 V01/V02） -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.86</version>
+            <scope>test</scope>
+        </dependency>
 
-        <!-- JWT：自研 PTO（com.potatotv.pto，零第三方依赖，固定 HS256），源码随本模块提供，不再引入 jjwt -->
+        <!-- JMH：PA2 与 BouncyCastle 性能基准（测试作用域，不进运行时依赖） -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JWT：自研 PTO（com.potatotv.pto）已完全替代 jjwt，不留第三方依赖 -->
 
         <!-- Lombok -->
         <dependency>

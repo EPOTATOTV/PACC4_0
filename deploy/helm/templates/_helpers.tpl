@@ -20,23 +20,12 @@ app.kubernetes.io/part-of: pacc
 app.kubernetes.io/version: {{ .Values.global.imageTag | quote }}
 {{- end -}}
 
-{{/* 渲染镜像地址；必须传 ctx=. 才能读到 .Values（image 与 registry 组合）。 */}}
 {{- define "pacc.image" -}}
-{{- $registry := .ctx.Values.global.imageRegistry -}}
-{{- $tag := .ctx.Values.global.imageTag -}}
+{{- $registry := .Values.global.imageRegistry -}}
 {{- if $registry -}}
-{{- printf "%s/%s:%s" $registry .image $tag -}}
+{{- printf "%s/%s:%s" $registry .image .Values.global.imageTag -}}
 {{- else -}}
-{{- printf "%s:%s" .image $tag -}}
-{{- end -}}
-{{- end -}}
-
-{{/* 内置 MySQL 应用账号密码：未单独配置时回退 root 密码（mysql:8 镜像要求非空才会建 MYSQL_USER）。 */}}
-{{- define "pacc.mysqlAppPassword" -}}
-{{- if .Values.secrets.mysqlPassword -}}
-{{- .Values.secrets.mysqlPassword -}}
-{{- else -}}
-{{- .Values.secrets.mysqlRootPassword -}}
+{{- printf "%s:%s" .image .Values.global.imageTag -}}
 {{- end -}}
 {{- end -}}
 

@@ -5,19 +5,91 @@ namespace PaccManager.Pco;
 /// <summary>
 /// PCO 命令行入口。
 ///
+/// <para>流水线固定为「先重命名，再 IL 变换」：重命名是原地改 #Strings 堆，不动任何偏移；
+/// IL 变换必须重建整套元数据，只能在改名之后进行，否则重建会把刚改好的名字再搬一次。</para>
+///
+/// <para>开了 IL 变换就整个重建一遍元数据；一个都没开时保持老行为——原地改写后原样落盘。</para>
+///
 /// <code>pco -i PaccManager.dll -o PaccManager.obf.dll --rules pco-rules.json --mapping pco-mapping.txt</code>
+/// <code>pco --retrace pco-mapping.txt crash.log</code>
 /// </summary>
 internal static class Program
 {
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] is "--retrace" or "-r")
+        {
+            return PcoRetrace.Run(args[1..]);
+        }
         try
         {
             var options = Options.Parse(args);
             PcoRules rules = PcoRules.Load(options.Rules);
+
             var renamer = new AssemblyRenamer(rules);
-            renamer.Run(options.Input, options.Output, options.Mapping);
-            Console.WriteLine($"PCO: 改写类名 {renamer.RenamedTypes} 个、成员名 {renamer.RenamedMembers} 个 -> {options.Output}");
+            byte[] bytes = renamer.RunBytes(File.ReadAllBytes(options.Input), options.Mapping);
+
+            var stats = new List<string>
+            {
+                $"类名 {renamer.RenamedTypes} 个",
+                $"成员名 {renamer.RenamedMembers} 个",
+            };
+
+            AssemblyRewriter? rewriter = null;
+            if (rules.NeedsRewrite)
+            {
+                rewriter = new AssemblyRewriter(bytes);
+                if (rules.StringEncrypt)
+                {
+                    rewriter.EnableStringEncryption(rules.StringKey);
+                }
+                if (rules.AntiDebug)
+                {
+                    rewriter.EnableAntiDebug(rules.HookMethod, rules.AntiDebugAction);
+                }
+                if (rules.Integrity)
+                {
+                    rewriter.EnableIntegrity(rules.HookMethod, rules.IntegrityAction);
+                }
+                // 代理排在平坦化之前：先换掉调用点，平坦化再统一把这些调用摊进状态机。
+                if (rules.Proxy)
+                {
+                    rewriter.EnableProxy();
+                }
+                if (rules.ControlFlow)
+                {
+                    rewriter.EnableControlFlow();
+                }
+                bytes = rewriter.Run();
+            }
+
+            File.WriteAllBytes(options.Output, bytes);
+            AssemblyRenamer.Verify(options.Output);
+
+            if (rewriter is not null)
+            {
+                if (rewriter.EncryptedStrings > 0)
+                {
+                    stats.Add($"加密字符串 {rewriter.EncryptedStrings} 个");
+                }
+                if (rewriter.AntiDebugInjected)
+                {
+                    stats.Add("反调试");
+                }
+                if (rewriter.IntegrityInjected)
+                {
+                    stats.Add("完整性校验");
+                }
+                if (rewriter.FlattenedMethods > 0)
+                {
+                    stats.Add($"平坦化方法 {rewriter.FlattenedMethods} 个");
+                }
+                if (rewriter.ProxiedCalls > 0)
+                {
+                    stats.Add($"代理调用 {rewriter.ProxiedCalls} 处");
+                }
+            }
+            Console.WriteLine($"PCO: {string.Join("、", stats)} -> {options.Output}");
             return 0;
         }
         catch (Exception e)

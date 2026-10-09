@@ -1,0 +1,41 @@
+# behavior_anomaly：行为异常（人类行为模拟度综合评分，AI/脚本判定）
+# 文档 §4.9 / §6.1 行为异常类
+
+rule "behavior_anomaly" {
+    version: "1.0.0"
+    author: "PACC Security Team"
+    severity: medium
+    category: "behavior"
+    description: "行为异常：点击熵 / 轨迹平滑度 / 节律周期性等指标加权判定为脚本行为"
+    enabled: true
+    cooldown: 0s
+
+    input {
+        features: map[string, float]
+    }
+
+    let score = features["ext_behavior_score"] ?? 0.0
+    let entropy = features["ext_behavior_click_entropy"] ?? 0.0
+    let smooth = features["ext_behavior_trajectory_smoothness"] ?? 0.0
+    let periodic = features["ext_behavior_periodicity"] ?? 0.0
+
+    # [] 与 ["x"] 在 if 的两个分支里类型不统一，用 take(x, 0) 造一个带类型的空 list[string]
+    let no_keys = take([""], 0)
+    let keys = (if entropy > 0.0 AND entropy < 1.5: ["ext_behavior_click_entropy"] else: no_keys end)
+        + (if smooth > 0.95: ["ext_behavior_trajectory_smoothness"] else: no_keys end)
+        + (if periodic > 0.8: ["ext_behavior_periodicity"] else: no_keys end)
+
+    # 多个弱信号加权到阈值 40 才判定，单指标不触发（文档 §9 注意事项 1）
+    when:
+        score >= 40.0
+
+    then:
+        emit_alert(
+            type = "behavior_anomaly",
+            confidence = score / 100.0,
+            evidence = {
+                "score": score,
+                "keys": keys
+            }
+        )
+}

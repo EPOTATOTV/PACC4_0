@@ -1,8 +1,7 @@
 # PACC v5.0 Windows 客户端一键打包脚本
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File tools/windows-gui/build-client.ps1
-# 职责：构建 WPF 单文件 EXE（并用仓库自研的 PCO 混淆 PaccManager.dll）-> 构建 Java 探针 jar
-#      -> 写入客户端配置（自动读取根目录 .env 的 WSS 密钥）
+# 职责：构建 WPF 单文件 EXE -> 构建 Java 探针 jar -> 写入客户端配置（自动读取根目录 .env 的 WSS 密钥）
 #      -> 组装 zip 到 download 发布目录 deploy/dl-web/files/pacc-client-windows-x64-v5.4.0.zip
 #      -> 生成 version.json（客户端自动更新清单，含 sha256 防篡改）
 # 前置依赖：.NET 8 SDK（dotnet）、JDK 21 + Maven（mvn）
@@ -34,39 +33,29 @@ if (-not (Test-Path $exeOut)) { throw "publish 未产出目录 $exeOut" }
 
 # ---------- 1b. PCO 混淆 PaccManager.dll ----------
 Write-Host "`n[1b] PCO 混淆 ..." -ForegroundColor Green
-# PCO 是仓库自研的 .NET 混淆器（tools/pco，零第三方依赖，只用 .NET 自带的元数据读写 API）。
-# 手法是就地改写元数据 #Strings 堆里的名字字节，不动任何下标——IL、BAML、资源全部原样。
-$pcoProj = Join-Path $root "tools/pco/Pco.csproj"
-dotnet build $pcoProj -c Release -v q --nologo
-if ($LASTEXITCODE -ne 0) { throw "PCO 编译失败 (exit=$LASTEXITCODE)" }
-$pcoDll = Join-Path $root "tools/pco/bin/Release/net8.0/pco.dll"
-if (-not (Test-Path $pcoDll)) { throw "找不到 PCO 产物 $pcoDll" }
+$pcoProj   = Join-Path $root "tools/pco/Pco.csproj"
+$pcoDll    = Join-Path $root "tools/pco/bin/Release/net8.0/pco.dll"
+$pcoRules  = Join-Path $root "tools/windows-gui/pco-rules.json"
+$pcoTarget = Join-Path $exeOut "PaccManager.dll"
+$mapDir    = Join-Path $root "dist/pco-map"
+# 混淆结果先写到临时目录：PCO 是整份读写，直接原地覆盖会让「读一半的输入」变成输出。
+$pcoStage  = Join-Path $env:TEMP ("pco-" + [guid]::NewGuid().ToString("N") + ".dll")
+$pcoMap    = Join-Path $env:TEMP ("pco-map-" + [guid]::NewGuid().ToString("N") + ".txt")
 
-$targetDll = Join-Path $exeOut 'PaccManager.dll'
-$hashBefore = (Get-FileHash -Algorithm SHA256 $targetDll).Hash
+dotnet build $pcoProj -c Release --nologo -v quiet
+if ($LASTEXITCODE -ne 0) { throw "PCO 构建失败 (exit=$LASTEXITCODE)" }
+& dotnet $pcoDll -i $pcoTarget -o $pcoStage --rules $pcoRules --mapping $pcoMap
+if ($LASTEXITCODE -ne 0) { throw "PCO 混淆失败 (exit=$LASTEXITCODE)" }
+if (-not (Test-Path $pcoStage)) { throw "PCO 未产出程序集" }
+Copy-Item $pcoStage $pcoTarget -Force
 
-# 映射表是反混淆对照表：留着能还原崩溃栈，一旦随包发布等于把符号表送给逆向者。
-# 因此留档到 dist 下（已在 .gitignore，不进 zip、不上下载站）。
-$mapDir  = Join-Path $root "dist/pco-map"
-$mapFile = Join-Path $mapDir "PaccManager-$version-mapping.txt"
+# 映射表是反混淆对照表：留着能还原崩溃栈，但一旦随包发布，等于把符号表送给逆向者。
+# 因此留档到 dist 下（已在 .gitignore，不进 zip、不上下载站），发布目录里必须清掉。
 New-Item -ItemType Directory -Force -Path $mapDir | Out-Null
-$obfDll = Join-Path $exeOut 'PaccManager.obf.dll'
-$pcoOut = & dotnet $pcoDll -i $targetDll -o $obfDll `
-  --rules (Join-Path $root "tools/windows-gui/pco-rules.json") --mapping $mapFile 2>&1
-if ($LASTEXITCODE -ne 0) { throw "PCO 混淆失败 (exit=$LASTEXITCODE)：$($pcoOut -join ' ')" }
-if (-not (Test-Path $obfDll)) { throw "PCO 未产出 $obfDll" }
-# 就地覆盖回发布目录：PCO 只产出这一个 dll，apphost 与 200 多个运行时文件不能动。
-Move-Item $obfDll $targetDll -Force
-$pcoOut | Write-Host
-
-# 混淆没生效比混淆失败更隐蔽：产物照常能跑，等于白做。这里用哈希兜住。
-$hashAfter = (Get-FileHash -Algorithm SHA256 $targetDll).Hash
-if ($hashAfter -eq $hashBefore) { throw "PCO 未改动 PaccManager.dll，混淆没生效" }
-Write-Host ("  已混淆: {0}" -f $targetDll)
-Write-Host ("  映射表: {0}（留档，不随产物发布）" -f $mapFile)
-foreach ($leak in @('Mapping.txt', 'PaccManager.obf.dll')) {
-  if (Test-Path (Join-Path $exeOut $leak)) { throw "$leak 混入了发布目录，会随 zip 外泄" }
-}
+Copy-Item $pcoMap (Join-Path $mapDir "PaccManager-$version-mapping.txt") -Force
+Remove-Item $pcoStage, $pcoMap -Force -ErrorAction SilentlyContinue
+Write-Host ("  已混淆: {0}" -f $pcoTarget)
+Write-Host ("  映射表: {0}（留档，不随产物发布）" -f $mapDir)
 
 # ---------- 2. 构建 Java 探针 jar ----------
 Write-Host "`n[2/4] 构建 Java 探针 jar ..." -ForegroundColor Green
